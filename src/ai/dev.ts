@@ -1,1 +1,3 @@
-// Flows will be imported for their side effects in this file.
+import '@/ai/flows/refine-matchmaking-tool.ts';
+import '@/ai/flows/improve-match-quality.ts';
+import '@/ai/flows/match-score-explanation.ts';
