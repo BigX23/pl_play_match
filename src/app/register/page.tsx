@@ -182,12 +182,7 @@ export default function RegisterPage() {
               </p>
             </div>
             {/* NTRP Rating Scale Image */}
-            <div>
-              <Label>NTRP Rating Scale</Label>
-              <a href="https://www.usta.com/content/dam/usta/pdfs/10013_experience_player_ntrp_characteristics1%20(2).pdf" target="_blank" rel="noopener noreferrer">
-                View NTRP Rating Scale
-              </a>
-            </div>
+            
 
             {/* Gender */}
             <div>
