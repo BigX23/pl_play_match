@@ -168,7 +168,7 @@ export default function RegisterPage() {
 
             {/* Skill Level */}
             <div>
-              <Label htmlFor="skillLevel">Skill Level (NTRP)</Label>
+              <Label htmlFor="skillLevel">Skill Level <a href="https://www.usta.com/content/dam/usta/pdfs/10013_experience_player_ntrp_characteristics1%20(2).pdf">(NTRP)</a></Label>
               <Slider
                 id="skillLevel"
                 defaultValue={skillLevel}
@@ -181,8 +181,6 @@ export default function RegisterPage() {
                 Selected NTRP Level: {skillLevel ? skillLevel[0] : 'Not selected'}
               </p>
             </div>
-            {/* NTRP Rating Scale Image */}
-            
 
             {/* Gender */}
             <div>
@@ -330,3 +328,4 @@ export default function RegisterPage() {
     </div>
   );
 }
+
