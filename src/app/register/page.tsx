@@ -11,16 +11,20 @@ import {Textarea} from "@/components/ui/textarea";
 import {Slider} from "@/components/ui/slider";
 import {cn} from "@/lib/utils";
 import {Checkbox} from "@/components/ui/checkbox";
+import {Calendar} from "@/components/ui/calendar";
+import {Popover, PopoverContent, PopoverTrigger} from "@/components/ui/popover";
+import {format} from "date-fns";
+import {PopoverClose} from "@radix-ui/react-popover";
 
 export default function RegisterPage() {
   const router = useRouter();
 
   const [sportPreference, setSportPreference] = useState('');
   const [age, setAge] = useState('');
-  const [skillLevel, setSkillLevel] = useState('');
+  const [skillLevel, setSkillLevel] = useState([3.0]); // Default skill level
   const [gender, setGender] = useState('');
   const [typeOfPlayer, setTypeOfPlayer] = useState('');
-  const [preferredPlayingTimes, setPreferredPlayingTimes] = useState('');
+  const [preferredPlayingTimes, setPreferredPlayingTimes] = useState({});
   const [howOftenTheyPlay, setHowOftenTheyPlay] = useState('');
   const [partnerSkillLevels, setPartnerSkillLevels] = useState([2.5]);
   const [partnerGender, setPartnerGender] = useState('');
@@ -54,6 +58,60 @@ export default function RegisterPage() {
       profilePicture,
     });
     alert('Registration data submitted (check console for details).');
+  };
+
+  const handleTimeSlotChange = (day: string, timeOfDay: string, hour: number) => {
+    const newPreferredPlayingTimes = { ...preferredPlayingTimes };
+
+    if (!newPreferredPlayingTimes[day]) {
+      newPreferredPlayingTimes[day] = {};
+    }
+
+    if (!newPreferredPlayingTimes[day][timeOfDay]) {
+      newPreferredPlayingTimes[day][timeOfDay] = {};
+    }
+
+    newPreferredPlayingTimes[day][timeOfDay][hour] = !newPreferredPlayingTimes[day][timeOfDay][hour];
+
+    setPreferredPlayingTimes(newPreferredPlayingTimes);
+  };
+
+  const timeSlots = {
+    Monday: {
+      Morning: Array.from({ length: 4 }, (_, i) => i + 8), // 8 AM - 11 AM
+      Afternoon: Array.from({ length: 4 }, (_, i) => i + 12), // 12 PM - 3 PM
+      Evening: Array.from({ length: 5 }, (_, i) => i + 17), // 5 PM - 9 PM
+    },
+    Tuesday: {
+      Morning: Array.from({ length: 4 }, (_, i) => i + 8), // 8 AM - 11 AM
+      Afternoon: Array.from({ length: 4 }, (_, i) => i + 12), // 12 PM - 3 PM
+      Evening: Array.from({ length: 5 }, (_, i) => i + 17), // 5 PM - 9 PM
+    },
+    Wednesday: {
+      Morning: Array.from({ length: 4 }, (_, i) => i + 8), // 8 AM - 11 AM
+      Afternoon: Array.from({ length: 4 }, (_, i) => i + 12), // 12 PM - 3 PM
+      Evening: Array.from({ length: 5 }, (_, i) => i + 17), // 5 PM - 9 PM
+    },
+    Thursday: {
+      Morning: Array.from({ length: 4 }, (_, i) => i + 8), // 8 AM - 11 AM
+      Afternoon: Array.from({ length: 4 }, (_, i) => i + 12), // 12 PM - 3 PM
+      Evening: Array.from({ length: 5 }, (_, i) => i + 17), // 5 PM - 9 PM
+    },
+    Friday: {
+      Morning: Array.from({ length: 4 }, (_, i) => i + 8), // 8 AM - 11 AM
+      Afternoon: Array.from({ length: 4 }, (_, i) => i + 12), // 12 PM - 3 PM
+      Evening: Array.from({ length: 5 }, (_, i) => i + 17), // 5 PM - 9 PM
+    },
+    Saturday: {
+      Morning: Array.from({ length: 4 }, (_, i) => i + 8), // 8 AM - 11 AM
+      Afternoon: Array.from({ length: 4 }, (_, i) => i + 12), // 12 PM - 3 PM
+      Evening: Array.from({ length: 4 }, (_, i) => i + 17), // 5 PM - 8 PM
+    },
+    Sunday: {
+      Morning: Array.from({ length: 4 }, (_, i) => i + 8), // 8 AM - 11 AM
+      Afternoon: Array.from({ length: 4 }, (_, i) => i + 12), // 12 PM - 3 PM
+      Evening: Array.from({ length: 3 }, (_, i) => i + 17), // 5 PM - 7 PM
+    },
   };
 
   return (
@@ -110,13 +168,26 @@ export default function RegisterPage() {
 
             {/* Skill Level */}
             <div>
-              <Label htmlFor="skillLevel">Skill Level</Label>
-              <Input
-                type="text"
+              <Label htmlFor="skillLevel">Skill Level (NTRP)</Label>
+              <Slider
                 id="skillLevel"
-                value={skillLevel}
-                onChange={(e) => setSkillLevel(e.target.value)}
-                placeholder="e.g., NTRP 3.5"
+                defaultValue={skillLevel}
+                max={7.0}
+                min={1.0}
+                step={0.5}
+                onValueChange={(value) => setSkillLevel(value)}
+              />
+              <p className="text-sm text-muted-foreground mt-1">
+                Selected NTRP Level: {skillLevel ? skillLevel[0] : 'Not selected'}
+              </p>
+            </div>
+            {/* NTRP Rating Scale Image */}
+            <div>
+              <Label>NTRP Rating Scale</Label>
+              <img
+                src="https://www.usta.com/content/dam/usta/sections/missouri-valley/adults/ntrp/ntrp-general-guidelines.jpg" // Replace with your image URL
+                alt="NTRP Rating Scale"
+                className="max-w-full h-auto rounded-md"
               />
             </div>
 
@@ -152,14 +223,28 @@ export default function RegisterPage() {
 
             {/* Preferred Playing Times */}
             <div>
-              <Label htmlFor="preferredPlayingTimes">Preferred Playing Times</Label>
-              <Input
-                type="text"
-                id="preferredPlayingTimes"
-                value={preferredPlayingTimes}
-                onChange={(e) => setPreferredPlayingTimes(e.target.value)}
-                placeholder="e.g., Weekends, Evenings"
-              />
+              <Label>Preferred Playing Times</Label>
+              {Object.entries(timeSlots).map(([day, timesOfDay]) => (
+                <div key={day} className="mb-4">
+                  <h3 className="font-semibold">{day}</h3>
+                  {Object.entries(timesOfDay).map(([timeOfDay, hours]) => (
+                    <div key={timeOfDay} className="mb-2">
+                      <h4>{timeOfDay}</h4>
+                      <div className="flex flex-wrap">
+                        {hours.map(hour => (
+                          <label key={hour} className="mr-2">
+                            <Checkbox
+                              checked={preferredPlayingTimes[day]?.[timeOfDay]?.[hour] || false}
+                              onCheckedChange={() => handleTimeSlotChange(day, timeOfDay, hour)}
+                            />
+                            {hour}:00
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ))}
             </div>
 
             {/* How Often They Play */}
