@@ -184,11 +184,9 @@ export default function RegisterPage() {
             {/* NTRP Rating Scale Image */}
             <div>
               <Label>NTRP Rating Scale</Label>
-              <img
-                src="https://www.usta.com/content/dam/usta/sections/missouri-valley/adults/2023/level-of-play-self-rate-2023.jpg"
-                alt="NTRP Rating Scale"
-                className="max-w-full h-auto rounded-md"
-              />
+              <a href="https://www.usta.com/content/dam/usta/pdfs/10013_experience_player_ntrp_characteristics1%20(2).pdf" target="_blank" rel="noopener noreferrer">
+                View NTRP Rating Scale
+              </a>
             </div>
 
             {/* Gender */}
@@ -337,4 +335,3 @@ export default function RegisterPage() {
     </div>
   );
 }
-
