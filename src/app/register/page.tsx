@@ -15,6 +15,8 @@ import {Calendar} from "@/components/ui/calendar";
 import {Popover, PopoverContent, PopoverTrigger} from "@/components/ui/popover";
 import {format} from "date-fns";
 import {PopoverClose} from "@radix-ui/react-popover";
+import {Icons} from "@/components/icons"; // Import Icons
+import Image from 'next/image'; // Import Image component
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -167,19 +169,28 @@ export default function RegisterPage() {
             </div>
 
             {/* Skill Level */}
-            <div>
-              <Label htmlFor="skillLevel">Skill Level <a href="https://www.usta.com/content/dam/usta/pdfs/10013_experience_player_ntrp_characteristics1%20(2).pdf">(NTRP)</a></Label>
-              <Slider
-                id="skillLevel"
-                defaultValue={skillLevel}
-                max={7.0}
-                min={1.0}
-                step={0.5}
-                onValueChange={(value) => setSkillLevel(value)}
-              />
-              <p className="text-sm text-muted-foreground mt-1">
-                Selected NTRP Level: {skillLevel ? skillLevel[0] : 'Not selected'}
-              </p>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="skillLevel">Skill Level (NTRP)</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-5 w-5"><Icons.help className="h-4 w-4"/></Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80">
+                  {/* 
+                    Add the NTRP skill level image here.
+                    You can place the image in the `public` directory, for example `public/ntrp-skill-levels.png`
+                    Then use the Image component like this:
+                    <Image
+                      src="/ntrp-skill-levels.png"
+                      alt="NTRP Skill Levels"
+                      width={300}
+                      height={400}
+                      objectFit="contain"
+                    />
+                  */}
+                  <p>Please add the NTRP skill level image to the `public` directory and update this PopoverContent to display it using the Next.js Image component.</p>
+                </PopoverContent>
+              </Popover>
             </div>
 
             {/* Gender */}
