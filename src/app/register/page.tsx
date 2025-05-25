@@ -1,20 +1,5 @@
 "use client";
 
-import {useRouter} from 'next/navigation';
-import {useState} from 'react';
-import {Button} from "@/components/ui/button";
-import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/card";
-import {Input} from "@/components/ui/input";
-import {Label} from "@/components/ui/label";
-import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
-import {Textarea} from "@/components/ui/textarea";
-import {cn} from "@/lib/utils";
-import {Checkbox} from "@/components/ui/checkbox";
-import {Calendar} from "@/components/ui/calendar";
-import {Popover, PopoverContent, PopoverTrigger} from "@/components/ui/popover";
-import {Icons} from "@/components/icons"; // Import Icons
-import Image from 'next/image'; // Import Image component
-import { createUser, createUserProfile } from '@/db/sqlite-data'; // Import SQLite data access functions
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -131,7 +116,6 @@ export default function RegisterPage() {
 
               // After successful signup and data storage, navigate to the next step
               router.push('/register/partner-preferences');
-          }
 
         } catch (error: any) {
             // Handle errors from Firebase signup
@@ -200,7 +184,9 @@ export default function RegisterPage() {
   const ntrpLevels = ['1.0', '1.5', '2.0', '2.5', '3.0', '3.5', '4.0', '4.5', '5.0', '5.5', '6.0', '6.5', '7.0'];
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-background-light-gray py-12">
+    // Temporarily render a simple heading for testing
+    <h1>Hello, Register!</h1>
+/*    <div className="flex justify-center items-center min-h-screen bg-background-light-gray py-12">
       <Card className="w-full max-w-3xl shadow-md rounded-lg">
         <CardHeader>
           <CardTitle className="text-2xl font-bold text-primary">Registration (Step 1 of 2)</CardTitle>
@@ -208,9 +194,8 @@ export default function RegisterPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <form onSubmit={handleNext} className="space-y-4">
-
-            {/* Email */}
-            <div className="space-y-2">
+ {/* Email */}
+            <div className="space-y-2"> {/* Email */}
               <Label htmlFor="email">Email</Label>
               <Input
                 type="email"
@@ -464,5 +449,6 @@ export default function RegisterPage() {
           </form>
         </CardContent>
       </Card>
-    </div>
+    </div>*/
   );
+}
