@@ -2,7 +2,7 @@ import type {Metadata} from 'next';
 import {Geist, Geist_Mono} from 'next/font/google';
 import './globals.css';
 import {Toaster} from '@/components/ui/toaster';
-import {SidebarProvider} from '@/components/ui/sidebar';
+import {SidebarProvider} from '@/components/ui/sidebar'; // Keep if needed for other sidebar logic
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -26,11 +26,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      {/* Removed flex from body, adjust if SidebarProvider requires it */}
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <SidebarProvider>
+        {/* Assuming SidebarProvider is for a different sidebar or context, keep it as is */}
+        <SidebarProvider> 
           {children}
-          <Toaster />
         </SidebarProvider>
+        <Toaster />
       </body>
     </html>
   );

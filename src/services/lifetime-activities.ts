@@ -21,7 +21,7 @@ export async function getCourtAvailability(date: string): Promise<CourtAvailabil
   // TODO: Implement this by calling an API.
 
   return {
-    date: date,
-    availableTimeSlots: ['9:00 AM', '10:00 AM', '11:00 AM', '12:00 PM'],
+ date: date,
+ availableTimeSlots: ['9:00 AM', '10:00 AM', '11:00 AM', '12:00 PM'],
   };
 }

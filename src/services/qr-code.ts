@@ -1,4 +1,5 @@
 /**
+ * TODO: Remove this file if not used.
  * Represents user information decoded from a QR code.
  */
 export interface UserInfoFromQr {
