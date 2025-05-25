@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { login } from '@/db/sqlite-data'; // Assuming login function exists in sqlite-data
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -17,8 +16,21 @@ const LoginPage = () => {
     const handleSignIn = async (e) => {
         e.preventDefault();
         try {
-            await login(email, password); // Use the new login function
-            router.push('/'); // Redirect to home page after successful sign-in
+            const response = await fetch('/api/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ email, password }),
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                router.push('/'); // Redirect to home page after successful sign-in
+            } else {
+                setError(data.message || 'Login failed');
+            }
         } catch (error: any) {
             setError(error.message);
         }

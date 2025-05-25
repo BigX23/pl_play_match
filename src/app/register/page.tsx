@@ -16,7 +16,6 @@ import {Icons} from "@/components/icons"; // Import Icons
 import Image from 'next/image'; // Import Image component
 import { createUser, createUserProfile } from '@/db/sqlite-data'; // Import SQLite data access functions
 
-
 export default function RegisterPage() {
   const router = useRouter();
 
@@ -107,26 +106,28 @@ export default function RegisterPage() {
 
 
     try {
-      // Create user in SQLite
-      await createUser(email, password);
+      const response = await fetch('/api/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          sportPreference,
+          age: parseInt(age, 10),
+          skillLevel,
+          gender,
+          typeOfPlayer,
+          preferredPlayingTimes: JSON.stringify(preferredPlayingTimes),
+          howOftenTheyPlay,
+          gameType,
+          notes: playingStyle,
+          phoneNumber: contactDetails,
+        }),
+      });
 
-      // Create user profile in SQLite
-      const userProfileData = {
-        email,
-        sportPreference,
-        age: parseInt(age, 10), // Ensure age is a number
-        skillLevel,
-        gender,
-        typeOfPlayer,
-        preferredPlayingTimes: JSON.stringify(preferredPlayingTimes), // Store as JSON string
-        howOftenTheyPlay,
-        gameType,
-        notes: playingStyle, // Using playingStyle state for notes
-        phoneNumber: contactDetails, // This will now store the phone number
-        profilePicture: null, // Profile picture handling would require file storage (e.g., Firebase Storage)
-      };
-
-      await createUserProfile(userProfileData);
+      const data = await response.json();
 
               // After successful signup and data storage, navigate to the next step
               router.push('/register/partner-preferences');
@@ -134,10 +135,9 @@ export default function RegisterPage() {
 
         } catch (error: any) {
             // Handle errors from Firebase signup
-            console.error("Error during signup:", error);
+            console.error("Error during registration:", error);
             setFormErrors(prevErrors => ({ ...prevErrors, firebase: error.message }));
         }
-  };
 
   const handleTimeSlotChange = (day: string, timeOfDay: string, hour: number) => {
     const newPreferredPlayingTimes = { ...preferredPlayingTimes } as any; // Added type assertion
@@ -466,4 +466,3 @@ export default function RegisterPage() {
       </Card>
     </div>
   );
-}
