@@ -1,7 +1,8 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
-import { createUser, createUserProfile } from '../../db/sqlite-data'; // Adjust the import path as needed
 
-export default async function handler(
+import type { NextApiRequest, NextApiResponse } from 'next';
+import { createUser, createUserProfile } from '../../../db/sqlite-data'; // Adjust the import path as needed
+ 
+export default async function handler (
   req: NextApiRequest,
   res: NextApiResponse
 ) {
@@ -17,13 +18,14 @@ export default async function handler(
       await createUser(email, password);
 
       // Create the user profile
-      await createUserProfile(email, {
+      await createUserProfile({
+        email, // Make sure to pass the email for the profile
         sportPreference,
         age,
         skillLevel,
         gender,
         typeOfPlayer,
-        preferredPlayingTimes,
+        preferredPlayingTimes: typeof preferredPlayingTimes === 'object' ? JSON.stringify(preferredPlayingTimes) : preferredPlayingTimes,
         howOftenTheyPlay,
         gameType,
         notes,
