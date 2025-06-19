@@ -1,44 +1,42 @@
 
-import type { NextApiRequest, NextApiResponse } from 'next';
-import { createUser, createUserProfile } from '@/db/sqlite-data'; // Adjust the import path as needed
- 
-export default async function handler (
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
-  if (req.method === 'POST') {
-    const { email, password, sportPreference, age, skillLevel, gender, typeOfPlayer, preferredPlayingTimes, howOftenTheyPlay, gameType, notes, phoneNumber } = req.body;
+import { signUp } from "../../../auth/sqlite-auth";
+import { NextResponse } from 'next/server';
+import { createUserProfile } from "../../../db/sqlite-data";
 
-    if (!email || !password) {
-      return res.status(400).json({ message: 'Email and password are required' });
+export async function POST(request: Request) {
+  const { email, password, sportPreference, age, skillLevel, gender, typeOfPlayer, preferredPlayingTimes, howOftenTheyPlay, gameType, notes, phoneNumber } = await request.json();
+
+  if (!email || !password) {
+    return NextResponse.json({ message: 'Email and password are required' }, { status: 400 });
+  }
+
+  try {
+    // Create the user using the signUp function from sqlite-auth
+    const userId = await signUp(email, password);
+
+    // Create the user profile
+    await createUserProfile({
+      email, // Pass the email for the profile
+      sportPreference,
+      age,
+      skillLevel,
+      gender,
+      typeOfPlayer,
+      preferredPlayingTimes: typeof preferredPlayingTimes === 'object' ? JSON.stringify(preferredPlayingTimes) : preferredPlayingTimes,
+      howOftenTheyPlay,
+      gameType,
+      notes,
+      phoneNumber,
+    });
+
+    return NextResponse.json({ message: 'User and profile created successfully', userId }, { status: 200 });
+  } catch (error: any) {
+    console.error('Registration error:', error);
+    // Check for specific errors like unique constraint violation for email
+    if (error.message.includes('UNIQUE constraint failed')) {
+      return NextResponse.json({ message: 'User with this email already exists' }, { status: 400 });
     }
-
-    try {
-      // Create the user
-      await createUser(email, password);
-
-      // Create the user profile
-      await createUserProfile({
-        email, // Make sure to pass the email for the profile
-        sportPreference,
-        age,
-        skillLevel,
-        gender,
-        typeOfPlayer,
-        preferredPlayingTimes: typeof preferredPlayingTimes === 'object' ? JSON.stringify(preferredPlayingTimes) : preferredPlayingTimes,
-        howOftenTheyPlay,
-        gameType,
-        notes,
-        phoneNumber,
-      });
-
-      res.status(201).json({ message: 'User and profile created successfully' });
-    } catch (error: any) {
-      console.error('Registration error:', error);
-      res.status(500).json({ message: 'Error registering user', error: error.message });
-    }
-  } else {
-    res.setHeader('Allow', ['POST']);
-    res.status(405).end(`Method ${req.method} Not Allowed`);
+    return NextResponse.json({ message: 'Error registering user', error: error.message }, { status: 500 });
   }
 }
+

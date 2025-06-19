@@ -197,7 +197,13 @@ export default function RegisterPage() {
       });
       router.push("/register/partner-preferences");
     } catch (err: any) {
-      setFormErrors(prev => ({ ...prev, database: err?.message || "Unexpected error" }));
+      // Check if the error is a Response object from fetch
+ if (err instanceof Response) {
+        const data = await err.json();
+ setFormErrors(prev => ({ ...prev, database: data.message || 'Registration failed' }));
+ } else {
+ setFormErrors(prev => ({ ...prev, database: err?.message || "Unexpected error" }));
+ }
     }
   };
 

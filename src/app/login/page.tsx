@@ -29,7 +29,7 @@ const LoginPage = () => {
             if (response.ok) {
                 router.push('/'); // Redirect to home page after successful sign-in
             } else {
-                setError(data.message || 'Login failed');
+                setError(data.error || 'Login failed');
             }
         } catch (error: any) {
             setError(error.message);
@@ -37,13 +37,6 @@ const LoginPage = () => {
     };
 
     const handleGoogleSignIn = async () => {
-        try {
-            // Handle Google Sign-in with SQLite (requires a different approach, potentially linking accounts)
-            router.push('/'); // Redirect to home page after successful Google sign-in
-        } catch (error: any) {
-            setError(error.message);
-        }
-    };
 
     return (
         <div className="flex justify-center items-center min-h-screen bg-background-light-gray py-12">
@@ -79,11 +72,6 @@ const LoginPage = () => {
                             Sign In
                         </Button>
                     </form>
-                    <div className="text-center py-2">
-                        <Button variant="outline" onClick={handleGoogleSignIn}>
-                            Sign In with Google
-                        </Button>
-                    </div>
                 </CardContent>
             </Card>
         </div>

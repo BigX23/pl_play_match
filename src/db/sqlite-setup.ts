@@ -9,7 +9,7 @@ export function initializeDatabase(): Promise<void> {
         CREATE TABLE IF NOT EXISTS users (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           email TEXT UNIQUE,
-          password TEXT
+          hashedPassword TEXT
         )
       `, (err) => {
         if (err) {

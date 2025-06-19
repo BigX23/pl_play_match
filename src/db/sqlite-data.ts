@@ -17,10 +17,10 @@ interface UserProfile {
 
 const db = new sqlite3.Database('./database.sqlite');
 
-export const createUser = (email: string, password: string): Promise<void> => {
+export const createUser = (email: string, hashedPassword: string): Promise<void> => {
   return new Promise((resolve, reject) => {
-    const stmt = db.prepare('INSERT INTO users (email, password) VALUES (?, ?)');
-    stmt.run(email, password, (err) => {
+    const stmt = db.prepare('INSERT INTO users (email, hashedPassword) VALUES (?, ?)');
+    stmt.run(email, hashedPassword, (err) => {
       if (err) {
         reject(err);
       } else {
@@ -31,9 +31,9 @@ export const createUser = (email: string, password: string): Promise<void> => {
   });
 };
 
-export const getUserByEmail = (email: string): Promise<{ email: string, password: string } | undefined> => {
+export const getUserByEmail = (email: string): Promise<{ email: string, hashedPassword: string } | undefined> => {
   return new Promise((resolve, reject) => {
-    db.get('SELECT email, password FROM users WHERE email = ?', [email], (err, row) => {
+    db.get('SELECT email, hashedPassword FROM users WHERE email = ?', [email], (err, row) => {
       if (err) {
         reject(err);
       } else {
