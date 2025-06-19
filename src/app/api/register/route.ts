@@ -1,6 +1,6 @@
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { createUser, createUserProfile } from '../../../db/sqlite-data'; // Adjust the import path as needed
+import { createUser, createUserProfile } from '@/db/sqlite-data'; // Adjust the import path as needed
  
 export default async function handler (
   req: NextApiRequest,
