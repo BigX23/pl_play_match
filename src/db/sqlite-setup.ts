@@ -17,7 +17,8 @@ export function initializeDatabase(): Promise<void> {
           reject(err);
         } else {
           console.log('Users table checked/created successfully.');
-          resolve();
+          // Call createUserProfileTable after users table is checked/created
+          createUserProfileTable().then(resolve).catch(reject);
         }
       });
     });

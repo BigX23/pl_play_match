@@ -45,7 +45,7 @@ export default function RegisterPage() {
   const [skillLevel, setSkillLevel] = useState("3.0");
   const [gender, setGender] = useState("");
   const [typeOfPlayer, setTypeOfPlayer] = useState("");
-  const [preferredPlayingTimes, setPreferredPlayingTimes] =
+  const [preferredPlayingTimes, setPreferredPlayingTimes =
     useState<Record<string, Record<string, Record<number, boolean>>>>({});
   const [howOftenTheyPlay, setHowOftenTheyPlay] = useState("");
   const [gameType, setGameType] = useState("");
@@ -177,7 +177,7 @@ export default function RegisterPage() {
     if (Object.keys(errors).length) return;
 
     try {
-      await fetch("/api/register", {
+      const response = await fetch("/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -195,15 +195,17 @@ export default function RegisterPage() {
           phoneNumber: contactDetails,
         }),
       });
+
+      if (!response.ok) {
+        const data = await response.json();
+        setFormErrors(prev => ({ ...prev, database: data.message || 'Registration failed' }));
+        return; // Stop execution if registration failed
+      }
+
       router.push("/register/partner-preferences");
     } catch (err: any) {
-      // Check if the error is a Response object from fetch
- if (err instanceof Response) {
-        const data = await err.json();
- setFormErrors(prev => ({ ...prev, database: data.message || 'Registration failed' }));
- } else {
- setFormErrors(prev => ({ ...prev, database: err?.message || "Unexpected error" }));
- }
+      // This catch block will now primarily handle network errors or issues with response.json()
+      setFormErrors(prev => ({ ...prev, database: err?.message || "Unexpected error during registration" }));
     }
   };
 

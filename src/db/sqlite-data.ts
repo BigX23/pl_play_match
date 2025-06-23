@@ -15,7 +15,7 @@ interface UserProfile {
 }
 
 
-const db = new sqlite3.Database('./database.sqlite');
+const db = new sqlite3.Database('./mydatabase.sqlite'); // Changed to mydatabase.sqlite
 
 export const createUser = (email: string, hashedPassword: string): Promise<void> => {
   return new Promise((resolve, reject) => {

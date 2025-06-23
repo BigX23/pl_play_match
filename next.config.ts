@@ -14,15 +14,9 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-
-  // ─── Alias "@/…" → "<projectRoot>/src" ──────────────────────────────────────
-  webpack: (config) => {
-    // Ensure an alias object exists
-    config.resolve.alias = {
-      ...(config.resolve.alias || {}),
-      '@': path.resolve(__dirname, 'src'),
-    };
-
+  // ─── Webpack configuration for path aliases ───────────────────────────────
+  webpack: (config, { isServer }) => {
+    config.resolve.alias['@'] = path.join(__dirname, 'src');
     return config;
   },
 };

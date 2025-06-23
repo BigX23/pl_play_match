@@ -7,7 +7,8 @@ import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/compo
 import {Input} from "@/components/ui/input";
 import {Label} from "@/components/ui/label";
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
-import {getAuth, onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "@/firebase/init"; // Import the initialized auth instance
 
 const ntrpLevels = ['1.0', '1.5', '2.0', '2.5', '3.0', '3.5', '4.0', '4.5', '5.0', '5.5', '6.0', '6.5', '7.0'];
 
@@ -23,7 +24,7 @@ const generateAgeOptions = (userAge: number): number[] => {
 
 export default function PartnerPreferencesPage() {
   const router = useRouter();
-  const auth = getAuth();
+  // const auth = getAuth(); // No longer needed, using imported auth
 
   // --- State Management Placeholder ---
   // In a real app, get user data and userAge from context, Zustand, localStorage, etc.

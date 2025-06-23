@@ -37,6 +37,8 @@ const LoginPage = () => {
     };
 
     const handleGoogleSignIn = async () => {
+        // TODO: Implement Google Sign-In logic here
+    };
 
     return (
         <div className="flex justify-center items-center min-h-screen bg-background-light-gray py-12">

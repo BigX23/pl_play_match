@@ -13,8 +13,8 @@ const hashPassword = async (password: string): Promise<string> => {
 export const signUp = async (email, password) => {
   try {
     if (password.length < 6) {
-            throw new Error("Password must be at least 6 characters");
-        }
+      throw new Error("Password must be at least 6 characters");
+    }
     await initializeDatabase(); // Ensure database is initialized
     const hashedPassword = await hashPassword(password);
     const user = await createUser(email, hashedPassword); // Pass hashed password to createUser
@@ -29,12 +29,14 @@ export const signUp = async (email, password) => {
 export const signOutUser = async (sessionId: string) => {
   try {
     // Implement session invalidation here
-    console.warn(\`signOutUser is not fully implemented. Session ID: ${sessionId}\`);
+    // FIX HERE: Changed from template literal to string concatenation
+    console.warn("signOutUser is not fully implemented. Session ID: " + sessionId);
   } catch (error) {
     console.error("Error signing out:", error.message);
     throw error;
   }
 };
+
 // Function to compare password with hash
 const comparePassword = async (password: string, hash: string): Promise<boolean> => {
   return bcrypt.compare(password, hash);

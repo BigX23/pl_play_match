@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { signIn } from '/workspace/pleasanton-playmatch/src/auth/sqlite-auth'; // Corrected import
+import { signIn } from '@/auth/sqlite-auth';
 import crypto from 'crypto';
 
 export async function POST(request: Request) {
@@ -23,8 +23,9 @@ export async function POST(request: Request) {
         secure: process.env.NODE_ENV === 'production', // Use secure cookie in production
       });
       return response;
+    } else {
+      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
-
   } catch (error: any) {
     console.error('Login error:', error);
     return NextResponse.json({ error: error.message || 'Internal server error' }, { status: error.message === 'Invalid credentials' ? 401 : 500 });
