@@ -11,7 +11,7 @@ app: Follows the Next.js app router structure, with routes for the root (page.ts
 auth: Handles authentication, specifically using sqlite-auth.ts.
 components: Reusable UI components, including a sidebar-nav.tsx and an icons.ts file. It also has a ui subdirectory with a large collection of Shadcn UI components.
 db: Contains database-related files, including sqlite-data.ts and sqlite-setup.ts.
-firebase: Includes Firebase authentication logic.
+# firebase: directory removed as Firebase is no longer used for auth.
 hooks: Custom React hooks.
 lib: Utility functions.
 services: Contains various service modules, such as lifetime-activities.ts and qr-code.ts.

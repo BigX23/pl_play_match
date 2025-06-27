@@ -1,7 +1,10 @@
 
 import { signUp } from "../../../auth/sqlite-auth";
 import { NextResponse } from 'next/server';
-import { createUserProfile } from "../../../db/sqlite-data";
+import { createUserProfile, createSession } from "../../../db/sqlite-data"; // Added createSession
+import crypto from 'crypto'; // For generating session ID
+
+const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 export async function POST(request: Request) {
   const { email, password, sportPreference, age, skillLevel, gender, typeOfPlayer, preferredPlayingTimes, howOftenTheyPlay, gameType, notes, phoneNumber } = await request.json();
@@ -12,11 +15,17 @@ export async function POST(request: Request) {
 
   try {
     // Create the user using the signUp function from sqlite-auth
-    const userId = await signUp(email, password);
+    // signUp now returns { id: number, email: string }
+    const registeredUser = await signUp(email, password);
+
+    if (!registeredUser || !registeredUser.id) {
+      throw new Error("User registration failed to return user ID.");
+    }
 
     // Create the user profile
     await createUserProfile({
-      email, // Pass the email for the profile
+      user_id: registeredUser.id, // Add user_id here
+      email: registeredUser.email,
       sportPreference,
       age,
       skillLevel,
@@ -29,7 +38,23 @@ export async function POST(request: Request) {
       phoneNumber,
     });
 
-    return NextResponse.json({ message: 'User and profile created successfully', userId }, { status: 200 });
+    // Automatically log in the user by creating a session
+    const sessionId = crypto.randomBytes(32).toString('hex');
+    await createSession(sessionId, registeredUser.id, registeredUser.email, SESSION_DURATION_MS);
+
+    const response = NextResponse.json({
+      message: 'User and profile created successfully. User logged in.',
+      user: { id: registeredUser.id, email: registeredUser.email }
+    }, { status: 200 });
+
+    response.cookies.set('session_id', sessionId, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: SESSION_DURATION_MS / 1000,
+    });
+
+    return response;
   } catch (error: any) {
     console.error('Registration error:', error);
     // Check for specific errors like unique constraint violation for email

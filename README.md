@@ -9,7 +9,7 @@ The application is built as a modern, sleek, and easy-to-use web app that mimics
 The visual design follows a vibrant color scheme, primarily utilizing vibrant green, light gray, and bright orange to create an engaging and visually appealing interface.
 
 **Technology Stack:**
-Pleasanton PlayMatch is built using NextJS and Firebase Studio.
+Pleasanton PlayMatch is built using NextJS. (Firebase Studio removed as backend is now SQLite)
 
 To get started, take a look at src/app/page.tsx.
 
@@ -28,7 +28,7 @@ Root: Contains configuration files like next.config.ts, package.json, tsconfig.j
 /src/auth: Handles authentication, specifically using /home/user/studio/src/auth/sqlite-auth.ts.
 /src/components: Reusable UI components, including a /home/user/studio/src/components/sidebar-nav.tsx and an /home/user/studio/src/components/icons.ts file. It also has a /home/user/studio/src/components/ui subdirectory with a large collection of Shadcn UI components.
 /src/db: Contains database-related files, including /home/user/studio/src/db/sqlite-data.ts and /home/user/studio/src/db/sqlite-setup.ts.
-/src/firebase: Includes Firebase authentication logic (/home/user/studio/src/firebase/firebase-auth.ts).
+# /src/firebase: directory removed as Firebase is no longer used for auth.
 /src/hooks: Custom React hooks (/home/user/studio/src/hooks/use-hook.ts).
 /src/lib: Utility functions (/home/user/studio/src/lib/utils.ts).
 /src/services: Contains various service modules, such as /home/user/studio/src/services/lifetime-activities.ts and /home/user/studio/src/services/qr-code.ts.

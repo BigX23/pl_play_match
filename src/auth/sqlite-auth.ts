@@ -1,6 +1,6 @@
 // src/auth/sqlite-auth.ts
 
-import { createUser, getUserByEmail } from "../db/sqlite-data";
+import { createUser, getUserByEmail, deleteSessionById } from "../db/sqlite-data"; // Consolidated import
 import { initializeDatabase } from "../db/sqlite-setup";
 import bcrypt from 'bcrypt';
 
@@ -10,30 +10,41 @@ const hashPassword = async (password: string): Promise<string> => {
   return bcrypt.hash(password, saltRounds);
 };
 
-export const signUp = async (email, password) => {
+export const signUp = async (email: string, password: string): Promise<{ id: number, email: string }> => {
   try {
     if (password.length < 6) {
       throw new Error("Password must be at least 6 characters");
     }
     await initializeDatabase(); // Ensure database is initialized
     const hashedPassword = await hashPassword(password);
-    const user = await createUser(email, hashedPassword); // Pass hashed password to createUser
-    return user;
+    const createdUser = await createUser(email, hashedPassword); // This returns { id: number }
+    // Return an object that includes the email as well, consistent with signIn response
+    return { id: createdUser.id, email: email };
   } catch (error) {
     console.error("Error signing up:", error.message);
     throw error;
   }
 };
 
-// Sign out (placeholder)
-export const signOutUser = async (sessionId: string) => {
+// Note: deleteSessionById was already added to the consolidated import at the top.
+// The duplicated import statement that was here has been removed.
+
+// ... (other code remains the same)
+
+// Sign out - This function would be used for server-side initiated signouts.
+// Client-side signout is handled by calling the /api/logout endpoint.
+export const signOutUser = async (sessionId: string): Promise<void> => {
   try {
-    // Implement session invalidation here
-    // FIX HERE: Changed from template literal to string concatenation
-    console.warn("signOutUser is not fully implemented. Session ID: " + sessionId);
+    if (!sessionId) {
+      console.warn("No session ID provided for signOutUser.");
+      return;
+    }
+    await initializeDatabase(); // Ensure database is initialized, though less critical for delete
+    await deleteSessionById(sessionId);
+    console.log(`Session ${sessionId} invalidated from server-side call.`);
   } catch (error) {
-    console.error("Error signing out:", error.message);
-    throw error;
+    console.error("Error signing out user by session ID:", error.message);
+    throw error; // Re-throw to allow caller to handle
   }
 };
 

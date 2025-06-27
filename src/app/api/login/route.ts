@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { signIn } from '@/auth/sqlite-auth';
+import { createSession } from '@/db/sqlite-data'; // Import createSession
 import crypto from 'crypto';
+
+const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 export async function POST(request: Request) {
   try {
@@ -12,19 +15,22 @@ export async function POST(request: Request) {
 
     const user = await signIn(email, password);
 
-    if (user) {
-      // Generate a session ID
-      const sessionId = crypto.randomBytes(16).toString('hex');
+    if (user && user.id) { // Ensure user and user.id exist
+      const sessionId = crypto.randomBytes(32).toString('hex'); // Increased session ID length
 
-      // Set the session ID in an httpOnly cookie
-      const response = NextResponse.json({ success: true, user: { email: user.email } }, { status: 200 });
+      // Store session in database
+      await createSession(sessionId, user.id, user.email, SESSION_DURATION_MS);
+
+      const response = NextResponse.json({ success: true, user: { id: user.id, email: user.email } }, { status: 200 });
       response.cookies.set('session_id', sessionId, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production', // Use secure cookie in production
+        secure: process.env.NODE_ENV === 'production',
+        path: '/', // Important for cookie visibility
+        maxAge: SESSION_DURATION_MS / 1000, // maxAge is in seconds
       });
       return response;
     } else {
-      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
+      return NextResponse.json({ error: 'Invalid credentials or user ID missing' }, { status: 401 });
     }
   } catch (error: any) {
     console.error('Login error:', error);

@@ -7,8 +7,6 @@ import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/compo
 import {Input} from "@/components/ui/input";
 import {Label} from "@/components/ui/label";
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
-import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "@/firebase/init"; // Import the initialized auth instance
 
 const ntrpLevels = ['1.0', '1.5', '2.0', '2.5', '3.0', '3.5', '4.0', '4.5', '5.0', '5.5', '6.0', '6.5', '7.0'];
 
@@ -28,28 +26,56 @@ export default function PartnerPreferencesPage() {
 
   // --- State Management Placeholder ---
   // In a real app, get user data and userAge from context, Zustand, localStorage, etc.
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState<any>(null); // Changed to any for now, will be replaced by session logic
+
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setUser(user);
-      } else {
-        router.push('/login');
+    const checkSession = async () => {
+      try {
+        const response = await fetch('/api/profile');
+        if (response.ok) {
+          const data = await response.json();
+          setUser(data.user); // Assuming API returns { user: { ... } }
+        } else {
+          // Not authenticated or error
+          router.push('/login');
+        }
+      } catch (error) {
+        console.error("Error checking session:", error);
+        router.push('/login'); // Redirect on error as well
+      } finally {
+        setIsLoading(false);
       }
-    });
+    };
 
-    return () => unsubscribe(); // Cleanup subscription on unmount
-  }, [auth, router]);
+    checkSession();
+  }, [router]);
+
+   if (isLoading) {
+        return <div>Loading...</div>; // Or a more appropriate loading indicator
+   }
 
    if (!user) {
-        return <div>Loading...</div>; // Or a more appropriate loading indicator
-    }
+        // This case implies redirection should have happened or is about to happen.
+        // Or, if redirection is handled by router.push, this might not be strictly necessary
+        // but can be a fallback.
+        return <div>Redirecting to login...</div>;
+   }
 
-  const userAge = 30; // Example: Fetched user age
-  const userData = {
+  // TODO: userAge should ideally be derived from the `user.profile.age` if available after fetching.
+  // For now, keeping it as a placeholder or assuming it's part of the profile.
+  const userAge = user?.profile?.age || 30; // Example: Fetched user age or default
+
+  // IMPORTANT: `userData` is from Step 1 of registration.
+  // This data needs to be passed to this page from the previous step of registration.
+  // This is not handled here and needs a separate implementation (e.g., router state, query params, context).
+  // For now, using placeholder data for `userData` to allow form submission logic to be checked.
+  const userData = { // This is EXAMPLE data for what should come from Step 1
+    email: user.email, // Email from the authenticated user
+    // These fields would have been collected in Step 1 of registration:
     sportPreference: 'Tennis',
-    age: '30',
+    age: userAge.toString(), // Age from authenticated user (or their profile)
     skillLevel: '3.0',
     gender: 'Male',
     typeOfPlayer: 'Recreational',

@@ -4,8 +4,6 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils'; // Assuming cn utility is available
 import React from 'react';
-import { getAuth, signOut } from "firebase/auth";
-import app from '@/firebase/firebase-config'; // Corrected import for default export
 
 const navItems = [
   { name: 'My Matches', href: '/dashboard' }, // Updated path
@@ -19,11 +17,16 @@ function SidebarNav() {
   const router = useRouter();
 
   const handleSignOut = async () => {
-    const auth = getAuth(app);
     try {
-      await signOut(auth);
-      // Redirect to the main page after sign out
-      router.push('/');
+      // Call the new logout API endpoint
+      const response = await fetch('/api/logout', { method: 'POST' });
+      if (response.ok) {
+        // Redirect to the main page after sign out
+        router.push('/');
+      } else {
+        console.error('Error signing out:', await response.text());
+        // Optionally, display an error message to the user
+      }
     } catch (error) {
       console.error('Error signing out:', error);
       // Optionally, display an error message to the user
