@@ -90,6 +90,34 @@ First-time users (email/password or Google Auth) are redirected to a **mandatory
 5. Profile is editable anytime from `/dashboard/profile`
 6. If profile is incomplete, all other dashboard routes redirect back to onboarding
 
+### 🎾 Open Matches Flow (priority)
+Users can post an open match when they want to play but don't have a partner. Other compatible players can accept it.
+
+**Creating an open match:**
+- User taps "Create Open Match" from the Open Matches page
+- Fills out: sport (tennis/pickleball), match type (singles/doubles), date, time, any notes
+- Match is posted with status `open` and visible to compatible players
+
+**Visibility & notifications:**
+- Only players who fit the poster's partner criteria (and vice versa) see the open match
+- If notifications are enabled, compatible players get a push notification: "New open match: [Sport] [Type] at [Time] with [User]"
+
+**Accepting a match:**
+- Any compatible user can tap "Accept" on the open match
+- Match status changes from `open` → `confirmed`
+- AI creates a new conversation with both players and sends an intro:
+  > "Hey [UserA], meet [UserB]! You're set to play [sport] at [time] today. [UserA], please call Lifetime Activities at (925) 460-8600 to reserve a court. Update here once it's reserved!"
+- The match moves to `confirmed` state and appears in both players' upcoming matches
+
+**Match states:**
+| Status | Meaning |
+|---|---|
+| `open` | Posted, waiting for a partner |
+| `confirmed` | Partner accepted, court reservation pending |
+| `reserved` | Court booked, match is on |
+| `completed` | Match played, ready for score reporting |
+| `cancelled` | Match was cancelled by either player |
+
 ### Other
 - [ ] Lock down Firestore security rules (auth-based access)
 - [ ] Enable Google Auth provider in Firebase Console
