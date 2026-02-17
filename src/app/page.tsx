@@ -1,32 +1,71 @@
-import Link from 'next/link';
-import React from 'react';
-function LandingPage() {
-  return (
-    <div 
-      className="flex flex-col items-center justify-center min-h-screen py-2 bg-cover bg-center"
-      style={{ backgroundImage: "url('/images/tennis-court.jpg')" }} // Placeholder image path
-    >
-      {/* Overlay */}
-      <div className="absolute inset-0 bg-black opacity-50"></div>
+"use client";
 
-      {/* Content */}
-      <div className="relative z-10 flex flex-col items-center justify-center text-white"> {/* text-white applies to children by default, will override for h1 */}
-        {/* Changed text color to green-600 */}
-        <h1 className="text-4xl font-bold mb-6 text-green-600">Welcome to Pleasanton PlayMatch</h1>
-        <p className="text-lg mb-8 text-center">Find Tennis and Pickleball partners in Pleasanton</p>
-        <div className="space-x-4">
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Trophy, Users, Zap, MapPin } from "lucide-react";
+
+export default function LandingPage() {
+  return (
+    <div className="min-h-screen flex flex-col">
+      {/* Header */}
+      <header className="flex items-center justify-between px-6 py-4 border-b bg-background">
+        <div className="flex items-center gap-2">
+          <Trophy className="h-6 w-6 text-primary" />
+          <span className="font-bold text-xl">PlayMatch</span>
+        </div>
+        <div className="flex gap-2">
           <Link href="/login">
-            {/* Login button with vibrant green */}
-            <button className="px-6 py-2 border rounded-md text-green-400 border-green-400 hover:bg-green-500 hover:text-white transition-colors">Login</button>
+            <Button variant="outline" size="sm">Login</Button>
           </Link>
           <Link href="/register">
-            {/* Register button with bright orange */}
-            <button className="px-6 py-2 border rounded-md text-white bg-orange-500 border-orange-500 hover:bg-orange-600 transition-colors">Register</button>
+            <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90">Register</Button>
           </Link>
         </div>
-      </div>
+      </header>
+
+      {/* Hero */}
+      <main className="flex-1 flex flex-col items-center justify-center px-6 py-16 text-center bg-gradient-to-br from-green-50 to-orange-50 dark:from-green-950/20 dark:to-orange-950/20">
+        <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary mb-6">
+          <Zap className="h-4 w-4" />
+          AI-Powered Matchmaking
+        </div>
+        <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight mb-4">
+          Find Your Perfect<br />
+          <span className="text-primary">Tennis</span> &amp; <span className="text-accent">Pickleball</span><br />
+          Partner
+        </h1>
+        <p className="text-lg text-muted-foreground max-w-lg mb-8">
+          Pleasanton PlayMatch connects you with compatible players based on skill level, availability, and play style.
+        </p>
+        <div className="flex gap-3">
+          <Link href="/register">
+            <Button size="lg" className="bg-primary hover:bg-primary/90 text-lg px-8">Get Started</Button>
+          </Link>
+          <Link href="/login">
+            <Button size="lg" variant="outline" className="text-lg px-8">Sign In</Button>
+          </Link>
+        </div>
+
+        {/* Features */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-16 max-w-4xl w-full">
+          {[
+            { icon: Users, title: "Smart Matching", desc: "AI matches you with players at your skill level with compatible schedules." },
+            { icon: MapPin, title: "Local Courts", desc: "Find partners near Pleasanton, Dublin, Livermore, and San Ramon." },
+            { icon: Trophy, title: "Track Progress", desc: "Log matches, track your NTRP rating, and watch yourself improve." },
+          ].map((f) => (
+            <div key={f.title} className="rounded-xl border bg-card p-6 text-left hover:shadow-md transition-shadow">
+              <f.icon className="h-8 w-8 text-primary mb-3" />
+              <h3 className="font-semibold mb-1">{f.title}</h3>
+              <p className="text-sm text-muted-foreground">{f.desc}</p>
+            </div>
+          ))}
+        </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="py-6 text-center text-sm text-muted-foreground border-t">
+        © 2026 Pleasanton PlayMatch. All rights reserved.
+      </footer>
     </div>
   );
 }
-
-export default LandingPage;
