@@ -135,6 +135,7 @@ Mandatory on first login — user cannot access the app until complete. Editable
 | Weekly availability | day+time picker | ✅ | Select specific days and hour ranges (e.g. Mon 9am–12pm, Wed 6pm–8pm) |
 | Game type | select | ✅ | Recreational / Slightly competitive / Hardcore competitive |
 | About me | textarea | ❌ | Optional bio — free text, max 300 chars |
+| Profile picture | image upload / avatar picker | ✅ | Upload a photo (stored in Firebase Storage) OR pick from ~20 preset avatar/emoji characters. Must choose one or the other. |
 
 **Partner Preference fields:**
 
