@@ -118,6 +118,35 @@ Users can post an open match when they want to play but don't have a partner. Ot
 | `completed` | Match played, ready for score reporting |
 | `cancelled` | Match was cancelled by either player |
 
+### 👤 User Profile & Partner Preferences (priority)
+Mandatory on first login — user cannot access the app until complete. Editable anytime from Profile page.
+
+**User Profile fields:**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| First name | text | ✅ | |
+| Last name | text | ✅ | |
+| Age | number | ✅ | |
+| Gender | select | ✅ | Male / Female / Non-binary / Prefer not to say |
+| NTRP rating | select | ✅ | 2.0 – 5.5 in 0.5 increments |
+| Match format | multi-select | ✅ | Singles / Doubles / Both |
+| Sport | multi-select | ✅ | Tennis / Pickleball / Both |
+| Weekly availability | day+time picker | ✅ | Select specific days and hour ranges (e.g. Mon 9am–12pm, Wed 6pm–8pm) |
+| Game type | select | ✅ | Recreational / Slightly competitive / Hardcore competitive |
+
+**Partner Preference fields:**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| Age range | select | ✅ | Relative to own age: ±2 years, ±5 years, ±10 years, Any |
+| Partner NTRP rating | range select | ✅ | Acceptable NTRP range (e.g. 3.5–4.5) |
+| Partner game type | multi-select | ✅ | Recreational / Slightly competitive / Hardcore competitive |
+| Sport | multi-select | ✅ | Tennis / Pickleball / Both |
+| Match format | multi-select | ✅ | Singles / Doubles / Both |
+
+These fields directly feed the matching engine — every field maps to a scoring criterion.
+
 ### 🤝 Partner Matching Engine (priority)
 When a user completes their profile, the app immediately calculates compatibility scores against all other users and presents ranked matches.
 
