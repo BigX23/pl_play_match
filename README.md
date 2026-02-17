@@ -22,12 +22,37 @@ A modern tennis & pickleball matchmaking app for the Pleasanton community. Find 
 - Protected dashboard routes
 - Firebase Auth when configured, localStorage mock fallback
 
+### 🔑 Mandatory Onboarding (NEW)
+- 4-step onboarding flow for new users: Basic Info → Play Preferences → Availability → Partner Preferences
+- Emoji avatar picker (20 options) or photo upload
+- Weekly availability with day toggles and time range pickers
+- NTRP rating, sport, match format, game type selection
+- Partner preference configuration (age range, NTRP range, game type, sport, format)
+- Profile completion required before accessing dashboard
+- All dashboard routes redirect to `/onboarding` until profile is complete
+
+### 🤝 Partner Matching Engine (NEW)
+- Weighted scoring algorithm: Availability (30%), Sport (20%), NTRP (20%), Game Type (15%), Match Format (10%), Age (5%)
+- Scores 0–100%, only shows matches ≥50%
+- Real-time match results displayed on dashboard
+- "Send Match Request" button on match cards
+- Accept/Decline flow with AI-generated intro chat on acceptance
+
+### 📬 Match Request Flow (NEW)
+- Send match requests to compatible players
+- "New Match Requests" section for incoming requests
+- "Pending Requests" section for sent requests
+- "Accepted Matches" with direct chat links
+- AI creates group conversation with intro message on acceptance
+
 ### 📊 Dashboard
-- Match compatibility cards with AI-generated scores
+- Match compatibility cards with engine-powered scores
+- Incoming/outgoing match requests management
+- Accepted matches with chat links
 - Upcoming matches overview
 - Player stats and activity summary
 
-### 🎯 Open Matches
+### 🎯 Open Matches (UPDATED)
 - Browse available matches in the community
 - Filter by sport, skill level, availability
 - Join matches with one tap
