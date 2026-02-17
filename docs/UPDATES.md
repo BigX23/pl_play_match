@@ -118,6 +118,52 @@ Users can post an open match when they want to play but don't have a partner. Ot
 | `completed` | Match played, ready for score reporting |
 | `cancelled` | Match was cancelled by either player |
 
+### 🤝 Partner Matching Engine (priority)
+When a user completes their profile, the app immediately calculates compatibility scores against all other users and presents ranked matches.
+
+**How matching works:**
+- 100% rule-based — no AI needed for scoring. Static weighted criteria is more predictable, transparent, and debuggable. AI is better used for the conversational side (intros, scheduling help) not the matching logic itself.
+- Scores calculated on profile save and recalculated when any user updates their profile
+
+**Scoring criteria (weighted):**
+
+| Criteria | Weight | Description |
+|---|---|---|
+| Availability overlap | High | Days/times both users are free. Most important — can't play if schedules don't align |
+| Sport match | High | Both play tennis, pickleball, or both |
+| Skill level (NTRP) | High | Within acceptable range of each other's preferences |
+| Match type | Medium | Singles vs doubles preference alignment |
+| Play style | Medium | Competitive vs casual — both want the same vibe |
+| Partner preferences | Medium | Each user's stated criteria about what they want in a partner |
+
+- **100%** = all criteria match perfectly, overlapping availability, same skill range, same sport, same vibe → no-brainer, play ASAP
+- **70-99%** = strong match, most criteria align, minor gaps (e.g. one time slot difference)
+- **50-69%** = decent match, worth considering
+- **Below 50%** = not shown (or shown at bottom as "other players")
+
+**Match flow:**
+1. User completes profile → matching engine runs → ranked list of compatible players shown on dashboard
+2. User reviews matches and selects the best one(s)
+   - Limit TBD: maybe 1 active match request at a time, maybe up to 3
+3. Selected player gets a notification: "[User] wants to match with you!"
+4. That player can view the requester's profile → **Accept** or **Decline**
+5. If **accepted**:
+   - Match appears on both users' dashboards as an accepted match
+   - AI creates a group chat and introduces them
+   - AI nudges them to schedule a time and reserve a court
+6. If **declined**:
+   - Requester is notified (generic: "They're not available right now")
+   - No hard feelings — both can still appear in each other's future matches
+
+**Match request states:**
+
+| Status | Meaning |
+|---|---|
+| `pending` | Sent to other player, awaiting response |
+| `accepted` | Both players agreed — AI intro chat created |
+| `declined` | Other player passed |
+| `expired` | No response within X days (TBD) |
+
 ### Other
 - [ ] Lock down Firestore security rules (auth-based access)
 - [ ] Enable Google Auth provider in Firebase Console
