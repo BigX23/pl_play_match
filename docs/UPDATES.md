@@ -71,10 +71,29 @@ NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=
 
 ## Next Up
 
+### 🔑 Mandatory Onboarding Profile (priority)
+First-time users (email/password or Google Auth) are redirected to a **mandatory profile setup** before accessing the app. This is not optional — the app is useless without player preferences.
+
+**Required fields:**
+- Display name
+- NTRP / skill rating (tennis and/or pickleball)
+- Sports played: tennis, pickleball, or both
+- What they're looking for in a partner (skill level range, play style, competitive vs casual)
+- Weekly availability: specific days and time slots they're free to play
+- Contact preferences
+
+**Flow:**
+1. User registers or signs in for the first time
+2. App detects profile is incomplete → redirects to `/onboarding` (or `/dashboard/profile` in setup mode)
+3. User fills out all required fields
+4. Profile saved to Firestore → user gains full app access
+5. Profile is editable anytime from `/dashboard/profile`
+6. If profile is incomplete, all other dashboard routes redirect back to onboarding
+
+### Other
 - [ ] Lock down Firestore security rules (auth-based access)
 - [ ] Enable Google Auth provider in Firebase Console
 - [ ] Real-time chat via Firestore onSnapshot
-- [ ] Auto-create user profile in Firestore on registration
 - [ ] Match creation + join flow (users create/join real matches)
 - [ ] Score reporting after matches
 - [ ] Tailor all content/copy to Lifetime Activities Pleasanton
