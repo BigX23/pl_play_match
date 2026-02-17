@@ -134,6 +134,7 @@ Mandatory on first login — user cannot access the app until complete. Editable
 | Sport | multi-select | ✅ | Tennis / Pickleball / Both |
 | Weekly availability | day+time picker | ✅ | Select specific days and hour ranges (e.g. Mon 9am–12pm, Wed 6pm–8pm) |
 | Game type | select | ✅ | Recreational / Slightly competitive / Hardcore competitive |
+| About me | textarea | ❌ | Optional bio — free text, max 300 chars |
 
 **Partner Preference fields:**
 
