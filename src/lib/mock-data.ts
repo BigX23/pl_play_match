@@ -75,6 +75,72 @@ export const matches: Match[] = [
   { id: "m9", player1Id: "p1", player2Id: "p13", date: "2026-02-10", time: "7:00 PM", location: "Pleasanton Tennis Park", sport: "tennis", status: "completed", score: "4-6, 6-3, 6-7(5)", compatibilityScore: 80, matchExplanation: "Close match between 3.5 and 4.0 players. Exciting three-setter!" },
 ];
 
+export interface Conversation {
+  id: string;
+  participants: string[];
+  lastMessage: string;
+  lastMessageAt: string;
+  unreadCount: number;
+  createdAt: string;
+}
+
+export interface Message {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  senderName: string;
+  text: string;
+  createdAt: string;
+  readBy: string[];
+  isAI?: boolean;
+}
+
+export type NotificationType = "new_message" | "match_invitation" | "match_confirmed" | "match_reminder" | "ai_suggestion";
+
+export interface Notification {
+  id: string;
+  userId: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  read: boolean;
+  createdAt: string;
+  link?: string;
+}
+
+export const conversations: Conversation[] = [
+  { id: "conv1", participants: ["p1", "p2"], lastMessage: "See you Saturday morning!", lastMessageAt: "2026-02-17T08:30:00Z", unreadCount: 1, createdAt: "2026-02-14T10:00:00Z" },
+  { id: "conv2", participants: ["p1", "p6"], lastMessage: "The courts at Val Vista are great for pickleball", lastMessageAt: "2026-02-16T19:00:00Z", unreadCount: 0, createdAt: "2026-02-15T14:00:00Z" },
+  { id: "conv3", participants: ["p1", "p2", "ai"], lastMessage: "Hey Sarah and Alex! You're both 3.5 NTRP players who love playing on Mon/Wed/Sat mornings. Want to set up a match this week?", lastMessageAt: "2026-02-14T09:00:00Z", unreadCount: 0, createdAt: "2026-02-14T09:00:00Z" },
+  { id: "conv4", participants: ["p1", "p13", "ai"], lastMessage: "How did your match with Kevin go? Report your score! 🎾", lastMessageAt: "2026-02-11T10:00:00Z", unreadCount: 1, createdAt: "2026-02-09T12:00:00Z" },
+];
+
+export const messages: Message[] = [
+  // conv1: Alex <-> Sarah
+  { id: "msg1", conversationId: "conv1", senderId: "p2", senderName: "Sarah Chen", text: "Hey Alex! Looking forward to our match on the 20th.", createdAt: "2026-02-16T10:00:00Z", readBy: ["p2", "p1"] },
+  { id: "msg2", conversationId: "conv1", senderId: "p1", senderName: "Alex Johnson", text: "Me too! I've been practicing my backhand 😄", createdAt: "2026-02-16T10:15:00Z", readBy: ["p1", "p2"] },
+  { id: "msg3", conversationId: "conv1", senderId: "p2", senderName: "Sarah Chen", text: "See you Saturday morning!", createdAt: "2026-02-17T08:30:00Z", readBy: ["p2"] },
+  // conv2: Alex <-> Lisa
+  { id: "msg4", conversationId: "conv2", senderId: "p1", senderName: "Alex Johnson", text: "Hey Lisa, want to play pickleball this Saturday?", createdAt: "2026-02-16T18:00:00Z", readBy: ["p1", "p6"] },
+  { id: "msg5", conversationId: "conv2", senderId: "p6", senderName: "Lisa Park", text: "The courts at Val Vista are great for pickleball", createdAt: "2026-02-16T19:00:00Z", readBy: ["p6", "p1"] },
+  // conv3: AI intro for Alex & Sarah
+  { id: "msg6", conversationId: "conv3", senderId: "ai", senderName: "PlayMatch AI", text: "Hey Sarah and Alex! You're both 3.5 NTRP players who love playing on Mon/Wed/Sat mornings. Want to set up a match this week?", createdAt: "2026-02-14T09:00:00Z", readBy: ["ai", "p1", "p2"], isAI: true },
+  // conv4: AI follow-up for Alex & Kevin
+  { id: "msg7", conversationId: "conv4", senderId: "ai", senderName: "PlayMatch AI", text: "Hey Alex and Kevin! You're both competitive players who enjoy evening tennis. I think you'd have a great match!", createdAt: "2026-02-09T12:00:00Z", readBy: ["ai", "p1", "p13"], isAI: true },
+  { id: "msg8", conversationId: "conv4", senderId: "p1", senderName: "Alex Johnson", text: "Sounds good! Kevin, are you free this Tuesday evening?", createdAt: "2026-02-09T13:00:00Z", readBy: ["p1", "p13"] },
+  { id: "msg9", conversationId: "conv4", senderId: "p13", senderName: "Kevin Nguyen", text: "Tuesday works! 7pm at Pleasanton Tennis Park?", createdAt: "2026-02-09T14:00:00Z", readBy: ["p13", "p1"] },
+  { id: "msg10", conversationId: "conv4", senderId: "ai", senderName: "PlayMatch AI", text: "How did your match with Kevin go? Report your score! 🎾", createdAt: "2026-02-11T10:00:00Z", readBy: ["ai"], isAI: true },
+];
+
+export const notifications: Notification[] = [
+  { id: "n1", userId: "p1", type: "new_message", title: "New message from Sarah", body: "See you Saturday morning!", read: false, createdAt: "2026-02-17T08:30:00Z", link: "/dashboard/messages/conv1" },
+  { id: "n2", userId: "p1", type: "match_confirmed", title: "Match Confirmed!", body: "Your match with Sarah Chen on Feb 20 at 9:00 AM is confirmed.", read: false, createdAt: "2026-02-16T12:00:00Z", link: "/dashboard/open-matches" },
+  { id: "n3", userId: "p1", type: "ai_suggestion", title: "New Match Suggestion", body: "PlayMatch AI found a great partner for you — Lisa Park (3.5 NTRP)!", read: true, createdAt: "2026-02-15T14:00:00Z", link: "/dashboard/messages/conv2" },
+  { id: "n4", userId: "p1", type: "match_reminder", title: "Match Tomorrow!", body: "Your match with Sarah Chen is tomorrow at 9:00 AM at Pleasanton Tennis Park.", read: true, createdAt: "2026-02-19T18:00:00Z" },
+  { id: "n5", userId: "p1", type: "match_invitation", title: "Match Invitation", body: "Mike Rodriguez invited you to play tennis on Feb 25.", read: true, createdAt: "2026-02-14T10:00:00Z", link: "/dashboard/open-matches" },
+  { id: "n6", userId: "p1", type: "ai_suggestion", title: "Post-Match Follow Up", body: "How did your match with Kevin go? Don't forget to report your score!", read: false, createdAt: "2026-02-11T10:00:00Z", link: "/dashboard/messages/conv4" },
+];
+
 export function getPlayerById(id: string): Player | undefined {
   return players.find((p) => p.id === id);
 }

@@ -1,22 +1,34 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
-import { Moon, Sun, Bell, Shield, LogOut } from "lucide-react";
+import { Moon, Sun, Bell, Shield, LogOut, Bot } from "lucide-react";
+import { loadPreferences, savePreferences, type NotificationPreferences } from "@/lib/notifications";
 
 export default function SettingsPage() {
   const { setTheme, theme } = useTheme();
   const { logout } = useAuth();
   const router = useRouter();
-  const [notifications, setNotifications] = useState({ matches: true, messages: true, reminders: false });
+  const [prefs, setPrefs] = useState<NotificationPreferences>(loadPreferences());
+
+  useEffect(() => {
+    setPrefs(loadPreferences());
+  }, []);
+
+  const updatePref = (key: keyof NotificationPreferences, value: boolean | string) => {
+    const updated = { ...prefs, [key]: value };
+    setPrefs(updated);
+    savePreferences(updated);
+  };
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-3xl mx-auto">
@@ -25,7 +37,6 @@ export default function SettingsPage() {
         <p className="text-muted-foreground">Manage your account and preferences</p>
       </div>
 
-      {/* Appearance */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><Sun className="h-5 w-5" />Appearance</CardTitle>
@@ -46,7 +57,6 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Notifications */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><Bell className="h-5 w-5" />Notifications</CardTitle>
@@ -54,22 +64,35 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           {([
-            { key: "matches" as const, label: "New Match Suggestions", desc: "Get notified when compatible players are found" },
             { key: "messages" as const, label: "Messages", desc: "Notifications for new messages from partners" },
+            { key: "matchInvites" as const, label: "Match Invitations", desc: "Get notified when someone invites you to play" },
             { key: "reminders" as const, label: "Match Reminders", desc: "Reminders before upcoming matches" },
+            { key: "aiSuggestions" as const, label: "AI Suggestions", desc: "PlayMatch AI match introductions and tips", icon: Bot },
           ]).map((item) => (
             <div key={item.key} className="flex items-center justify-between">
               <div>
-                <Label>{item.label}</Label>
+                <Label className="flex items-center gap-1">
+                  {item.icon && <item.icon className="h-3.5 w-3.5 text-orange-500" />}
+                  {item.label}
+                </Label>
                 <p className="text-xs text-muted-foreground">{item.desc}</p>
               </div>
-              <Switch checked={notifications[item.key]} onCheckedChange={(v) => setNotifications((n) => ({ ...n, [item.key]: v }))} />
+              <Switch checked={prefs[item.key] as boolean} onCheckedChange={(v) => updatePref(item.key, v)} />
             </div>
           ))}
+          <Separator />
+          <div>
+            <Label>Quiet Hours</Label>
+            <p className="text-xs text-muted-foreground mb-2">No notifications during these hours</p>
+            <div className="flex items-center gap-2">
+              <Input type="time" value={prefs.quietHoursStart} onChange={(e) => updatePref("quietHoursStart", e.target.value)} className="w-32" />
+              <span className="text-sm text-muted-foreground">to</span>
+              <Input type="time" value={prefs.quietHoursEnd} onChange={(e) => updatePref("quietHoursEnd", e.target.value)} className="w-32" />
+            </div>
+          </div>
         </CardContent>
       </Card>
 
-      {/* Account */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><Shield className="h-5 w-5" />Account</CardTitle>
