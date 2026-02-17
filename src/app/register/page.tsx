@@ -1,481 +1,124 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
-import Image from "next/image";
-
-// shadcn/ui components
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { Icons } from "@/components/icons";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { Trophy } from "lucide-react";
 
-// utility
-import { cn } from "@/lib/utils";
-
-// -----------------------------------------------------------------------------
-// Register Page (FULL VERSION) – 100% complete
-// -----------------------------------------------------------------------------
 export default function RegisterPage() {
+  const [form, setForm] = useState({ name: "", email: "", password: "", confirmPassword: "", ntrpRating: "", location: "", sport: "" });
+  const [error, setError] = useState("");
+  const { register, loginWithGoogle } = useAuth();
   const router = useRouter();
 
-  // ─── State ───────────────────────────────────────────────────────────────────
-  const [sportPreference, setSportPreference] = useState("");
-  const [age, setAge] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [skillLevel, setSkillLevel] = useState("3.0");
-  const [gender, setGender] = useState("");
-  const [typeOfPlayer, setTypeOfPlayer] = useState("");
-  const [preferredPlayingTimes, setPreferredPlayingTimes] =
-    useState<Record<string, Record<string, Record<number, boolean>>>>({});
-  const [howOftenTheyPlay, setHowOftenTheyPlay] = useState("");
-  const [gameType, setGameType] = useState("");
-  const [contactDetails, setContactDetails] = useState("");
-  const [playingStyle, setPlayingStyle] = useState("");
-  const [profilePicture, setProfilePicture] = useState<File | null>(null);
-  const [expandedDays, setExpandedDays] = useState<Record<string, boolean>>({});
-
-  // error state
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-
-  // ─── Helpers ────────────────────────────────────────────────────────────────
-  const ntrpLevels = [
-    "1.0",
-    "1.5",
-    "2.0",
-    "2.5",
-    "3.0",
-    "3.5",
-    "4.0",
-    "4.5",
-    "5.0",
-    "5.5",
-    "6.0",
-    "6.5",
-    "7.0",
-  ];
-
-  const timeSlots: Record<string, Record<string, number[]>> = {
-    Monday: {
-      Morning: Array.from({ length: 4 }, (_, i) => i + 8),
-      Afternoon: Array.from({ length: 5 }, (_, i) => i + 12),
-      Evening: Array.from({ length: 5 }, (_, i) => i + 17),
-    },
-    Tuesday: {
-      Morning: Array.from({ length: 4 }, (_, i) => i + 8),
-      Afternoon: Array.from({ length: 5 }, (_, i) => i + 12),
-      Evening: Array.from({ length: 5 }, (_, i) => i + 17),
-    },
-    Wednesday: {
-      Morning: Array.from({ length: 4 }, (_, i) => i + 8),
-      Afternoon: Array.from({ length: 5 }, (_, i) => i + 12),
-      Evening: Array.from({ length: 5 }, (_, i) => i + 17),
-    },
-    Thursday: {
-      Morning: Array.from({ length: 4 }, (_, i) => i + 8),
-      Afternoon: Array.from({ length: 5 }, (_, i) => i + 12),
-      Evening: Array.from({ length: 5 }, (_, i) => i + 17),
-    },
-    Friday: {
-      Morning: Array.from({ length: 4 }, (_, i) => i + 8),
-      Afternoon: Array.from({ length: 5 }, (_, i) => i + 12),
-      Evening: Array.from({ length: 5 }, (_, i) => i + 17),
-    },
-    Saturday: {
-      Morning: Array.from({ length: 4 }, (_, i) => i + 8),
-      Afternoon: Array.from({ length: 5 }, (_, i) => i + 12),
-      Evening: Array.from({ length: 4 }, (_, i) => i + 17),
-    },
-    Sunday: {
-      Morning: Array.from({ length: 4 }, (_, i) => i + 8),
-      Afternoon: Array.from({ length: 5 }, (_, i) => i + 12),
-      Evening: Array.from({ length: 3 }, (_, i) => i + 17),
-    },
+  const validate = () => {
+    if (!form.name || !form.email || !form.password) return "Please fill in required fields.";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) return "Please enter a valid email.";
+    if (form.password.length < 8) return "Password must be at least 8 characters.";
+    if (form.password !== form.confirmPassword) return "Passwords do not match.";
+    return null;
   };
 
-  // ─── Event Handlers ─────────────────────────────────────────────────────────
-  const handleProfilePictureChange = (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    if (e.target.files?.length) setProfilePicture(e.target.files[0]);
-  };
-
-  // Immutable deep update for multi‑select
-  const handleTimeSlotChange = (day: string, period: string, hour: number) => {
-    setPreferredPlayingTimes(prev => ({
-      ...prev,
-      [day]: {
-        ...(prev[day] ?? {}),
-        [period]: {
-          ...(prev[day]?.[period] ?? {}),
-          [hour]: !prev[day]?.[period]?.[hour],
-        },
-      },
-    }));
-  };
-
-  const toggleDayExpansion = (day: string) => {
-    setExpandedDays(prev => ({ ...prev, [day]: !prev[day] }));
-  };
-
-  // ─── Validation & Submit ────────────────────────────────────────────────────
-  const validateForm = () => {
-    const errors: Record<string, string> = {};
-
-    if (!email) errors.email = "Email is required";
-    if (!password) errors.password = "Password is required";
-    if (!confirmPassword) errors.confirmPassword = "Confirm Password is required";
-    if (password && confirmPassword && password !== confirmPassword)
-      errors.confirmPassword = "Passwords do not match";
-
-    if (!sportPreference) errors.sportPreference = "Sport Preference is required";
-    if (!age) errors.age = "Age is required";
-    if (!skillLevel) errors.skillLevel = "Skill Level is required";
-    if (!gender) errors.gender = "Gender is required";
-    if (!typeOfPlayer) errors.typeOfPlayer = "Type of Player is required";
-    if (!howOftenTheyPlay)
-      errors.howOftenTheyPlay = "How Often Do You Play? is required";
-    if (!gameType) errors.gameType = "Game Type is required";
-    if (!contactDetails) errors.contactDetails = "Phone Number is required";
-
-    let hours = 0;
-    Object.values(preferredPlayingTimes).forEach(dayObj =>
-      Object.values(dayObj).forEach(periodObj => {
-        hours += Object.values(periodObj).filter(Boolean).length;
-      })
-    );
-    if (hours < 2)
-      errors.preferredPlayingTimes =
-        "Select at least 2 hours in Preferred Playing Times";
-
-    return errors;
-  };
-
-  const handleNext = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const errors = validateForm();
-    setFormErrors(errors);
-    if (Object.keys(errors).length) return;
-
-    try {
-      await fetch("/api/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email,
-          password,
-          sportPreference,
-          age: Number(age),
-          skillLevel,
-          gender,
-          typeOfPlayer,
-          preferredPlayingTimes,
-          howOftenTheyPlay,
-          gameType,
-          notes: playingStyle,
-          phoneNumber: contactDetails,
-        }),
-      });
-      router.push("/register/partner-preferences");
-    } catch (err: any) {
-      setFormErrors(prev => ({ ...prev, database: err?.message || "Unexpected error" }));
-    }
+    setError("");
+    const err = validate();
+    if (err) { setError(err); return; }
+    const ok = await register({ name: form.name, email: form.email, password: form.password, ntrpRating: parseFloat(form.ntrpRating) || 3.0, location: form.location || "Pleasanton, CA", sport: (form.sport as "tennis" | "pickleball" | "both") || "both" });
+    if (ok) router.push("/register/partner-preferences");
+    else setError("Registration failed. Please try again.");
   };
 
-  // ─── Render ─────────────────────────────────────────────────────────────────
+  const handleGoogle = async () => {
+    const ok = await loginWithGoogle();
+    if (ok) router.push("/dashboard");
+  };
+
+  const set = (k: string) => (e: string | React.ChangeEvent<HTMLInputElement>) =>
+    setForm((f) => ({ ...f, [k]: typeof e === "string" ? e : e.target.value }));
+
   return (
-    <div className="flex justify-center items-center min-h-screen bg-background-light-gray py-12">
-      <Card className="w-full max-w-3xl shadow-md rounded-lg">
-        <CardHeader>
-          <CardTitle className="text-2xl font-bold text-primary">Registration (Step 1 of 2)</CardTitle>
-          <CardDescription>Create your profile to find the perfect match.</CardDescription>
+    <div className="min-h-screen flex items-center justify-center px-4 py-8 bg-gradient-to-br from-green-50 to-orange-50 dark:from-green-950/20 dark:to-orange-950/20">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <Link href="/" className="inline-flex items-center justify-center gap-2 mb-2">
+            <Trophy className="h-6 w-6 text-primary" />
+            <span className="font-bold text-xl">PlayMatch</span>
+          </Link>
+          <CardTitle className="text-2xl">Create Account</CardTitle>
+          <CardDescription>Join the Pleasanton tennis &amp; pickleball community</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4 max-h-[80vh] overflow-y-auto pr-2">
-          <form onSubmit={handleNext} className="space-y-4">
-            {/* Email */}
+        <CardContent className="space-y-4">
+          <Button variant="outline" className="w-full" onClick={handleGoogle}>
+            <svg className="h-5 w-5 mr-2" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+            Continue with Google
+          </Button>
+          <div className="relative">
+            <Separator />
+            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-xs text-muted-foreground">or</span>
+          </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {error && <p className="text-sm text-destructive">{error}</p>}
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                type="email"
-                id="email"
-                placeholder="Enter your email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-              />
-              {formErrors.email && <p className="text-red-500 text-sm">{formErrors.email}</p>}
+              <Label htmlFor="name">Full Name *</Label>
+              <Input id="name" placeholder="John Doe" value={form.name} onChange={set("name")} />
             </div>
-
-            {/* Password */}
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                type="password"
-                id="password"
-                placeholder="Enter your password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-              />
-              {formErrors.password && <p className="text-red-500 text-sm">{formErrors.password}</p>}
+              <Label htmlFor="email">Email *</Label>
+              <Input id="email" type="email" placeholder="you@example.com" value={form.email} onChange={set("email")} />
             </div>
-
-            {/* Confirm Password */}
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
-              <Input
-                type="password"
-                id="confirmPassword"
-                placeholder="Confirm your password"
-                value={confirmPassword}
-                onChange={e => setConfirmPassword(e.target.value)}
-              />
-              {formErrors.confirmPassword && <p className="text-red-500 text-sm">{formErrors.confirmPassword}</p>}
+              <Label htmlFor="password">Password * (min 8 chars)</Label>
+              <Input id="password" type="password" placeholder="••••••••" value={form.password} onChange={set("password")} />
             </div>
-
-            {/* Profile Picture */}
             <div className="space-y-2">
-              <Label htmlFor="profilePicture">Profile Picture (Optional)</Label>
-              <Input
-                type="file"
-                id="profilePicture"
-                accept="image/*"
-                onChange={handleProfilePictureChange}
-              />
+              <Label htmlFor="confirmPassword">Confirm Password *</Label>
+              <Input id="confirmPassword" type="password" placeholder="••••••••" value={form.confirmPassword} onChange={set("confirmPassword")} />
             </div>
-
-            {/* Sport Preference */}
-            <div className="space-y-2">
-              <Label htmlFor="sportPreference">Sport Preference</Label>
-              <Select value={sportPreference} onValueChange={setSportPreference}>
-                <SelectTrigger id="sportPreference">
-                  <SelectValue placeholder="Select" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Tennis">Tennis</SelectItem>
-                  <SelectItem value="Pickleball">Pickleball</SelectItem>
-                  <SelectItem value="Both">Both</SelectItem>
-                </SelectContent>
-              </Select>
-              {formErrors.sportPreference && <p className="text-red-500 text-sm">{formErrors.sportPreference}</p>}
-            </div>
-
-            {/* Age */}
-            <div className="space-y-2">
-              <Label htmlFor="age">Age</Label>
-              <Input
-                type="number"
-                id="age"
-                placeholder="Enter your age"
-                value={age}
-                onChange={e => setAge(e.target.value)}
-              />
-              {formErrors.age && <p className="text-red-500 text-sm">{formErrors.age}</p>}
-            </div>
-
-            {/* Skill Level */}
-            <div className="space-y-1">
-              <div className="mb-1 flex items-center gap-2">
-                <Label htmlFor="skillLevel">Skill Level (NTRP)</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-5 w-5">
-                      <Icons.help className="h-4 w-4" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-80">
-                    <Image
-                      src="/ntrp-skill-levels.png"
-                      alt="NTRP Skill Levels"
-                      width={300}
-                      height={400}
-                      style={{ objectFit: "contain" }}
-                    />
-                  </PopoverContent>
-                </Popover>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>NTRP Rating</Label>
+                <Select onValueChange={set("ntrpRating")}>
+                  <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>
+                    {["2.5", "3.0", "3.5", "4.0", "4.5", "5.0"].map((r) => (
+                      <SelectItem key={r} value={r}>{r}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              <Select value={skillLevel} onValueChange={setSkillLevel}>
-                <SelectTrigger id="skillLevel">
-                  <SelectValue placeholder="Select your NTRP level" />
-                </SelectTrigger>
-                <SelectContent>
-                  {ntrpLevels.map(level => (
-                    <SelectItem key={level} value={level}>
-                      {level}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {formErrors.skillLevel && <p className="text-red-500 text-sm">{formErrors.skillLevel}</p>}
-            </div>
-
-            {/* Gender */}
-            <div className="space-y-2">
-              <Label htmlFor="gender">Gender</Label>
-              <Select value={gender} onValueChange={setGender}>
-                <SelectTrigger id="gender">
-                  <SelectValue placeholder="Select" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Male">Male</SelectItem>
-                  <SelectItem value="Female">Female</SelectItem>
-                  <SelectItem value="Other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-              {formErrors.gender && <p className="text-red-500 text-sm">{formErrors.gender}</p>}
-            </div>
-
-            {/* Type of Player */}
-            <div className="space-y-2">
-              <Label htmlFor="typeOfPlayer">Type of Player</Label>
-              <Select value={typeOfPlayer} onValueChange={setTypeOfPlayer}>
-                <SelectTrigger id="typeOfPlayer">
-                  <SelectValue placeholder="Select" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Recreational">Recreational</SelectItem>
-                  <SelectItem value="Somewhat Competitive">Somewhat Competitive</SelectItem>
-                  <SelectItem value="Really Competitive">Really Competitive</SelectItem>
-                </SelectContent>
-              </Select>
-              {formErrors.typeOfPlayer && <p className="text-red-500 text-sm">{formErrors.typeOfPlayer}</p>}
-            </div>
-
-            {/* Preferred Playing Days/Times */}
-            <div className="space-y-2">
-              <Label>Preferred Playing Days/Times</Label>
-              <div>
-                {Object.entries(timeSlots).map(([day, periods]) => (
-                  <div key={day} className="mb-4">
-                    <div
-                      className="flex cursor-pointer items-center"
-                      onClick={() => toggleDayExpansion(day)}
-                    >
-                      <h3 className="mr-2 font-semibold">{day}</h3>
-                      <Icons.chevronDown
-                        className={cn(
-                          "h-4 w-4 transition-transform",
-                          expandedDays[day] && "rotate-180"
-                        )}
-                      />
-                    </div>
-                    {expandedDays[day] && (
-                      <div className="pl-4 mt-2 space-y-2">
-                        {Object.entries(periods).map(([period, hours]) => (
-                          <div key={period}>
-                            <h4 className="text-sm font-medium mb-1">{period}</h4>
-                            <div className="flex flex-wrap gap-2">
-                              {hours.map(hour => (
-                                <label key={hour} className="flex items-center text-xs cursor-pointer select-none gap-1">
-                                  <Checkbox
-                                    checked={!!preferredPlayingTimes[day]?.[period]?.[hour]}
-                                    onCheckedChange={() => handleTimeSlotChange(day, period, hour)}
-                                  />
-                                  <span>
-                                    {hour === 0
-                                      ? "12 AM"
-                                      : hour < 12
-                                      ? `${hour} AM`
-                                      : hour === 12
-                                      ? "12 PM"
-                                      : `${hour - 12} PM`}
-                                  </span>
-                                </label>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
+              <div className="space-y-2">
+                <Label>Sport</Label>
+                <Select onValueChange={set("sport")}>
+                  <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="tennis">Tennis</SelectItem>
+                    <SelectItem value="pickleball">Pickleball</SelectItem>
+                    <SelectItem value="both">Both</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              {formErrors.preferredPlayingTimes && (
-                <p className="text-red-500 text-sm">{formErrors.preferredPlayingTimes}</p>
-              )}
             </div>
-
-            {/* How Often They Play */}
             <div className="space-y-2">
-              <Label htmlFor="howOftenTheyPlay">How Often Do You Play?</Label>
-              <Select value={howOftenTheyPlay} onValueChange={setHowOftenTheyPlay}>
-                <SelectTrigger id="howOftenTheyPlay">
-                  <SelectValue placeholder="Select" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Once per month or less">Once per month or less</SelectItem>
-                  <SelectItem value="2 - 5 times per month">2 - 5 times per month</SelectItem>
-                  <SelectItem value="More than 5 times per month">More than 5 times per month</SelectItem>
-                </SelectContent>
-              </Select>
-              {formErrors.howOftenTheyPlay && <p className="text-red-500 text-sm">{formErrors.howOftenTheyPlay}</p>}
+              <Label htmlFor="location">Location</Label>
+              <Input id="location" placeholder="Pleasanton, CA" value={form.location} onChange={set("location")} />
             </div>
-
-            {/* Game Type */}
-            <div className="space-y-2">
-              <Label htmlFor="gameType">Game Type</Label>
-              <Select value={gameType} onValueChange={setGameType}>
-                <SelectTrigger id="gameType">
-                  <SelectValue placeholder="Select" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Singles only">Singles only</SelectItem>
-                  <SelectItem value="Doubles only">Doubles only</SelectItem>
-                  <SelectItem value="Singles or Doubles">Singles or Doubles</SelectItem>
-                </SelectContent>
-              </Select>
-              {formErrors.gameType && <p className="text-red-500 text-sm">{formErrors.gameType}</p>}
-            </div>
-
-            {/* Notes */}
-            <div className="space-y-2">
-              <Label htmlFor="notes">Notes</Label>
-              <Textarea
-                id="notes"
-                placeholder="(Optional) Any additional info you would like to share"
-                value={playingStyle}
-                onChange={e => setPlayingStyle(e.target.value)}
-              />
-            </div>
-
-            {/* Phone Number */}
-            <div className="space-y-2">
-              <Label htmlFor="contactDetails">Phone Number</Label>
-              <Input
-                type="text"
-                id="contactDetails"
-                placeholder="Enter your phone number"
-                value={contactDetails}
-                onChange={e => setContactDetails(e.target.value)}
-              />
-              {formErrors.contactDetails && <p className="text-red-500 text-sm">{formErrors.contactDetails}</p>}
-            </div>
-
-            {/* Submit */}
-            <Button type="submit" className="w-full bg-primary text-primary-foreground hover:bg-primary/80">
-              Next
-            </Button>
-
-            {formErrors.database && <p className="text-red-500 text-sm">{formErrors.database}</p>}
+            <Button type="submit" className="w-full">Create Account</Button>
           </form>
         </CardContent>
+        <CardFooter>
+          <p className="text-sm text-muted-foreground text-center w-full">
+            Already have an account?{" "}
+            <Link href="/login" className="text-primary hover:underline font-medium">Sign in</Link>
+          </p>
+        </CardFooter>
       </Card>
     </div>
   );

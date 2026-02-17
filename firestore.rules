@@ -1,0 +1,11 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // PRODUCTION: Lock down properly with auth rules
+    // DEV: Set to `if true` for seeding/testing, then revert
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
