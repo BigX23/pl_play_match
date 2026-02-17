@@ -7,13 +7,12 @@ import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Trophy } from "lucide-react";
 
 export default function RegisterPage() {
-  const [form, setForm] = useState({ name: "", email: "", password: "", confirmPassword: "", ntrpRating: "", location: "", sport: "" });
+  const [form, setForm] = useState({ name: "", email: "", password: "", confirmPassword: "" });
   const [error, setError] = useState("");
   const { register, loginWithGoogle } = useAuth();
   const router = useRouter();
@@ -31,8 +30,8 @@ export default function RegisterPage() {
     setError("");
     const err = validate();
     if (err) { setError(err); return; }
-    const ok = await register({ name: form.name, email: form.email, password: form.password, ntrpRating: parseFloat(form.ntrpRating) || 3.0, location: form.location || "Pleasanton, CA", sport: (form.sport as "tennis" | "pickleball" | "both") || "both" });
-    if (ok) router.push("/register/partner-preferences");
+    const ok = await register({ name: form.name, email: form.email, password: form.password });
+    if (ok) router.push("/onboarding");
     else setError("Registration failed. Please try again.");
   };
 
@@ -81,34 +80,6 @@ export default function RegisterPage() {
             <div className="space-y-2">
               <Label htmlFor="confirmPassword">Confirm Password *</Label>
               <Input id="confirmPassword" type="password" placeholder="••••••••" value={form.confirmPassword} onChange={set("confirmPassword")} />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>NTRP Rating</Label>
-                <Select onValueChange={set("ntrpRating")}>
-                  <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent>
-                    {["2.5", "3.0", "3.5", "4.0", "4.5", "5.0"].map((r) => (
-                      <SelectItem key={r} value={r}>{r}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Sport</Label>
-                <Select onValueChange={set("sport")}>
-                  <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="tennis">Tennis</SelectItem>
-                    <SelectItem value="pickleball">Pickleball</SelectItem>
-                    <SelectItem value="both">Both</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="location">Location</Label>
-              <Input id="location" placeholder="Pleasanton, CA" value={form.location} onChange={set("location")} />
             </div>
             <Button type="submit" className="w-full">Create Account</Button>
           </form>
