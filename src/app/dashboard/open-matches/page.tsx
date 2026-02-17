@@ -1,30 +1,59 @@
 "use client";
 
-import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useEffect, useState } from "react";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { Search, MapPin, Clock, Star } from "lucide-react";
-import { matches, getPlayerById } from "@/lib/mock-data";
+import { getMatches, getPlayers } from "@/lib/firestore";
+import { type Match, type Player, getPlayerById } from "@/lib/mock-data";
 
 export default function OpenMatchesPage() {
   const [sportFilter, setSportFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const [allMatches, setAllMatches] = useState<Match[]>([]);
+  const [allPlayers, setAllPlayers] = useState<Player[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const openMatches = matches.filter((m) => m.status === "open");
+  useEffect(() => {
+    async function load() {
+      try {
+        const [m, p] = await Promise.all([getMatches(), getPlayers()]);
+        setAllMatches(m);
+        setAllPlayers(p);
+      } catch (e) {
+        console.error("Failed to load matches:", e);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  const findPlayer = (id: string) => allPlayers.find((p) => p.id === id) || getPlayerById(id);
+
+  const openMatches = allMatches.filter((m) => m.status === "open");
   const filtered = openMatches.filter((m) => {
     if (sportFilter !== "all" && m.sport !== sportFilter) return false;
     if (search) {
-      const p1 = getPlayerById(m.player1Id);
-      const p2 = getPlayerById(m.player2Id);
+      const p1 = findPlayer(m.player1Id);
+      const p2 = findPlayer(m.player2Id);
       const text = `${p1?.name} ${p2?.name} ${m.location}`.toLowerCase();
       if (!text.includes(search.toLowerCase())) return false;
     }
     return true;
   });
+
+  if (loading) {
+    return (
+      <div className="p-4 md:p-6 flex items-center justify-center min-h-[50vh]">
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-5xl mx-auto">
@@ -33,7 +62,6 @@ export default function OpenMatchesPage() {
         <p className="text-muted-foreground">Browse and join available matches near you</p>
       </div>
 
-      {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -49,11 +77,10 @@ export default function OpenMatchesPage() {
         </Select>
       </div>
 
-      {/* Match Cards */}
       <div className="grid gap-4 md:grid-cols-2">
         {filtered.map((match) => {
-          const p1 = getPlayerById(match.player1Id);
-          const p2 = getPlayerById(match.player2Id);
+          const p1 = findPlayer(match.player1Id);
+          const p2 = findPlayer(match.player2Id);
           return (
             <Card key={match.id} className="hover:shadow-md transition-shadow">
               <CardHeader className="pb-2">
@@ -69,17 +96,17 @@ export default function OpenMatchesPage() {
                 <div className="flex items-center justify-between">
                   <div className="text-center">
                     <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold mx-auto">
-                      {p1?.name.split(" ").map((n) => n[0]).join("")}
+                      {p1?.name.split(" ").map((n) => n[0]).join("") || "?"}
                     </div>
-                    <p className="text-sm font-medium mt-1">{p1?.name}</p>
+                    <p className="text-sm font-medium mt-1">{p1?.name || "Unknown"}</p>
                     <p className="text-xs text-muted-foreground">NTRP {p1?.ntrpRating}</p>
                   </div>
                   <span className="text-lg font-bold text-muted-foreground">vs</span>
                   <div className="text-center">
                     <div className="h-12 w-12 rounded-full bg-accent/10 flex items-center justify-center text-accent font-bold mx-auto">
-                      {p2?.name.split(" ").map((n) => n[0]).join("")}
+                      {p2?.name.split(" ").map((n) => n[0]).join("") || "?"}
                     </div>
-                    <p className="text-sm font-medium mt-1">{p2?.name}</p>
+                    <p className="text-sm font-medium mt-1">{p2?.name || "Unknown"}</p>
                     <p className="text-xs text-muted-foreground">NTRP {p2?.ntrpRating}</p>
                   </div>
                 </div>

@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { getMessages, sendMessage } from "@/lib/firestore";
-import { type Message, conversations, getPlayerById } from "@/lib/mock-data";
+import { type Message, type Conversation, getPlayerById } from "@/lib/mock-data";
+import { getConversations } from "@/lib/firestore";
 import { getAIResponse, AI_SENDER_ID, AI_SENDER_NAME } from "@/lib/ai-assistant";
 import MessageBubble from "@/components/message-bubble";
 import ChatInput from "@/components/chat-input";
@@ -18,10 +19,22 @@ export default function ChatPage() {
   const [msgs, setMsgs] = useState<Message[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const conversation = conversations.find((c) => c.id === conversationId);
-  const otherIds = conversation?.participants.filter((id) => id !== user?.id && id !== "ai") || [];
+  const [conversation, setConversation] = useState<Conversation | null>(null);
+
+  useEffect(() => {
+    if (user) {
+      getConversations(user.id).then((convos) => {
+        const found = convos.find((c) => c.id === conversationId);
+        if (found) setConversation(found);
+      });
+    }
+  }, [user, conversationId]);
+
+  // Keep backward compat reference
+  const conv = conversation;
+  const otherIds = conv?.participants.filter((id) => id !== user?.id && id !== "ai") || [];
   const otherPlayers = otherIds.map((id) => getPlayerById(id)).filter(Boolean);
-  const hasAI = conversation?.participants.includes("ai");
+  const hasAI = conv?.participants.includes("ai");
   const title = otherPlayers.map((p) => p!.name).join(", ") || "Chat";
 
   useEffect(() => {

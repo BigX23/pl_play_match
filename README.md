@@ -148,9 +148,9 @@ The app runs on **http://localhost:9002** by default.
 
 > **No Firebase required** — the app is fully functional with mock data out of the box.
 
-### Optional: Firebase Configuration
+### Firebase Configuration (Live Mode)
 
-To enable real authentication, Firestore, and push notifications, create a `.env.local`:
+The app now supports **live Firebase** for auth, Firestore, and FCM push notifications. Create a `.env.local`:
 
 ```env
 NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
@@ -159,7 +159,26 @@ NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
+NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=G-XXXXXXXXXX
 ```
+
+When configured, the app uses:
+- **Firebase Auth** for Google sign-in, email/password, and password reset
+- **Firestore** for all data (users, matches, conversations, messages, notifications)
+- **FCM** for push notifications via service worker
+- **Google Analytics** for usage tracking
+
+Without `.env.local`, the app falls back to mock data seamlessly.
+
+### Seed Firestore
+
+To populate Firestore with mock data for development:
+
+```bash
+npm run seed
+```
+
+> **Note:** Firestore security rules must allow writes for the seed script (uses client SDK without auth). Temporarily set rules to allow all writes, run the seed, then restore rules.
 
 ---
 
@@ -193,8 +212,10 @@ The app ships with realistic mock data:
 | UI Components | shadcn/ui + Radix UI primitives |
 | Styling | Tailwind CSS |
 | Theming | next-themes |
-| Auth | Firebase Auth (optional) + mock fallback |
-| Database | Firestore (optional) + mock data |
+| Auth | Firebase Auth (live) + mock fallback |
+| Database | Firestore (live) + mock data fallback |
+| Analytics | Google Analytics via Firebase |
+| Push | Firebase Cloud Messaging (FCM) |
 | PWA | Custom service worker + manifest |
 | Icons | Lucide React |
 
