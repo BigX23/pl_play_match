@@ -15,6 +15,20 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: true,
   },
 
+  // ─── Allow next/image to load from Firebase Storage ─────────────────────────
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "firebasestorage.googleapis.com",
+      },
+      {
+        protocol: "https",
+        hostname: "*.firebasestorage.app",
+      },
+    ],
+  },
+
   // ─── Alias "@/…" → "<projectRoot>/src" ──────────────────────────────────────
   webpack: (config) => {
     // Ensure an alias object exists

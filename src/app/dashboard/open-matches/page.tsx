@@ -219,7 +219,7 @@ export default function OpenMatchesPage() {
                   <div className="flex items-center gap-2">📍 {match.location}</div>
                 </div>
                 {match.notes && <p className="text-xs text-muted-foreground italic">{match.notes}</p>}
-                {match.matchExplanation && <p className="text-xs text-muted-foreground italic">{match.matchExplanation}</p>}
+                {!match.notes && match.matchExplanation && <p className="text-xs text-muted-foreground italic">{match.matchExplanation}</p>}
                 {match.compatibilityScore > 0 && <Progress value={match.compatibilityScore} className="h-1.5" />}
                 {isOpen && !isOwn && (
                   <Button className="w-full" size="sm" onClick={() => handleAcceptMatch(match)}>

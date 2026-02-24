@@ -27,8 +27,8 @@ export async function getUser(userId: string): Promise<Player | undefined> {
 
 export async function updateUser(userId: string, data: Partial<Player>): Promise<void> {
   if (isFirebaseConfigured && db) {
-    const { doc, updateDoc } = await import("firebase/firestore");
-    await updateDoc(doc(db, "users", userId), data as Record<string, unknown>);
+    const { doc, setDoc } = await import("firebase/firestore");
+    await setDoc(doc(db, "users", userId), data as Record<string, unknown>, { merge: true });
     return;
   }
   const idx = players.findIndex((p) => p.id === userId);

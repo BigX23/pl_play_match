@@ -29,16 +29,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (isFirebaseConfigured && firebaseAuth) {
-      const unsub = onAuthStateChanged(firebaseAuth, (fbUser) => {
+      const unsub = onAuthStateChanged(firebaseAuth, async (fbUser) => {
         setFirebaseUser(fbUser);
         if (fbUser) {
-          setUser({
-            ...currentUser,
-            id: fbUser.uid,
-            name: fbUser.displayName || currentUser.name,
-            email: fbUser.email || currentUser.email,
-            avatar: fbUser.photoURL || "",
-          });
+          // Check Firestore for an existing profile
+          const { getUser } = await import("./firestore");
+          const firestoreProfile = await getUser(fbUser.uid);
+          if (firestoreProfile) {
+            setUser(firestoreProfile);
+          } else {
+            // New user — no Firestore profile yet, mark profileComplete false
+            setUser({
+              id: fbUser.uid,
+              name: fbUser.displayName || "",
+              email: fbUser.email || "",
+              avatar: fbUser.photoURL || "",
+              profileComplete: false,
+              sport: "both",
+              skillLevel: "intermediate",
+              age: 0,
+              gender: "prefer-not-to-say",
+              location: "",
+              weeklyAvailability: [],
+              partnerPreferences: { ageRange: [18, 60], genderPreference: "any", skillRange: ["beginner", "advanced"] },
+              bio: "",
+              rating: 0,
+              wins: 0,
+              losses: 0,
+            } as Player);
+          }
         } else {
           setUser(null);
         }

@@ -10,6 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { HelpCircle } from "lucide-react";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import Image from "next/image";
 import { useAuth } from "@/lib/auth-context";
 import { updateUser } from "@/lib/firestore";
 import type { GameType, SportType, MatchFormat, AgeRange, DayAvailability, PartnerPreferences } from "@/lib/matching-engine";
@@ -17,14 +20,11 @@ import type { GameType, SportType, MatchFormat, AgeRange, DayAvailability, Partn
 const EMOJI_AVATARS = ["🎾", "🏓", "💪", "🔥", "⭐", "🏆", "🎯", "🦊", "🐻", "🦁", "🐯", "🦅", "🐬", "🌟", "🎪", "🚀", "💎", "🌈", "🎭", "🎨"];
 const NTRP_OPTIONS = ["2.0", "2.5", "3.0", "3.5", "4.0", "4.5", "5.0", "5.5"];
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const HOURS = Array.from({ length: 17 }, (_, i) => i + 6); // 6am to 10pm
-
-function formatHour(h: number) {
-  if (h === 0) return "12 AM";
-  if (h < 12) return `${h} AM`;
-  if (h === 12) return "12 PM";
-  return `${h - 12} PM`;
-}
+const TIME_PERIODS = [
+  { label: "Morning",   emoji: "🌅", start: 8,  end: 12 },
+  { label: "Afternoon", emoji: "☀️", start: 12, end: 17 },
+  { label: "Evening",   emoji: "🌆", start: 17, end: 21 },
+];
 
 export default function OnboardingPage() {
   const { user, updateUserProfile, setProfileComplete } = useAuth();
@@ -39,16 +39,37 @@ export default function OnboardingPage() {
   const [avatar, setAvatar] = useState(user?.avatar || "");
   const [aboutMe, setAboutMe] = useState(user?.aboutMe || user?.bio || "");
 
+  const [showNtrpInfo, setShowNtrpInfo] = useState(false);
+
   // Step 2
   const [ntrp, setNtrp] = useState(user?.ntrpRating?.toString() || "3.5");
   const [sports, setSports] = useState<SportType[]>(user?.sports || []);
   const [matchFormats, setMatchFormats] = useState<MatchFormat[]>(user?.matchFormats || []);
   const [gameType, setGameType] = useState<GameType>(user?.gameType || "slightly-competitive");
 
-  // Step 3
-  const [availability, setAvailability] = useState<DayAvailability[]>(
-    user?.weeklyAvailability || DAYS.map((d) => ({ day: d, enabled: false, slots: [] }))
-  );
+  // Step 3 — weekly calendar grid
+  const [selectedSlots, setSelectedSlots] = useState<Set<string>>(() => {
+    const set = new Set<string>();
+    (user?.weeklyAvailability || []).forEach((day) => {
+      if (day.enabled) {
+        day.slots.forEach((slot) => {
+          TIME_PERIODS.forEach((period, i) => {
+            if (slot.start <= period.start && slot.end >= period.end) set.add(`${day.day}-${i}`);
+          });
+        });
+      }
+    });
+    return set;
+  });
+
+  const toggleSlot = (day: string, periodIdx: number) => {
+    const key = `${day}-${periodIdx}`;
+    setSelectedSlots((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
 
   // Step 4
   const [ageRange, setAgeRange] = useState<AgeRange>(user?.partnerPreferences?.ageRange || "10");
@@ -57,36 +78,17 @@ export default function OnboardingPage() {
   const [partnerGameTypes, setPartnerGameTypes] = useState<GameType[]>(user?.partnerPreferences?.gameTypes || []);
   const [partnerSports, setPartnerSports] = useState<SportType[]>(user?.partnerPreferences?.sports || []);
   const [partnerFormats, setPartnerFormats] = useState<MatchFormat[]>(user?.partnerPreferences?.matchFormats || []);
+  const [partnerGender, setPartnerGender] = useState<"Male" | "Female" | "No Preference">(user?.partnerPreferences?.genderPreference || "No Preference");
 
   const toggleMulti = <T extends string>(arr: T[], val: T, setter: (v: T[]) => void) => {
     setter(arr.includes(val) ? arr.filter((x) => x !== val) : [...arr, val]);
   };
 
-  const toggleDay = (day: string) => {
-    setAvailability((prev) =>
-      prev.map((d) =>
-        d.day === day
-          ? { ...d, enabled: !d.enabled, slots: !d.enabled && d.slots.length === 0 ? [{ start: 9, end: 12 }] : d.slots }
-          : d
-      )
-    );
-  };
-
-  const updateSlot = (day: string, field: "start" | "end", value: number) => {
-    setAvailability((prev) =>
-      prev.map((d) =>
-        d.day === day
-          ? { ...d, slots: d.slots.length > 0 ? [{ ...d.slots[0], [field]: value }] : [{ start: 9, end: 12, [field]: value }] }
-          : d
-      )
-    );
-  };
-
   const canProceed = () => {
     if (step === 1) return firstName && lastName && age && gender && avatar;
     if (step === 2) return ntrp && sports.length > 0 && matchFormats.length > 0 && gameType;
-    if (step === 3) return availability.some((d) => d.enabled);
-    if (step === 4) return partnerGameTypes.length > 0 && partnerSports.length > 0 && partnerFormats.length > 0;
+    if (step === 3) return selectedSlots.size >= 3;
+    if (step === 4) return partnerGameTypes.length > 0 && partnerSports.length > 0 && partnerFormats.length > 0 && !!partnerGender;
     return false;
   };
 
@@ -98,6 +100,7 @@ export default function OnboardingPage() {
       gameTypes: partnerGameTypes,
       sports: partnerSports,
       matchFormats: partnerFormats,
+      genderPreference: partnerGender,
     };
 
     const profileData = {
@@ -113,7 +116,10 @@ export default function OnboardingPage() {
       sports,
       matchFormats,
       gameType,
-      weeklyAvailability: availability,
+      weeklyAvailability: DAYS.map((day) => {
+        const enabledPeriods = TIME_PERIODS.filter((_, i) => selectedSlots.has(`${day}-${i}`));
+        return { day, enabled: enabledPeriods.length > 0, slots: enabledPeriods.map((p) => ({ start: p.start, end: p.end })) } as DayAvailability;
+      }),
       partnerPreferences: prefs,
       profileComplete: true,
     };
@@ -205,7 +211,17 @@ export default function OnboardingPage() {
             <CardHeader><CardTitle>Play Preferences</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label>NTRP Rating *</Label>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Label className="mb-0">NTRP Rating *</Label>
+                  <button
+                    type="button"
+                    onClick={() => setShowNtrpInfo(true)}
+                    className="text-muted-foreground hover:text-primary transition-colors"
+                    aria-label="What is NTRP?"
+                  >
+                    <HelpCircle className="h-4 w-4" />
+                  </button>
+                </div>
                 <Select value={ntrp} onValueChange={setNtrp}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -266,51 +282,59 @@ export default function OnboardingPage() {
 
         {step === 3 && (
           <Card>
-            <CardHeader><CardTitle>Your Availability</CardTitle></CardHeader>
-            <CardContent className="space-y-3">
-              <p className="text-sm text-muted-foreground">Tap a day to enable it, then set your available hours.</p>
-              {availability.map((day) => (
-                <div key={day.day} className={`rounded-lg border p-3 transition-all ${day.enabled ? "border-primary bg-primary/5" : "border-muted"}`}>
-                  <div className="flex items-center justify-between">
-                    <button
-                      type="button"
-                      onClick={() => toggleDay(day.day)}
-                      className="font-medium flex items-center gap-2"
-                    >
-                      <div className={`w-5 h-5 rounded border-2 flex items-center justify-center text-xs ${day.enabled ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground"}`}>
-                        {day.enabled && "✓"}
-                      </div>
-                      {day.day}
-                    </button>
-                    {day.enabled && day.slots[0] && (
-                      <span className="text-sm text-muted-foreground">
-                        {formatHour(day.slots[0].start)} – {formatHour(day.slots[0].end)}
-                      </span>
-                    )}
-                  </div>
-                  {day.enabled && (
-                    <div className="flex items-center gap-2 mt-2">
-                      <Select value={day.slots[0]?.start?.toString() || "9"} onValueChange={(v) => updateSlot(day.day, "start", parseInt(v))}>
-                        <SelectTrigger className="w-28 h-8 text-xs"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {HOURS.map((h) => (
-                            <SelectItem key={h} value={h.toString()}>{formatHour(h)}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <span className="text-sm">to</span>
-                      <Select value={day.slots[0]?.end?.toString() || "12"} onValueChange={(v) => updateSlot(day.day, "end", parseInt(v))}>
-                        <SelectTrigger className="w-28 h-8 text-xs"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {HOURS.map((h) => (
-                            <SelectItem key={h} value={h.toString()}>{formatHour(h)}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-                </div>
-              ))}
+            <CardHeader>
+              <CardTitle>Your Availability</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-1">
+                Tap the time slots when you're free to play.
+              </p>
+              <p className="text-sm mb-4">
+                <span className={selectedSlots.size >= 3 ? "text-primary font-semibold" : "text-amber-600 font-semibold"}>
+                  {selectedSlots.size} selected
+                </span>
+                <span className="text-muted-foreground"> — select at least 3</span>
+              </p>
+              <div className="overflow-x-auto">
+                <table className="w-full border-separate border-spacing-1">
+                  <thead>
+                    <tr>
+                      <th className="w-24" />
+                      {DAYS.map((day) => (
+                        <th key={day} className="text-center text-xs font-semibold text-muted-foreground pb-1">{day}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {TIME_PERIODS.map((period, periodIdx) => (
+                      <tr key={period.label}>
+                        <td className="pr-2 py-0.5">
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">{period.emoji} {period.label}</span>
+                        </td>
+                        {DAYS.map((day) => {
+                          const key = `${day}-${periodIdx}`;
+                          const selected = selectedSlots.has(key);
+                          return (
+                            <td key={day} className="py-0.5">
+                              <button
+                                type="button"
+                                onClick={() => toggleSlot(day, periodIdx)}
+                                className={`w-full h-11 rounded-lg border-2 transition-all text-sm ${
+                                  selected
+                                    ? "border-primary bg-primary text-primary-foreground font-bold"
+                                    : "border-muted hover:border-primary/50 hover:bg-primary/5 text-transparent"
+                                }`}
+                              >
+                                ✓
+                              </button>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </CardContent>
           </Card>
         )}
@@ -319,6 +343,21 @@ export default function OnboardingPage() {
           <Card>
             <CardHeader><CardTitle>Partner Preferences</CardTitle></CardHeader>
             <CardContent className="space-y-4">
+              <div>
+                <Label>Partner Gender *</Label>
+                <div className="flex gap-2 mt-1">
+                  {(["Male", "Female", "No Preference"] as const).map((g) => (
+                    <Badge
+                      key={g}
+                      variant={partnerGender === g ? "default" : "outline"}
+                      className="cursor-pointer text-sm px-3 py-1"
+                      onClick={() => setPartnerGender(g)}
+                    >
+                      {g === "Male" ? "👨 Male" : g === "Female" ? "👩 Female" : "🤝 No Preference"}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
               <div>
                 <Label>Preferred Age Range</Label>
                 <Select value={ageRange} onValueChange={(v) => setAgeRange(v as AgeRange)}>
@@ -409,6 +448,21 @@ export default function OnboardingPage() {
           )}
         </div>
       </div>
+
+      <Dialog open={showNtrpInfo} onOpenChange={setShowNtrpInfo}>
+        <DialogContent className="max-w-2xl p-4">
+          <DialogTitle className="text-lg font-semibold mb-2">NTRP Skill Levels</DialogTitle>
+          <div className="relative w-full">
+            <Image
+              src="/ntrp-skill-levels.png"
+              alt="NTRP Skill Level Guide"
+              width={800}
+              height={600}
+              className="w-full h-auto rounded-md"
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

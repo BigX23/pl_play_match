@@ -26,6 +26,7 @@ export interface PartnerPreferences {
   gameTypes: GameType[];
   sports: SportType[];
   matchFormats: MatchFormat[];
+  genderPreference: "Male" | "Female" | "No Preference";
 }
 
 export interface UserProfile {
@@ -55,17 +56,19 @@ export interface MatchResult {
     gameType: number;
     matchFormat: number;
     age: number;
+    gender: number;
   };
 }
 
 // Configurable weights
 export const WEIGHTS = {
-  availability: 0.30,
+  availability: 0.25,
   sport: 0.20,
   ntrp: 0.20,
-  gameType: 0.15,
+  gameType: 0.10,
   matchFormat: 0.10,
   age: 0.05,
+  gender: 0.10,
 };
 
 export const MIN_MATCH_SCORE = 50;
@@ -146,6 +149,16 @@ function calcAgeScore(userA: UserProfile, userB: UserProfile): number {
   return 0;
 }
 
+function calcGenderScore(userA: UserProfile, userB: UserProfile): number {
+  const aPref = userA.partnerPreferences?.genderPreference ?? "No Preference";
+  const bPref = userB.partnerPreferences?.genderPreference ?? "No Preference";
+  const aOk = aPref === "No Preference" || aPref === userB.gender;
+  const bOk = bPref === "No Preference" || bPref === userA.gender;
+  if (aOk && bOk) return 1;
+  if (aOk || bOk) return 0.5;
+  return 0;
+}
+
 export function calculateMatchScore(userA: UserProfile, userB: UserProfile): MatchResult {
   const breakdown = {
     availability: calcAvailabilityScore(userA.availability, userB.availability),
@@ -154,6 +167,7 @@ export function calculateMatchScore(userA: UserProfile, userB: UserProfile): Mat
     gameType: calcGameTypeScore(userA.gameType, userB.gameType),
     matchFormat: calcMatchFormatScore(userA.matchFormats, userB.matchFormats),
     age: calcAgeScore(userA, userB),
+    gender: calcGenderScore(userA, userB),
   };
 
   const score = Math.round(
@@ -162,7 +176,8 @@ export function calculateMatchScore(userA: UserProfile, userB: UserProfile): Mat
       breakdown.ntrp * WEIGHTS.ntrp +
       breakdown.gameType * WEIGHTS.gameType +
       breakdown.matchFormat * WEIGHTS.matchFormat +
-      breakdown.age * WEIGHTS.age) * 100
+      breakdown.age * WEIGHTS.age +
+      breakdown.gender * WEIGHTS.gender) * 100
   );
 
   return { user: userB, score, breakdown };

@@ -50,8 +50,8 @@ export default function LandingPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-16 max-w-4xl w-full">
           {[
             { icon: Users, title: "Smart Matching", desc: "AI matches you with players at your skill level with compatible schedules." },
-            { icon: MapPin, title: "Local Courts", desc: "Find partners near Pleasanton, Dublin, Livermore, and San Ramon." },
-            { icon: Trophy, title: "Track Progress", desc: "Log matches, track your NTRP rating, and watch yourself improve." },
+            { icon: MapPin, title: "Local Courts", desc: "Find partners right here in Pleasanton and play matches in your own neighborhood." },
+            { icon: Zap, title: "Instant Matches", desc: "Ready to play right now? Post an instant match and connect with someone who's free today." },
           ].map((f) => (
             <div key={f.title} className="rounded-xl border bg-card p-6 text-left hover:shadow-md transition-shadow">
               <f.icon className="h-8 w-8 text-primary mb-3" />

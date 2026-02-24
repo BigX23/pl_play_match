@@ -100,7 +100,6 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <Button variant="outline" className="w-full">Change Password</Button>
-          <Button variant="outline" className="w-full">Export My Data</Button>
           <Separator />
           <Button variant="destructive" className="w-full" onClick={() => { logout(); router.push("/"); }}>
             <LogOut className="h-4 w-4 mr-2" />Sign Out
