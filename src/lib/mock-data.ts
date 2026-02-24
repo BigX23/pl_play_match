@@ -6,6 +6,7 @@ export interface Player {
   email: string;
   ntrpRating: number;
   avatar: string;
+  photoURL?: string;
   location: string;
   availability: string[];
   preferredTimes: string[];
@@ -102,6 +103,7 @@ export const currentUser: Player = {
     gameTypes: ["slightly-competitive", "recreational"],
     sports: ["tennis", "pickleball"],
     matchFormats: ["singles", "doubles"],
+    genderPreference: "No Preference" as const,
   },
   profileComplete: true,
 };
@@ -112,91 +114,91 @@ export const players: Player[] = [
     id: "p2", name: "Sarah Chen", email: "sarah@example.com", ntrpRating: 3.5, avatar: "💪", location: "Pleasanton, CA", availability: ["Mon", "Wed", "Sat"], preferredTimes: ["Morning"], sport: "tennis", matchesPlayed: 62, wins: 38, losses: 24, bio: "Former college player getting back into the game.", joinedDate: "2024-11-20",
     firstName: "Sarah", lastName: "Chen", age: 31, gender: "Female", sports: ["tennis"], matchFormats: ["singles"], gameType: "slightly-competitive",
     weeklyAvailability: makeWeek({ Mon: [{ start: 8, end: 11 }], Wed: [{ start: 9, end: 12 }], Sat: [{ start: 8, end: 11 }] }),
-    partnerPreferences: { ageRange: "5", ntrpMin: 3.0, ntrpMax: 4.0, gameTypes: ["slightly-competitive"], sports: ["tennis"], matchFormats: ["singles", "doubles"] },
+    partnerPreferences: { ageRange: "5", ntrpMin: 3.0, ntrpMax: 4.0, gameTypes: ["slightly-competitive"], sports: ["tennis"], matchFormats: ["singles", "doubles"], genderPreference: "No Preference" as const },
     profileComplete: true,
   },
   {
     id: "p3", name: "Mike Rodriguez", email: "mike@example.com", ntrpRating: 4.0, avatar: "🔥", location: "Dublin, CA", availability: ["Tue", "Thu", "Sat", "Sun"], preferredTimes: ["Morning", "Afternoon"], sport: "both", matchesPlayed: 89, wins: 55, losses: 34, bio: "Competitive player looking for quality matches.", joinedDate: "2024-08-10",
     firstName: "Mike", lastName: "Rodriguez", age: 38, gender: "Male", sports: ["tennis", "pickleball"], matchFormats: ["singles", "doubles"], gameType: "hardcore-competitive",
     weeklyAvailability: makeWeek({ Tue: [{ start: 7, end: 10 }], Thu: [{ start: 7, end: 10 }], Sat: [{ start: 9, end: 14 }], Sun: [{ start: 9, end: 14 }] }),
-    partnerPreferences: { ageRange: "10", ntrpMin: 3.5, ntrpMax: 4.5, gameTypes: ["slightly-competitive", "hardcore-competitive"], sports: ["tennis", "pickleball"], matchFormats: ["singles"] },
+    partnerPreferences: { ageRange: "10", ntrpMin: 3.5, ntrpMax: 4.5, gameTypes: ["slightly-competitive", "hardcore-competitive"], sports: ["tennis", "pickleball"], matchFormats: ["singles"], genderPreference: "No Preference" as const },
     profileComplete: true,
   },
   {
     id: "p4", name: "Emily Watson", email: "emily@example.com", ntrpRating: 3.0, avatar: "🏓", location: "Pleasanton, CA", availability: ["Mon", "Fri", "Sun"], preferredTimes: ["Evening"], sport: "pickleball", matchesPlayed: 31, wins: 18, losses: 13, bio: "Pickleball enthusiast, always up for a fun game!", joinedDate: "2025-01-05",
     firstName: "Emily", lastName: "Watson", age: 45, gender: "Female", sports: ["pickleball"], matchFormats: ["doubles"], gameType: "recreational",
     weeklyAvailability: makeWeek({ Mon: [{ start: 17, end: 20 }], Fri: [{ start: 17, end: 20 }], Sun: [{ start: 10, end: 14 }] }),
-    partnerPreferences: { ageRange: "10", ntrpMin: 2.5, ntrpMax: 3.5, gameTypes: ["recreational", "slightly-competitive"], sports: ["pickleball"], matchFormats: ["doubles"] },
+    partnerPreferences: { ageRange: "10", ntrpMin: 2.5, ntrpMax: 3.5, gameTypes: ["recreational", "slightly-competitive"], sports: ["pickleball"], matchFormats: ["doubles"], genderPreference: "No Preference" as const },
     profileComplete: true,
   },
   {
     id: "p5", name: "David Kim", email: "david@example.com", ntrpRating: 4.5, avatar: "🏆", location: "Livermore, CA", availability: ["Wed", "Sat", "Sun"], preferredTimes: ["Morning", "Afternoon"], sport: "tennis", matchesPlayed: 124, wins: 82, losses: 42, bio: "Tournament player, happy to rally with all levels.", joinedDate: "2024-06-01",
     firstName: "David", lastName: "Kim", age: 29, gender: "Male", sports: ["tennis"], matchFormats: ["singles"], gameType: "hardcore-competitive",
     weeklyAvailability: makeWeek({ Wed: [{ start: 6, end: 9 }], Sat: [{ start: 8, end: 13 }], Sun: [{ start: 8, end: 13 }] }),
-    partnerPreferences: { ageRange: "any", ntrpMin: 3.5, ntrpMax: 5.5, gameTypes: ["slightly-competitive", "hardcore-competitive"], sports: ["tennis"], matchFormats: ["singles"] },
+    partnerPreferences: { ageRange: "any", ntrpMin: 3.5, ntrpMax: 5.5, gameTypes: ["slightly-competitive", "hardcore-competitive"], sports: ["tennis"], matchFormats: ["singles"], genderPreference: "No Preference" as const },
     profileComplete: true,
   },
   {
     id: "p6", name: "Lisa Park", email: "lisa@example.com", ntrpRating: 3.5, avatar: "⭐", location: "Pleasanton, CA", availability: ["Tue", "Thu", "Sat"], preferredTimes: ["Morning", "Evening"], sport: "both", matchesPlayed: 43, wins: 25, losses: 18, bio: "Love both sports! Looking for regular hitting partners.", joinedDate: "2024-12-15",
     firstName: "Lisa", lastName: "Park", age: 33, gender: "Female", sports: ["tennis", "pickleball"], matchFormats: ["singles", "doubles"], gameType: "slightly-competitive",
     weeklyAvailability: makeWeek({ Tue: [{ start: 9, end: 11 }], Thu: [{ start: 9, end: 11 }], Sat: [{ start: 8, end: 12 }, { start: 17, end: 19 }] }),
-    partnerPreferences: { ageRange: "10", ntrpMin: 3.0, ntrpMax: 4.0, gameTypes: ["recreational", "slightly-competitive"], sports: ["tennis", "pickleball"], matchFormats: ["singles", "doubles"] },
+    partnerPreferences: { ageRange: "10", ntrpMin: 3.0, ntrpMax: 4.0, gameTypes: ["recreational", "slightly-competitive"], sports: ["tennis", "pickleball"], matchFormats: ["singles", "doubles"], genderPreference: "No Preference" as const },
     profileComplete: true,
   },
   {
     id: "p7", name: "James Taylor", email: "james@example.com", ntrpRating: 2.5, avatar: "🦊", location: "San Ramon, CA", availability: ["Mon", "Wed", "Fri"], preferredTimes: ["Evening"], sport: "tennis", matchesPlayed: 15, wins: 6, losses: 9, bio: "Beginner looking to improve. Patient partners welcome!", joinedDate: "2025-02-01",
     firstName: "James", lastName: "Taylor", age: 27, gender: "Male", sports: ["tennis"], matchFormats: ["singles"], gameType: "recreational",
     weeklyAvailability: makeWeek({ Mon: [{ start: 18, end: 21 }], Wed: [{ start: 18, end: 21 }], Fri: [{ start: 18, end: 21 }] }),
-    partnerPreferences: { ageRange: "5", ntrpMin: 2.0, ntrpMax: 3.5, gameTypes: ["recreational", "slightly-competitive"], sports: ["tennis"], matchFormats: ["singles"] },
+    partnerPreferences: { ageRange: "5", ntrpMin: 2.0, ntrpMax: 3.5, gameTypes: ["recreational", "slightly-competitive"], sports: ["tennis"], matchFormats: ["singles"], genderPreference: "No Preference" as const },
     profileComplete: true,
   },
   {
     id: "p8", name: "Maria Garcia", email: "maria@example.com", ntrpRating: 3.0, avatar: "🌟", location: "Pleasanton, CA", availability: ["Tue", "Sat", "Sun"], preferredTimes: ["Morning"], sport: "pickleball", matchesPlayed: 52, wins: 30, losses: 22, bio: "Retired and loving pickleball life.", joinedDate: "2024-09-20",
     firstName: "Maria", lastName: "Garcia", age: 62, gender: "Female", sports: ["pickleball"], matchFormats: ["doubles"], gameType: "recreational",
     weeklyAvailability: makeWeek({ Tue: [{ start: 8, end: 11 }], Sat: [{ start: 8, end: 11 }], Sun: [{ start: 8, end: 11 }] }),
-    partnerPreferences: { ageRange: "any", ntrpMin: 2.5, ntrpMax: 3.5, gameTypes: ["recreational"], sports: ["pickleball"], matchFormats: ["doubles"] },
+    partnerPreferences: { ageRange: "any", ntrpMin: 2.5, ntrpMax: 3.5, gameTypes: ["recreational"], sports: ["pickleball"], matchFormats: ["doubles"], genderPreference: "No Preference" as const },
     profileComplete: true,
   },
   {
     id: "p9", name: "Robert Brown", email: "robert@example.com", ntrpRating: 4.0, avatar: "🦁", location: "Dublin, CA", availability: ["Mon", "Wed", "Fri", "Sun"], preferredTimes: ["Afternoon", "Evening"], sport: "tennis", matchesPlayed: 78, wins: 45, losses: 33, bio: "Serious about improving my game.", joinedDate: "2024-07-12",
     firstName: "Robert", lastName: "Brown", age: 41, gender: "Male", sports: ["tennis"], matchFormats: ["singles"], gameType: "hardcore-competitive",
     weeklyAvailability: makeWeek({ Mon: [{ start: 14, end: 17 }], Wed: [{ start: 14, end: 17 }], Fri: [{ start: 14, end: 17 }], Sun: [{ start: 10, end: 14 }] }),
-    partnerPreferences: { ageRange: "10", ntrpMin: 3.5, ntrpMax: 5.0, gameTypes: ["slightly-competitive", "hardcore-competitive"], sports: ["tennis"], matchFormats: ["singles"] },
+    partnerPreferences: { ageRange: "10", ntrpMin: 3.5, ntrpMax: 5.0, gameTypes: ["slightly-competitive", "hardcore-competitive"], sports: ["tennis"], matchFormats: ["singles"], genderPreference: "No Preference" as const },
     profileComplete: true,
   },
   {
     id: "p10", name: "Jennifer Lee", email: "jennifer@example.com", ntrpRating: 3.5, avatar: "🎯", location: "Pleasanton, CA", availability: ["Tue", "Thu"], preferredTimes: ["Morning"], sport: "both", matchesPlayed: 36, wins: 20, losses: 16, bio: "Mom of two who plays whenever possible!", joinedDate: "2025-01-22",
     firstName: "Jennifer", lastName: "Lee", age: 36, gender: "Female", sports: ["tennis", "pickleball"], matchFormats: ["doubles"], gameType: "recreational",
     weeklyAvailability: makeWeek({ Tue: [{ start: 9, end: 11 }], Thu: [{ start: 9, end: 11 }] }),
-    partnerPreferences: { ageRange: "5", ntrpMin: 3.0, ntrpMax: 4.0, gameTypes: ["recreational", "slightly-competitive"], sports: ["tennis", "pickleball"], matchFormats: ["doubles"] },
+    partnerPreferences: { ageRange: "5", ntrpMin: 3.0, ntrpMax: 4.0, gameTypes: ["recreational", "slightly-competitive"], sports: ["tennis", "pickleball"], matchFormats: ["doubles"], genderPreference: "No Preference" as const },
     profileComplete: true,
   },
   {
     id: "p11", name: "Chris Martinez", email: "chris@example.com", ntrpRating: 5.0, avatar: "🚀", location: "Livermore, CA", availability: ["Sat", "Sun"], preferredTimes: ["Morning", "Afternoon"], sport: "tennis", matchesPlayed: 200, wins: 145, losses: 55, bio: "Former D1 player, coaching on the side.", joinedDate: "2024-05-01",
     firstName: "Chris", lastName: "Martinez", age: 32, gender: "Male", sports: ["tennis"], matchFormats: ["singles"], gameType: "hardcore-competitive",
     weeklyAvailability: makeWeek({ Sat: [{ start: 7, end: 13 }], Sun: [{ start: 7, end: 13 }] }),
-    partnerPreferences: { ageRange: "any", ntrpMin: 4.0, ntrpMax: 5.5, gameTypes: ["hardcore-competitive"], sports: ["tennis"], matchFormats: ["singles"] },
+    partnerPreferences: { ageRange: "any", ntrpMin: 4.0, ntrpMax: 5.5, gameTypes: ["hardcore-competitive"], sports: ["tennis"], matchFormats: ["singles"], genderPreference: "No Preference" as const },
     profileComplete: true,
   },
   {
     id: "p12", name: "Amanda White", email: "amanda@example.com", ntrpRating: 3.0, avatar: "🌈", location: "San Ramon, CA", availability: ["Mon", "Wed", "Sat"], preferredTimes: ["Evening"], sport: "both", matchesPlayed: 28, wins: 14, losses: 14, bio: "Even win/loss record — I keep things interesting!", joinedDate: "2024-10-30",
     firstName: "Amanda", lastName: "White", age: 39, gender: "Female", sports: ["tennis", "pickleball"], matchFormats: ["singles", "doubles"], gameType: "slightly-competitive",
     weeklyAvailability: makeWeek({ Mon: [{ start: 18, end: 20 }], Wed: [{ start: 18, end: 20 }], Sat: [{ start: 10, end: 13 }] }),
-    partnerPreferences: { ageRange: "10", ntrpMin: 2.5, ntrpMax: 3.5, gameTypes: ["recreational", "slightly-competitive"], sports: ["tennis", "pickleball"], matchFormats: ["singles", "doubles"] },
+    partnerPreferences: { ageRange: "10", ntrpMin: 2.5, ntrpMax: 3.5, gameTypes: ["recreational", "slightly-competitive"], sports: ["tennis", "pickleball"], matchFormats: ["singles", "doubles"], genderPreference: "No Preference" as const },
     profileComplete: true,
   },
   {
     id: "p13", name: "Kevin Nguyen", email: "kevin@example.com", ntrpRating: 4.0, avatar: "💎", location: "Pleasanton, CA", availability: ["Tue", "Thu", "Sat"], preferredTimes: ["Morning", "Evening"], sport: "tennis", matchesPlayed: 95, wins: 58, losses: 37, bio: "Tennis is therapy. Let's hit!", joinedDate: "2024-04-18",
     firstName: "Kevin", lastName: "Nguyen", age: 37, gender: "Male", sports: ["tennis"], matchFormats: ["singles", "doubles"], gameType: "slightly-competitive",
     weeklyAvailability: makeWeek({ Tue: [{ start: 7, end: 9 }], Thu: [{ start: 7, end: 9 }], Sat: [{ start: 8, end: 12 }, { start: 17, end: 19 }] }),
-    partnerPreferences: { ageRange: "10", ntrpMin: 3.0, ntrpMax: 4.5, gameTypes: ["slightly-competitive", "hardcore-competitive"], sports: ["tennis"], matchFormats: ["singles", "doubles"] },
+    partnerPreferences: { ageRange: "10", ntrpMin: 3.0, ntrpMax: 4.5, gameTypes: ["slightly-competitive", "hardcore-competitive"], sports: ["tennis"], matchFormats: ["singles", "doubles"], genderPreference: "No Preference" as const },
     profileComplete: true,
   },
   {
     id: "p14", name: "Rachel Adams", email: "rachel@example.com", ntrpRating: 2.5, avatar: "🐬", location: "Dublin, CA", availability: ["Wed", "Fri", "Sun"], preferredTimes: ["Afternoon"], sport: "pickleball", matchesPlayed: 20, wins: 10, losses: 10, bio: "Just started pickleball and I'm hooked!", joinedDate: "2025-02-10",
     firstName: "Rachel", lastName: "Adams", age: 28, gender: "Female", sports: ["pickleball"], matchFormats: ["doubles"], gameType: "recreational",
     weeklyAvailability: makeWeek({ Wed: [{ start: 13, end: 16 }], Fri: [{ start: 13, end: 16 }], Sun: [{ start: 10, end: 14 }] }),
-    partnerPreferences: { ageRange: "5", ntrpMin: 2.0, ntrpMax: 3.0, gameTypes: ["recreational"], sports: ["pickleball"], matchFormats: ["doubles"] },
+    partnerPreferences: { ageRange: "5", ntrpMin: 2.0, ntrpMax: 3.0, gameTypes: ["recreational"], sports: ["pickleball"], matchFormats: ["doubles"], genderPreference: "No Preference" as const },
     profileComplete: true,
   },
 ];

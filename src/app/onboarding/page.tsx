@@ -287,7 +287,7 @@ export default function OnboardingPage() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground mb-1">
-                Tap the time slots when you're free to play.
+                Tap the time slots when you&apos;re free to play.
               </p>
               <p className="text-sm mb-4">
                 <span className={selectedSlots.size >= 3 ? "text-primary font-semibold" : "text-amber-600 font-semibold"}>

@@ -28,6 +28,7 @@ function makeUser(overrides: Partial<UserProfile> = {}): UserProfile {
       gameTypes: ["slightly-competitive"],
       sports: ["tennis"],
       matchFormats: ["singles"],
+      genderPreference: "No Preference" as const,
     },
     profileComplete: true,
     ...overrides,
@@ -80,7 +81,7 @@ describe("matching engine", () => {
         { day: "Sun", enabled: true, slots: [{ start: 6, end: 7 }] },
         ...["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(d => ({ day: d, enabled: false, slots: [] })),
       ],
-      partnerPreferences: { ageRange: "2" as const, ntrpMin: 5.0, ntrpMax: 5.5, gameTypes: ["hardcore-competitive"], sports: ["pickleball"], matchFormats: ["doubles"] },
+      partnerPreferences: { ageRange: "2" as const, ntrpMin: 5.0, ntrpMax: 5.5, gameTypes: ["hardcore-competitive"], sports: ["pickleball"], matchFormats: ["doubles"], genderPreference: "No Preference" as const },
       gameType: "hardcore-competitive",
       age: 60,
     });

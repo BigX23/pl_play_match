@@ -170,7 +170,7 @@ export default function ProfilePage() {
         <CardContent className="p-6 flex items-center gap-4">
           <div className="relative h-16 w-16 shrink-0">
             {photoPreview || displayUser.photoURL ? (
-              <Image src={photoPreview || displayUser.photoURL} alt="Profile photo" fill className="rounded-full object-cover" />
+              <Image src={(photoPreview || displayUser.photoURL)!} alt="Profile photo" fill className="rounded-full object-cover" />
             ) : (
               <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center text-3xl">
                 {displayUser.avatar || displayUser.name?.split(" ").map((n: string) => n[0]).join("")}

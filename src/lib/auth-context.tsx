@@ -56,7 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               rating: 0,
               wins: 0,
               losses: 0,
-            } as Player);
+            } as unknown as Player);
           }
         } else {
           setUser(null);

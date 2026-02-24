@@ -7,16 +7,21 @@ import type { NextConfig } from 'next';
  * - Adds a Webpack alias so "@/…" always resolves to "src/…"
  */
 const nextConfig: NextConfig = {
+  // ─── Static export for Firebase Hosting ─────────────────────────────────────
+  output: 'export',
+  trailingSlash: true,
+
   // ─── Existing options ───────────────────────────────────────────────────────
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   eslint: {
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: false,
   },
 
-  // ─── Allow next/image to load from Firebase Storage ─────────────────────────
+  // ─── Image config (unoptimized required for static export) ──────────────────
   images: {
+    unoptimized: true,
     remotePatterns: [
       {
         protocol: "https",

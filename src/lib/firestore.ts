@@ -28,7 +28,7 @@ export async function getUser(userId: string): Promise<Player | undefined> {
 export async function updateUser(userId: string, data: Partial<Player>): Promise<void> {
   if (isFirebaseConfigured && db) {
     const { doc, setDoc } = await import("firebase/firestore");
-    await setDoc(doc(db, "users", userId), data as Record<string, unknown>, { merge: true });
+    await setDoc(doc(db, "users", userId), data as { [x: string]: any }, { merge: true });
     return;
   }
   const idx = players.findIndex((p) => p.id === userId);
@@ -74,7 +74,7 @@ export async function createMatch(data: Omit<Match, "id">): Promise<string> {
 export async function updateMatch(matchId: string, data: Partial<Match>): Promise<void> {
   if (isFirebaseConfigured && db) {
     const { doc, updateDoc } = await import("firebase/firestore");
-    await updateDoc(doc(db, "matches", matchId), data as Record<string, unknown>);
+    await updateDoc(doc(db, "matches", matchId), data as { [x: string]: any });
     return;
   }
   const idx = matches.findIndex((m) => m.id === matchId);
@@ -219,7 +219,7 @@ export async function createMatchRequest(data: Omit<MatchRequest, "id">): Promis
 export async function updateMatchRequest(requestId: string, data: Partial<MatchRequest>): Promise<void> {
   if (isFirebaseConfigured && db) {
     const { doc, updateDoc } = await import("firebase/firestore");
-    await updateDoc(doc(db, "matchRequests", requestId), data as Record<string, unknown>);
+    await updateDoc(doc(db, "matchRequests", requestId), data as { [x: string]: any });
     return;
   }
   const idx = matchRequests.findIndex((r) => r.id === requestId);

@@ -2,6 +2,15 @@
     "IDX.aI.enableInlineCompletion": true,
     "IDX.aI.enableCodebaseIndexing": true,
     "chat.tools.terminal.autoApprove": {
-        "npm install": true
+        "npm install": true,
+        "set": true,
+        "/^node -e \"const fs=require\\('fs'\\);console\\.log\\(fs\\.readFileSync\\('/Users/matt/Documents/vscode/pl_play_match/src/app/dashboard/messages/\\[conversationId\\]/page\\.tsx','utf8'\\)\\)\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^cd /Users/matt/Documents/vscode/pl_play_match && node -e \"\nconst fs = require\\('fs'\\);\nconst p = '\\./src/app/dashboard/messages/\\[conversationId\\]/page\\.tsx';\nconsole\\.log\\('mtime:', fs\\.statSync\\(p\\)\\.mtime\\);\nconsole\\.log\\('content:'\\);\nconsole\\.log\\(fs\\.readFileSync\\(p,'utf8'\\)\\);\n\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
     }
 }
