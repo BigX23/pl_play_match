@@ -9,12 +9,15 @@ interface AuthContextType {
   user: Player | null;
   firebaseUser: FirebaseUser | null;
   isAuthenticated: boolean;
+  profileComplete: boolean;
   loading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   loginWithGoogle: () => Promise<boolean>;
   register: (data: Partial<Player> & { password?: string }) => Promise<boolean>;
   logout: () => void;
   resetPassword: (email: string) => Promise<boolean>;
+  setProfileComplete: (complete: boolean) => void;
+  updateUserProfile: (data: Partial<Player>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -49,6 +52,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (saved) setUser(JSON.parse(saved));
     } catch {}
     setLoading(false);
+  }, []);
+
+  const profileComplete = user?.profileComplete ?? false;
+
+  const setProfileComplete = useCallback((complete: boolean) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, profileComplete: complete };
+      if (typeof window !== "undefined") localStorage.setItem("playmatch_user", JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
+  const updateUserProfile = useCallback((data: Partial<Player>) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, ...data };
+      if (typeof window !== "undefined") localStorage.setItem("playmatch_user", JSON.stringify(updated));
+      return updated;
+    });
   }, []);
 
   const persistMock = (u: Player | null) => {
@@ -126,12 +149,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         firebaseUser,
         isAuthenticated: !!user,
+        profileComplete,
         loading,
         login,
         loginWithGoogle,
         register,
         logout,
         resetPassword: resetPasswordFn,
+        setProfileComplete,
+        updateUserProfile,
       }}
     >
       {children}

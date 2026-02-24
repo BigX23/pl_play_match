@@ -1,16 +1,62 @@
-# UPDATES.md — Pleasanton PlayMatch Feature Roadmap
+# UPDATES.md — Pleasanton PlayMatch
 
-## 1. Firebase Integration
+---
 
-### Firestore Database
-Replace all mock data with Firestore collections:
-- **`users`** — Player profiles (name, email, NTRP rating, availability, location, preferences, avatar, stats)
-- **`matches`** — Match records (players, date, location, score, status: open/confirmed/completed)
-- **`conversations`** — Messaging threads between players
-- **`messages`** — Individual messages within conversations (sender, text, timestamp, read status)
-- **`notifications`** — Push notification records (recipient, type, title, body, read status, timestamp)
+## 📌 Project Scope
 
-Firebase config will be loaded from environment variables (`.env.local`):
+**This app is scoped to a single location: Lifetime Activities in Pleasanton, CA.**
+
+The sole purpose is to help members find tennis and pickleball partners to play with at this club. No multi-location support, no league management, no tournament brackets — just simple partner matching.
+
+If the app gains traction, we'll expand scope later. Until then, keep it focused and lean.
+
+---
+
+## Completed Features
+
+### v0.1 — PWA Foundation (Feb 17, 2026)
+- Next.js 15 + shadcn/ui + Tailwind CSS
+- PWA: manifest, service worker, installable on mobile
+- Mobile-first design: bottom nav on mobile, sidebar on desktop
+- Dark/light mode via next-themes
+- 8 pages: Landing, Login, Register, Partner Preferences, Dashboard, Open Matches, Profile, Settings
+- Mock data: 14 players, 9 matches, AI compatibility scoring
+- Color scheme: green (#22c55e) + orange (#f97316)
+
+### v0.2 — Messaging, AI Assistant & Notifications (Feb 17, 2026)
+- In-app messaging: conversation list + chat view
+- Message bubbles: sent (green), received (gray), AI (orange with 🎾 bot badge)
+- AI Match Assistant: rule-based introductions, match suggestions, reminders, follow-ups
+- Notifications page with type-based icons/colors
+- Bell icon + unread badges in nav
+- Notification preferences in Settings (per-type toggles, quiet hours)
+- Protected route component for auth gating
+
+### v0.3 — Live Firebase Integration (Feb 17, 2026)
+- Firebase Auth: Google sign-in, email/password, password reset, email verification
+- Firestore: live database for users, matches, conversations, messages, notifications
+- FCM: service worker configured for push notifications
+- Seed script (`npm run seed`) to populate Firestore with demo data
+- Mock fallback preserved — app works without Firebase env vars
+- Analytics support (measurementId)
+
+---
+
+## Firestore Collections
+
+| Collection | Purpose |
+|---|---|
+| `users` | Player profiles (name, NTRP rating, availability, preferences, stats) |
+| `matches` | Match records (players, date, location, sport, score, status) |
+| `conversations` | Chat threads between players |
+| `messages` | Individual messages within conversations |
+| `notifications` | Push notification records |
+
+---
+
+## Firebase Config
+
+Loaded from `.env.local` (not committed):
 ```
 NEXT_PUBLIC_FIREBASE_API_KEY=
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
@@ -18,144 +64,141 @@ NEXT_PUBLIC_FIREBASE_PROJECT_ID=
 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
 NEXT_PUBLIC_FIREBASE_APP_ID=
-NEXT_PUBLIC_FIREBASE_VAPID_KEY=
-```
-
-### Implementation:
-- `src/lib/firebase.ts` — Firebase app initialization, Firestore & Auth instances
-- `src/lib/firestore.ts` — CRUD helpers for each collection (getUser, updateUser, createMatch, getMatches, sendMessage, etc.)
-- Firestore security rules will be documented but applied in Firebase Console
-- Real-time listeners via `onSnapshot` for messages and notifications
-
----
-
-## 2. Authentication (Firebase Auth + Email/Password)
-
-### Google Sign-In
-- One-tap Google sign-in on login page
-- Auto-create user profile in Firestore on first Google login
-- Link Google account to existing email/password account if same email
-
-### Email/Password
-- Registration with email + password (min 8 chars, validation)
-- Login with email + password
-- Password reset via email
-- Email verification on registration
-
-### Implementation:
-- `src/lib/auth.ts` — Auth helper functions (signInWithGoogle, signInWithEmail, registerWithEmail, signOut, resetPassword)
-- `src/contexts/auth-context.tsx` — React context providing current user, loading state, auth methods
-- Protected routes: `/dashboard/*` requires authentication, redirects to `/login` if not authenticated
-- Auth state persisted via Firebase (survives page refresh)
-- Profile creation flow: Register → Set NTRP & preferences → Dashboard
-
----
-
-## 3. In-App Messaging
-
-### Player-to-Player Chat
-- Direct messaging between matched players
-- Real-time message delivery via Firestore `onSnapshot`
-- Message status: sent, delivered, read
-- Typing indicators (optional, via Firestore presence)
-- Conversation list with last message preview, unread count, timestamps
-
-### Pages & Components:
-- **`/dashboard/messages`** — Conversation list (all active chats)
-- **`/dashboard/messages/[conversationId]`** — Individual chat view with message input
-- `src/components/message-bubble.tsx` — Styled message bubble (sent vs received)
-- `src/components/conversation-card.tsx` — Preview card in conversation list
-- `src/components/chat-input.tsx` — Message input with send button
-
-### Firestore Structure:
-```
-conversations/{conversationId}
-  - participants: [userId1, userId2]
-  - lastMessage: string
-  - lastMessageAt: timestamp
-  - createdAt: timestamp
-
-messages/{messageId}
-  - conversationId: string
-  - senderId: string
-  - text: string
-  - createdAt: timestamp
-  - readBy: [userId1]
+NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=
 ```
 
 ---
 
-## 4. AI Match Assistant
+## Next Up
 
-### Concept
-An AI assistant that proactively introduces matched players and helps them schedule matches. It operates as a participant in messaging conversations.
+### 🔑 Mandatory Onboarding Profile (priority)
+First-time users (email/password or Google Auth) are redirected to a **mandatory profile setup** before accessing the app. This is not optional — the app is useless without player preferences.
 
-### How It Works:
-1. When two players have a compatibility score ≥ 70%, the AI can initiate a conversation
-2. The AI sends an intro message: "Hey [Player1] and [Player2]! You're a great match — you're both NTRP [rating] players who like to play [days]. Want to set up a match?"
-3. The AI can suggest available times based on both players' schedules
-4. The AI can answer questions about court locations, rules, NTRP levels
-5. Players can ask the AI for match suggestions: "Find me a doubles partner for Saturday"
+**Required fields:**
+- Display name
+- NTRP / skill rating (tennis and/or pickleball)
+- Sports played: tennis, pickleball, or both
+- What they're looking for in a partner (skill level range, play style, competitive vs casual)
+- Weekly availability: specific days and time slots they're free to play
+- Contact preferences
 
-### Implementation:
-- `src/lib/ai-assistant.ts` — AI message generation logic
-- Uses a system prompt with player context (ratings, preferences, availability)
-- AI messages appear in chat with a distinct "AI Assistant" avatar and badge
-- For MVP: rule-based responses with templates (no external AI API needed initially)
-- Future: integrate Google Gemini API for natural language responses
-- AI triggers:
-  - New high-compatibility match detected → auto-intro message
-  - Player asks for match suggestions → AI responds with options
-  - Match scheduled → AI sends confirmation and reminders
+**Flow:**
+1. User registers or signs in for the first time
+2. App detects profile is incomplete → redirects to `/onboarding` (or `/dashboard/profile` in setup mode)
+3. User fills out all required fields
+4. Profile saved to Firestore → user gains full app access
+5. Profile is editable anytime from `/dashboard/profile`
+6. If profile is incomplete, all other dashboard routes redirect back to onboarding
 
-### AI Message Types:
-- **Introduction**: Introduces two compatible players
-- **Match Suggestion**: Suggests a time/place based on mutual availability
-- **Reminder**: Upcoming match reminder (24h and 1h before)
-- **Follow-up**: After a match, asks for score reporting and feedback
+### 🎾 Open Matches Flow (priority)
+Users can post an open match when they want to play but don't have a partner. Other compatible players can accept it.
 
----
+**Creating an open match:**
+- User taps "Create Open Match" from the Open Matches page
+- Fills out: sport (tennis/pickleball), match type (singles/doubles), date, time, any notes
+- Match is posted with status `open` and visible to compatible players
 
-## 5. Push Notifications (Firebase Cloud Messaging)
+**Visibility & notifications:**
+- Only players who fit the poster's partner criteria (and vice versa) see the open match
+- If notifications are enabled, compatible players get a push notification: "New open match: [Sport] [Type] at [Time] with [User]"
 
-### Notification Types:
-- **New Message** — "[Player Name] sent you a message"
-- **Match Invitation** — "You've been invited to a match on [date]"
-- **Match Confirmed** — "Your match with [Player] is confirmed for [date]"
-- **Match Reminder** — "Your match starts in 1 hour at [location]"
-- **AI Introduction** — "You have a new match suggestion!"
-- **Profile Update** — "Someone viewed your profile" (optional)
+**Accepting a match:**
+- Any compatible user can tap "Accept" on the open match
+- Match status changes from `open` → `confirmed`
+- AI creates a new conversation with both players and sends an intro:
+  > "Hey [UserA], meet [UserB]! You're set to play [sport] at [time] today. [UserA], please call Lifetime Activities at (925) 460-8600 to reserve a court. Update here once it's reserved!"
+- The match moves to `confirmed` state and appears in both players' upcoming matches
 
-### Implementation:
-- `src/lib/notifications.ts` — FCM setup, permission request, token management
-- `public/firebase-messaging-sw.js` — Service worker for background push notifications
-- Notification permission prompt on first dashboard visit
-- FCM tokens stored in user's Firestore document
-- In-app notification bell with unread count (in navbar)
-- **`/dashboard/notifications`** — Full notification history page
-- Toast notifications for real-time in-app alerts
+**Match states:**
+| Status | Meaning |
+|---|---|
+| `open` | Posted, waiting for a partner |
+| `confirmed` | Partner accepted, court reservation pending |
+| `reserved` | Court booked, match is on |
+| `completed` | Match played, ready for score reporting |
+| `cancelled` | Match was cancelled by either player |
 
-### Flow:
-1. User logs in → app requests notification permission
-2. If granted → FCM token saved to Firestore under user doc
-3. When event occurs (new message, match invite, etc.) → Cloud Function sends push via FCM
-4. If app is open → in-app toast notification
-5. If app is backgrounded → system push notification via service worker
+### 👤 User Profile & Partner Preferences (priority)
+Mandatory on first login — user cannot access the app until complete. Editable anytime from Profile page.
 
-### Notification Preferences (in Settings):
-- Toggle: New messages
-- Toggle: Match invitations
-- Toggle: Match reminders
-- Toggle: AI suggestions
-- Quiet hours: Don't disturb between [time] and [time]
+**User Profile fields:**
 
----
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| First name | text | ✅ | |
+| Last name | text | ✅ | |
+| Age | number | ✅ | |
+| Gender | select | ✅ | Male / Female / Non-binary / Prefer not to say |
+| NTRP rating | select | ✅ | 2.0 – 5.5 in 0.5 increments |
+| Match format | multi-select | ✅ | Singles / Doubles / Both |
+| Sport | multi-select | ✅ | Tennis / Pickleball / Both |
+| Weekly availability | day+time picker | ✅ | Select specific days and hour ranges (e.g. Mon 9am–12pm, Wed 6pm–8pm) |
+| Game type | select | ✅ | Recreational / Slightly competitive / Hardcore competitive |
+| About me | textarea | ❌ | Optional bio — free text, max 300 chars |
+| Profile picture | image upload / avatar picker | ✅ | Upload a photo (stored in Firebase Storage) OR pick from ~20 preset avatar/emoji characters. Must choose one or the other. |
 
-## Implementation Order
+**Partner Preference fields:**
 
-1. **Firebase setup** — Initialize Firebase, auth context, Firestore helpers
-2. **Authentication** — Google + email/password login, protected routes
-3. **Firestore data layer** — Replace mock data with Firestore reads/writes
-4. **Messaging** — Conversations list, chat view, real-time messages
-5. **AI Assistant** — Rule-based intro messages, match suggestions
-6. **Notifications** — FCM integration, notification preferences, in-app alerts
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| Age range | select | ✅ | Relative to own age: ±2 years, ±5 years, ±10 years, Any |
+| Partner NTRP rating | range select | ✅ | Acceptable NTRP range (e.g. 3.5–4.5) |
+| Partner game type | multi-select | ✅ | Recreational / Slightly competitive / Hardcore competitive |
+| Sport | multi-select | ✅ | Tennis / Pickleball / Both |
+| Match format | multi-select | ✅ | Singles / Doubles / Both |
+
+These fields directly feed the matching engine — every field maps to a scoring criterion.
+
+### 🤝 Partner Matching Engine (priority)
+When a user completes their profile, the app immediately calculates compatibility scores against all other users and presents ranked matches.
+
+**How matching works:**
+- 100% rule-based — no AI needed for scoring. Static weighted criteria is more predictable, transparent, and debuggable. AI is better used for the conversational side (intros, scheduling help) not the matching logic itself.
+- Scores calculated on profile save and recalculated when any user updates their profile
+
+**Scoring criteria (weighted):**
+
+| Criteria | Weight | Description |
+|---|---|---|
+| Availability overlap | High | Days/times both users are free. Most important — can't play if schedules don't align |
+| Sport match | High | Both play tennis, pickleball, or both |
+| Skill level (NTRP) | High | Within acceptable range of each other's preferences |
+| Match type | Medium | Singles vs doubles preference alignment |
+| Play style | Medium | Competitive vs casual — both want the same vibe |
+| Partner preferences | Medium | Each user's stated criteria about what they want in a partner |
+
+- **100%** = all criteria match perfectly, overlapping availability, same skill range, same sport, same vibe → no-brainer, play ASAP
+- **70-99%** = strong match, most criteria align, minor gaps (e.g. one time slot difference)
+- **50-69%** = decent match, worth considering
+- **Below 50%** = not shown (or shown at bottom as "other players")
+
+**Match flow:**
+1. User completes profile → matching engine runs → ranked list of compatible players shown on dashboard
+2. User reviews matches and selects the best one(s)
+   - Limit TBD: maybe 1 active match request at a time, maybe up to 3
+3. Selected player gets a notification: "[User] wants to match with you!"
+4. That player can view the requester's profile → **Accept** or **Decline**
+5. If **accepted**:
+   - Match appears on both users' dashboards as an accepted match
+   - AI creates a group chat and introduces them
+   - AI nudges them to schedule a time and reserve a court
+6. If **declined**:
+   - Requester is notified (generic: "They're not available right now")
+   - No hard feelings — both can still appear in each other's future matches
+
+**Match request states:**
+
+| Status | Meaning |
+|---|---|
+| `pending` | Sent to other player, awaiting response |
+| `accepted` | Both players agreed — AI intro chat created |
+| `declined` | Other player passed |
+| `expired` | No response within X days (TBD) |
+
+### Other
+- [ ] Lock down Firestore security rules (auth-based access)
+- [ ] Enable Google Auth provider in Firebase Console
+- [ ] Real-time chat via Firestore onSnapshot
+- [ ] Match creation + join flow (users create/join real matches)
+- [ ] Score reporting after matches
+- [ ] Tailor all content/copy to Lifetime Activities Pleasanton

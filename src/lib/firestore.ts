@@ -5,9 +5,11 @@ import {
   conversations,
   messages,
   notifications,
+  matchRequests,
   currentUser,
   type Player,
   type Match,
+  type MatchRequest,
   type Conversation,
   type Message,
   type Notification,
@@ -174,4 +176,96 @@ export async function markNotificationRead(notificationId: string): Promise<void
   }
   const n = notifications.find((x) => x.id === notificationId);
   if (n) n.read = true;
+}
+
+// ---------- Match Requests ----------
+export async function getMatchRequests(userId: string): Promise<MatchRequest[]> {
+  if (isFirebaseConfigured && db) {
+    const { collection, getDocs, query, where } = await import("firebase/firestore");
+    const [sentSnap, receivedSnap] = await Promise.all([
+      getDocs(query(collection(db, "matchRequests"), where("fromUserId", "==", userId))),
+      getDocs(query(collection(db, "matchRequests"), where("toUserId", "==", userId))),
+    ]);
+    const all = [...sentSnap.docs, ...receivedSnap.docs].map((d) => ({ id: d.id, ...d.data() } as MatchRequest));
+    return all;
+  }
+  return matchRequests.filter((r) => r.fromUserId === userId || r.toUserId === userId);
+}
+
+export async function createMatchRequest(data: Omit<MatchRequest, "id">): Promise<string> {
+  if (isFirebaseConfigured && db) {
+    const { collection, addDoc } = await import("firebase/firestore");
+    const ref = await addDoc(collection(db, "matchRequests"), data);
+    return ref.id;
+  }
+  const id = `mr${matchRequests.length + 1}_${Date.now()}`;
+  matchRequests.push({ ...data, id } as MatchRequest);
+
+  // Create notification for recipient
+  notifications.push({
+    id: `n${Date.now()}`,
+    userId: data.toUserId,
+    type: "match_request",
+    title: "New Match Request!",
+    body: `Someone wants to match with you! (${data.score}% compatible)`,
+    read: false,
+    createdAt: new Date().toISOString(),
+    link: "/dashboard",
+  });
+
+  return id;
+}
+
+export async function updateMatchRequest(requestId: string, data: Partial<MatchRequest>): Promise<void> {
+  if (isFirebaseConfigured && db) {
+    const { doc, updateDoc } = await import("firebase/firestore");
+    await updateDoc(doc(db, "matchRequests", requestId), data as Record<string, unknown>);
+    return;
+  }
+  const idx = matchRequests.findIndex((r) => r.id === requestId);
+  if (idx >= 0) Object.assign(matchRequests[idx], data);
+}
+
+// ---------- Create Conversation (for match acceptance) ----------
+export async function createConversation(participants: string[], aiIntro: string): Promise<string> {
+  const convId = `conv_${Date.now()}`;
+  const conv = {
+    id: convId,
+    participants: [...participants, "ai"],
+    lastMessage: aiIntro,
+    lastMessageAt: new Date().toISOString(),
+    unreadCount: 1,
+    createdAt: new Date().toISOString(),
+  };
+  const msg = {
+    id: `msg_${Date.now()}`,
+    conversationId: convId,
+    senderId: "ai",
+    senderName: "PlayMatch AI",
+    text: aiIntro,
+    createdAt: new Date().toISOString(),
+    readBy: ["ai"],
+    isAI: true,
+  };
+
+  if (isFirebaseConfigured && db) {
+    const { doc, setDoc, collection, addDoc } = await import("firebase/firestore");
+    await setDoc(doc(db, "conversations", convId), conv);
+    await addDoc(collection(db, "messages"), msg);
+  } else {
+    conversations.push(conv);
+    messages.push(msg);
+  }
+
+  return convId;
+}
+
+// ---------- Create Notification ----------
+export async function createNotification(data: Omit<Notification, "id">): Promise<void> {
+  if (isFirebaseConfigured && db) {
+    const { collection, addDoc } = await import("firebase/firestore");
+    await addDoc(collection(db, "notifications"), data);
+    return;
+  }
+  notifications.push({ ...data, id: `n${Date.now()}` });
 }
