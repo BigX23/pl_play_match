@@ -42,6 +42,9 @@ next-env.d.ts
 # env files
 .env
 .env.local
+
+# Firebase service account keys
+*-firebase-adminsdk-*.json
 .env*.local
 /.firebase/
 /new-project/
