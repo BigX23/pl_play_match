@@ -1,7 +1,6 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { Bot } from "lucide-react";
 import { type Message } from "@/lib/mock-data";
 
 interface Props {
@@ -19,13 +18,13 @@ export default function MessageBubble({ message, isOwn }: Props) {
           "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white",
           isAI ? "bg-orange-500" : "bg-gray-400"
         )}>
-          {isAI ? <Bot className="h-4 w-4" /> : message.senderName.charAt(0)}
+          {isAI ? "🎾" : message.senderName.charAt(0)}
         </div>
       )}
       <div className={cn("max-w-[75%]")}>
         {!isOwn && (
           <p className={cn("text-xs mb-1 font-medium", isAI ? "text-orange-600" : "text-muted-foreground")}>
-            {message.senderName}
+            {isAI ? "Rally 🎾" : message.senderName}
           </p>
         )}
         <div className={cn(

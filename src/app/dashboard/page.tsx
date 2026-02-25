@@ -95,7 +95,9 @@ export default function DashboardPage() {
   const handleAcceptRequest = async (req: MatchRequest) => {
     const fromPlayer = allPlayers.find((p) => p.id === req.fromUserId) || getPlayerById(req.fromUserId);
     const toPlayer = allPlayers.find((p) => p.id === req.toUserId) || getPlayerById(req.toUserId);
-    const intro = `Hey ${fromPlayer?.firstName || fromPlayer?.name} and ${toPlayer?.firstName || toPlayer?.name}! 🎾 You're matched with ${req.score}% compatibility! Time to schedule your first game at Lifetime Activities Pleasanton. Call (925) 460-8600 to reserve a court!`;
+    const fromName = fromPlayer?.firstName || fromPlayer?.name || "Champion";
+    const toName = toPlayer?.firstName || toPlayer?.name || "Champion";
+    const intro = `GAME ON! 🎾🔥 Hey ${fromName} and ${toName}! I'm Rally, your match coach! You two are matched with ${req.score}% compatibility — this is gonna be INCREDIBLE! 💪 Time to schedule your first game at Lifetime Activities Pleasanton! Call (925) 460-8600 to reserve a court and LET'S GO! 🏟️🏆`;
     const convId = await createConversation([req.fromUserId, req.toUserId], intro);
     await updateMatchRequest(req.id, { status: "accepted", conversationId: convId });
     await loadData();

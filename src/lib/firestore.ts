@@ -241,7 +241,7 @@ export async function createConversation(participants: string[], aiIntro: string
     id: `msg_${Date.now()}`,
     conversationId: convId,
     senderId: "ai",
-    senderName: "PlayMatch AI",
+    senderName: "Rally",
     text: aiIntro,
     createdAt: new Date().toISOString(),
     readBy: ["ai"],

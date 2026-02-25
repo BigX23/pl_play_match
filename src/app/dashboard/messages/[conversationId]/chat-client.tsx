@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
-import { getMessages, sendMessage } from "@/lib/firestore";
+import { getMessages, sendMessage, getUser } from "@/lib/firestore";
 import { type Message, type Conversation, getPlayerById } from "@/lib/mock-data";
 import { getConversations } from "@/lib/firestore";
 import { getAIResponse, AI_SENDER_ID, AI_SENDER_NAME } from "@/lib/ai-assistant";
@@ -20,6 +20,8 @@ export default function ChatPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const [conversation, setConversation] = useState<Conversation | null>(null);
+  const [otherPlayerNames, setOtherPlayerNames] = useState<string[]>([]);
+  const [otherPlayerInitial, setOtherPlayerInitial] = useState("?");
 
   useEffect(() => {
     if (user) {
@@ -30,12 +32,37 @@ export default function ChatPage() {
     }
   }, [user, conversationId]);
 
-  // Keep backward compat reference
-  const conv = conversation;
-  const otherIds = conv?.participants.filter((id) => id !== user?.id && id !== "ai") || [];
-  const otherPlayers = otherIds.map((id) => getPlayerById(id)).filter(Boolean);
-  const hasAI = conv?.participants.includes("ai");
-  const title = otherPlayers.map((p) => p!.name).join(", ") || "Chat";
+  // Look up other participant names from Firestore
+  useEffect(() => {
+    if (!conversation || !user) return;
+    let cancelled = false;
+    const otherIds = conversation.participants.filter((id) => id !== user.id && id !== "ai");
+
+    async function loadNames() {
+      const names: string[] = [];
+      for (const id of otherIds) {
+        const firestoreUser = await getUser(id);
+        if (firestoreUser) {
+          const name = firestoreUser.firstName
+            ? `${firestoreUser.firstName} ${firestoreUser.lastName || ""}`.trim()
+            : firestoreUser.name;
+          names.push(name);
+        } else {
+          const mockPlayer = getPlayerById(id);
+          if (mockPlayer) names.push(mockPlayer.name);
+        }
+      }
+      if (!cancelled) {
+        setOtherPlayerNames(names);
+        setOtherPlayerInitial(names[0]?.charAt(0) || "?");
+      }
+    }
+    loadNames();
+    return () => { cancelled = true; };
+  }, [conversation, user]);
+
+  const hasAI = conversation?.participants.includes("ai");
+  const title = otherPlayerNames.length > 0 ? otherPlayerNames.join(", ") : "Chat";
 
   useEffect(() => {
     if (conversationId) getMessages(conversationId).then(setMsgs);
@@ -47,7 +74,7 @@ export default function ChatPage() {
 
   const handleSend = async (text: string) => {
     if (!user) return;
-    const msg = await sendMessage(conversationId, text, user.id, user.name);
+    const msg = await sendMessage(conversationId, text, user.id, user.firstName || user.name);
     setMsgs((prev) => [...prev, msg]);
 
     // If AI is in conversation, maybe respond
@@ -79,7 +106,7 @@ export default function ChatPage() {
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-white font-bold relative">
-          {otherPlayers[0]?.name.charAt(0) || "?"}
+          {otherPlayerInitial}
           {hasAI && (
             <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-orange-500 flex items-center justify-center">
               <Bot className="h-2.5 w-2.5 text-white" />
@@ -88,7 +115,7 @@ export default function ChatPage() {
         </div>
         <div>
           <p className="font-medium text-sm">{title}</p>
-          {hasAI && <p className="text-xs text-orange-500">PlayMatch AI assisted</p>}
+          {hasAI && <p className="text-xs text-orange-500">Rally assisted 🎾</p>}
         </div>
       </div>
 

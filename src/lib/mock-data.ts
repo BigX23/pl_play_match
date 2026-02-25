@@ -268,11 +268,11 @@ export const messages: Message[] = [
   { id: "msg3", conversationId: "conv1", senderId: "p2", senderName: "Sarah Chen", text: "See you Saturday morning!", createdAt: "2026-02-17T08:30:00Z", readBy: ["p2"] },
   { id: "msg4", conversationId: "conv2", senderId: "p1", senderName: "Alex Johnson", text: "Hey Lisa, want to play pickleball this Saturday?", createdAt: "2026-02-16T18:00:00Z", readBy: ["p1", "p6"] },
   { id: "msg5", conversationId: "conv2", senderId: "p6", senderName: "Lisa Park", text: "The courts at Val Vista are great for pickleball", createdAt: "2026-02-16T19:00:00Z", readBy: ["p6", "p1"] },
-  { id: "msg6", conversationId: "conv3", senderId: "ai", senderName: "PlayMatch AI", text: "Hey Sarah and Alex! You're both 3.5 NTRP players who love playing on Mon/Wed/Sat mornings. Want to set up a match this week?", createdAt: "2026-02-14T09:00:00Z", readBy: ["ai", "p1", "p2"], isAI: true },
-  { id: "msg7", conversationId: "conv4", senderId: "ai", senderName: "PlayMatch AI", text: "Hey Alex and Kevin! You're both competitive players who enjoy evening tennis. I think you'd have a great match!", createdAt: "2026-02-09T12:00:00Z", readBy: ["ai", "p1", "p13"], isAI: true },
+  { id: "msg6", conversationId: "conv3", senderId: "ai", senderName: "Rally", text: "Hey Sarah and Alex! You're both 3.5 NTRP players who love playing on Mon/Wed/Sat mornings. Want to set up a match this week?", createdAt: "2026-02-14T09:00:00Z", readBy: ["ai", "p1", "p2"], isAI: true },
+  { id: "msg7", conversationId: "conv4", senderId: "ai", senderName: "Rally", text: "Hey Alex and Kevin! You're both competitive players who enjoy evening tennis. I think you'd have a great match!", createdAt: "2026-02-09T12:00:00Z", readBy: ["ai", "p1", "p13"], isAI: true },
   { id: "msg8", conversationId: "conv4", senderId: "p1", senderName: "Alex Johnson", text: "Sounds good! Kevin, are you free this Tuesday evening?", createdAt: "2026-02-09T13:00:00Z", readBy: ["p1", "p13"] },
   { id: "msg9", conversationId: "conv4", senderId: "p13", senderName: "Kevin Nguyen", text: "Tuesday works! 7pm at Pleasanton Tennis Park?", createdAt: "2026-02-09T14:00:00Z", readBy: ["p13", "p1"] },
-  { id: "msg10", conversationId: "conv4", senderId: "ai", senderName: "PlayMatch AI", text: "How did your match with Kevin go? Report your score! 🎾", createdAt: "2026-02-11T10:00:00Z", readBy: ["ai"], isAI: true },
+  { id: "msg10", conversationId: "conv4", senderId: "ai", senderName: "Rally", text: "How did your match with Kevin go? Report your score! 🎾", createdAt: "2026-02-11T10:00:00Z", readBy: ["ai"], isAI: true },
 ];
 
 export const notifications: Notification[] = [

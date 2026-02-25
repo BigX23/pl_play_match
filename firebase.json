@@ -1,4 +1,8 @@
 {
+  "functions": {
+    "source": "functions",
+    "runtime": "nodejs20"
+  },
   "firestore": {
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
@@ -16,7 +20,7 @@
     "rewrites": [
       {
         "source": "/dashboard/messages/**",
-        "destination": "/dashboard/messages/index.html"
+        "destination": "/dashboard/messages/placeholder/index.html"
       }
     ]
   }

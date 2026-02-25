@@ -1,8 +1,9 @@
 "use client";
 
-import Link from "next/link";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { type Conversation, getPlayerById } from "@/lib/mock-data";
+import { getUser } from "@/lib/firestore";
 import { Bot } from "lucide-react";
 
 interface Props {
@@ -12,10 +13,36 @@ interface Props {
 
 export default function ConversationCard({ conversation, currentUserId }: Props) {
   const otherIds = conversation.participants.filter((id) => id !== currentUserId && id !== "ai");
-  const otherPlayers = otherIds.map((id) => getPlayerById(id)).filter(Boolean);
   const hasAI = conversation.participants.includes("ai");
-  const displayName = otherPlayers.map((p) => p!.name).join(", ") || "Unknown";
-  const initial = otherPlayers[0]?.name.charAt(0) || "?";
+  const [displayName, setDisplayName] = useState<string>("Loading...");
+  const [initial, setInitial] = useState<string>("?");
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadNames() {
+      const names: string[] = [];
+      for (const id of otherIds) {
+        // Try Firestore first, fall back to mock data
+        const firestoreUser = await getUser(id);
+        if (firestoreUser) {
+          const name = firestoreUser.firstName
+            ? `${firestoreUser.firstName} ${firestoreUser.lastName || ""}`.trim()
+            : firestoreUser.name;
+          names.push(name);
+        } else {
+          const mockPlayer = getPlayerById(id);
+          if (mockPlayer) names.push(mockPlayer.name);
+        }
+      }
+      if (!cancelled) {
+        const finalName = names.join(", ") || "Unknown";
+        setDisplayName(finalName);
+        setInitial(finalName.charAt(0));
+      }
+    }
+    loadNames();
+    return () => { cancelled = true; };
+  }, [otherIds.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const timeAgo = (dateStr: string) => {
     const diff = Date.now() - new Date(dateStr).getTime();
@@ -27,7 +54,7 @@ export default function ConversationCard({ conversation, currentUserId }: Props)
   };
 
   return (
-    <Link href={`/dashboard/messages/${conversation.id}`} className="block">
+    <a href={`/dashboard/messages/${conversation.id}/`} className="block">
       <div className={cn(
         "flex items-center gap-3 p-4 hover:bg-muted/50 transition-colors border-b",
         conversation.unreadCount > 0 && "bg-primary/5"
@@ -59,6 +86,6 @@ export default function ConversationCard({ conversation, currentUserId }: Props)
           </div>
         )}
       </div>
-    </Link>
+    </a>
   );
 }

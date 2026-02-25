@@ -45,3 +45,7 @@ next-env.d.ts
 .env*.local
 /.firebase/
 /new-project/
+
+# Cloud Functions build output
+functions/lib/
+functions/node_modules/

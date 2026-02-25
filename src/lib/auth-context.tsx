@@ -27,37 +27,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Helper to build a minimal new-user placeholder
+  const buildMinimalUser = (fbUser: FirebaseUser): Player => ({
+    id: fbUser.uid,
+    name: fbUser.displayName || "",
+    email: fbUser.email || "",
+    avatar: fbUser.photoURL || "",
+    profileComplete: false,
+    sport: "both",
+    skillLevel: "intermediate",
+    age: 0,
+    gender: "prefer-not-to-say",
+    location: "",
+    weeklyAvailability: [],
+    partnerPreferences: { ageRange: [18, 60], genderPreference: "any", skillRange: ["beginner", "advanced"] },
+    bio: "",
+    rating: 0,
+    wins: 0,
+    losses: 0,
+  } as unknown as Player);
+
+  // Helper to eagerly load profile from Firestore and set state
+  const loadAndSetProfile = useCallback(async (fbUser: FirebaseUser) => {
+    const { getUser } = await import("./firestore");
+    const firestoreProfile = await getUser(fbUser.uid);
+    if (firestoreProfile) {
+      setUser(firestoreProfile);
+    } else {
+      setUser(buildMinimalUser(fbUser));
+    }
+  }, []);
+
   useEffect(() => {
     if (isFirebaseConfigured && firebaseAuth) {
       const unsub = onAuthStateChanged(firebaseAuth, async (fbUser) => {
         setFirebaseUser(fbUser);
         if (fbUser) {
-          // Check Firestore for an existing profile
-          const { getUser } = await import("./firestore");
-          const firestoreProfile = await getUser(fbUser.uid);
-          if (firestoreProfile) {
-            setUser(firestoreProfile);
-          } else {
-            // New user — no Firestore profile yet, mark profileComplete false
-            setUser({
-              id: fbUser.uid,
-              name: fbUser.displayName || "",
-              email: fbUser.email || "",
-              avatar: fbUser.photoURL || "",
-              profileComplete: false,
-              sport: "both",
-              skillLevel: "intermediate",
-              age: 0,
-              gender: "prefer-not-to-say",
-              location: "",
-              weeklyAvailability: [],
-              partnerPreferences: { ageRange: [18, 60], genderPreference: "any", skillRange: ["beginner", "advanced"] },
-              bio: "",
-              rating: 0,
-              wins: 0,
-              losses: 0,
-            } as unknown as Player);
-          }
+          // Keep loading=true while we fetch the Firestore profile
+          setLoading(true);
+          await loadAndSetProfile(fbUser);
         } else {
           setUser(null);
         }
@@ -71,7 +79,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (saved) setUser(JSON.parse(saved));
     } catch {}
     setLoading(false);
-  }, []);
+  }, [loadAndSetProfile]);
 
   const profileComplete = user?.profileComplete ?? false;
 
@@ -104,7 +112,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (isFirebaseConfigured) {
       try {
         const { signInWithEmail } = await import("./auth");
-        await signInWithEmail(email, password);
+        const fbUser = await signInWithEmail(email, password);
+        // Eagerly load profile so state is ready before navigation
+        setFirebaseUser(fbUser);
+        setLoading(true);
+        await loadAndSetProfile(fbUser);
+        setLoading(false);
         return true;
       } catch { return false; }
     }
@@ -113,26 +126,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(u);
     persistMock(u);
     return true;
-  }, []);
+  }, [loadAndSetProfile]);
 
   const loginWithGoogle = useCallback(async () => {
     if (isFirebaseConfigured) {
       try {
         const { signInWithGoogle } = await import("./auth");
-        await signInWithGoogle();
+        const fbUser = await signInWithGoogle();
+        // Eagerly load profile so state is ready before navigation
+        setFirebaseUser(fbUser);
+        setLoading(true);
+        await loadAndSetProfile(fbUser);
+        setLoading(false);
         return true;
       } catch { return false; }
     }
     setUser(currentUser);
     persistMock(currentUser);
     return true;
-  }, []);
+  }, [loadAndSetProfile]);
 
   const register = useCallback(async (data: Partial<Player> & { password?: string }) => {
     if (isFirebaseConfigured && data.email && data.password) {
       try {
         const { registerWithEmail } = await import("./auth");
-        await registerWithEmail(data.email, data.password);
+        const fbUser = await registerWithEmail(data.email, data.password);
+        // Eagerly set state so navigation works immediately
+        setFirebaseUser(fbUser);
+        setLoading(true);
+        await loadAndSetProfile(fbUser);
+        setLoading(false);
         return true;
       } catch { return false; }
     }
@@ -140,7 +163,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(u);
     persistMock(u);
     return true;
-  }, []);
+  }, [loadAndSetProfile]);
 
   const logout = useCallback(() => {
     if (isFirebaseConfigured) {

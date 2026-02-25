@@ -2,6 +2,16 @@
 
 ---
 
+
+## New Updates to Implement
+
+ - Enable notifications on mobile. There should be a button in settings for users to click to enable notifications on their phone. We need to code all of the backend for notifications through Firebase as well.
+
+ - Messaging in the app is not working. I accepted a match and I see a message from "unknown" came in saying that I have a new match, but when I tap on the message it does not load. We need to fix this and we need to fix the unknown name of the messaging bot, maybe we should give the bot a name, let's go with Rally. That's a good play on a tennis term. He should have the personality of a high energy motivation tennis coach that is always happy. Let's also fix the messaging so when we click on a message it cleanly opens the conversation.
+
+ - Login with Google Auth has a snag, after clicking Login with Google the user selects their Google account and then it goes back to the Login screen, it's like it doesn't work, then the user signs in again with Google and the second time it works, we need to debug and fix this.
+
+
 ## 📌 Project Scope
 
 **This app is scoped to a single location: Lifetime Activities in Pleasanton, CA.**
