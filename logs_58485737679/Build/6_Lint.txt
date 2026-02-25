@@ -1,0 +1,40 @@
+﻿2026-02-25T07:01:26.7318558Z ##[group]Run npm run lint
+2026-02-25T07:01:26.7318859Z [36;1mnpm run lint[0m
+2026-02-25T07:01:26.7351016Z shell: /usr/bin/bash -e {0}
+2026-02-25T07:01:26.7351274Z env:
+2026-02-25T07:01:26.7351803Z   NEXT_PUBLIC_FIREBASE_API_KEY: ***
+2026-02-25T07:01:26.7352425Z   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ***
+2026-02-25T07:01:26.7352792Z   NEXT_PUBLIC_FIREBASE_PROJECT_ID: ***
+2026-02-25T07:01:26.7353179Z   NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ***
+2026-02-25T07:01:26.7353528Z   NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ***
+2026-02-25T07:01:26.7353911Z   NEXT_PUBLIC_FIREBASE_APP_ID: ***
+2026-02-25T07:01:26.7354211Z   NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ***
+2026-02-25T07:01:26.7354837Z   NEXT_PUBLIC_FIREBASE_VAPID_KEY: ***
+
+2026-02-25T07:01:26.7355099Z ##[endgroup]
+2026-02-25T07:01:26.8617513Z 
+2026-02-25T07:01:26.8617960Z > nextn@0.1.0 lint
+2026-02-25T07:01:26.8618360Z > next lint
+2026-02-25T07:01:26.8618542Z 
+2026-02-25T07:01:30.0521711Z Attention: Next.js now collects completely anonymous telemetry regarding usage.
+2026-02-25T07:01:30.0525982Z This information is used to shape Next.js' roadmap and prioritize features.
+2026-02-25T07:01:30.0527640Z You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+2026-02-25T07:01:30.0528781Z https://nextjs.org/telemetry
+2026-02-25T07:01:30.0529116Z 
+2026-02-25T07:01:30.2582594Z 
+2026-02-25T07:01:30.2583206Z ./src/app/dashboard/page.tsx
+2026-02-25T07:01:30.2584295Z 251:21  Warning: 'player' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+2026-02-25T07:01:30.2584937Z 
+2026-02-25T07:01:30.2585131Z ./src/hooks/use-toast.ts
+2026-02-25T07:01:30.2585969Z 2:27  Warning: 'useEffect' is defined but never used.  @typescript-eslint/no-unused-vars
+2026-02-25T07:01:30.2587305Z 18:7  Warning: 'actionTypes' is assigned a value but only used as a type.  @typescript-eslint/no-unused-vars
+2026-02-25T07:01:30.2587978Z 
+2026-02-25T07:01:30.2588154Z ./src/lib/firestore.ts
+2026-02-25T07:01:30.2589077Z 31:67  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+2026-02-25T07:01:30.2590443Z 77:73  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+2026-02-25T07:01:30.2591711Z 222:81  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+2026-02-25T07:01:30.2592565Z 
+2026-02-25T07:01:30.2592767Z ./src/lib/mock-data.ts
+2026-02-25T07:01:30.2593434Z 1:79  Warning: 'AgeRange' is defined but never used.  @typescript-eslint/no-unused-vars
+2026-02-25T07:01:30.2593796Z 
+2026-02-25T07:01:30.2594368Z info  - Need to disable some ESLint rules? Learn more here: https://nextjs.org/docs/app/api-reference/config/eslint#disabling-rules
