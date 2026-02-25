@@ -30,22 +30,32 @@ export interface Player {
   profileComplete?: boolean;
 }
 
+export type MatchStatus = "open" | "pending" | "confirmed" | "scheduled" | "in_progress" | "completed" | "cancelled";
+
 export interface Match {
   id: string;
   player1Id: string;
   player2Id: string;
+  player3Id?: string;
+  player4Id?: string;
   date: string;
   time: string;
   location: string;
   sport: "tennis" | "pickleball";
-  status: "upcoming" | "completed" | "open" | "confirmed" | "reserved" | "cancelled";
+  status: MatchStatus;
   score?: string;
   compatibilityScore: number;
   matchExplanation: string;
-  // Open match fields
   matchType?: "singles" | "doubles";
   notes?: string;
   createdBy?: string;
+  acceptedBy?: string;
+  conversationId?: string;
+  cancelledBy?: string;
+  cancelReason?: string;
+  participants?: string[];
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface MatchRequest {
@@ -204,8 +214,8 @@ export const players: Player[] = [
 ];
 
 export const matches: Match[] = [
-  { id: "m1", player1Id: "p1", player2Id: "p2", date: "2026-02-20", time: "9:00 AM", location: "Lifetime Activities Pleasanton", sport: "tennis", status: "upcoming", compatibilityScore: 92, matchExplanation: "Same NTRP rating, overlapping availability on Mon/Wed/Sat, both prefer morning play." },
-  { id: "m2", player1Id: "p1", player2Id: "p6", date: "2026-02-22", time: "6:00 PM", location: "Lifetime Activities Pleasanton", sport: "pickleball", status: "upcoming", compatibilityScore: 88, matchExplanation: "Matching NTRP, both enjoy tennis and pickleball, overlapping Sat availability." },
+  { id: "m1", player1Id: "p1", player2Id: "p2", date: "2026-02-20", time: "9:00 AM", location: "Lifetime Activities Pleasanton", sport: "tennis", status: "scheduled", compatibilityScore: 92, matchExplanation: "Same NTRP rating, overlapping availability on Mon/Wed/Sat, both prefer morning play.", participants: ["p1", "p2"], createdBy: "p1" },
+  { id: "m2", player1Id: "p1", player2Id: "p6", date: "2026-02-22", time: "6:00 PM", location: "Lifetime Activities Pleasanton", sport: "pickleball", status: "scheduled", compatibilityScore: 88, matchExplanation: "Matching NTRP, both enjoy tennis and pickleball, overlapping Sat availability.", participants: ["p1", "p6"], createdBy: "p1" },
   { id: "m3", player1Id: "p1", player2Id: "p3", date: "2026-02-15", time: "10:00 AM", location: "Lifetime Activities Pleasanton", sport: "tennis", status: "completed", score: "6-4, 3-6, 7-5", compatibilityScore: 78, matchExplanation: "Close NTRP ratings, both competitive players. Slight rating gap makes for a challenging match." },
   { id: "m4", player1Id: "p1", player2Id: "p10", date: "2026-02-12", time: "8:00 AM", location: "Lifetime Activities Pleasanton", sport: "tennis", status: "completed", score: "6-3, 6-4", compatibilityScore: 85, matchExplanation: "Same NTRP, similar play style preferences." },
   { id: "m5", player1Id: "p3", player2Id: "p9", date: "2026-02-25", time: "2:00 PM", location: "Lifetime Activities Pleasanton", sport: "tennis", status: "open", compatibilityScore: 90, matchExplanation: "Same NTRP 4.0, both competitive players.", matchType: "singles", createdBy: "p3" },

@@ -64,7 +64,7 @@ export default function DashboardPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const upcoming = userMatches.filter((m) => m.status === "upcoming");
+  const upcoming = userMatches.filter((m) => m.status === "scheduled" || m.status === "confirmed");
   const completed = userMatches.filter((m) => m.status === "completed");
   const winRate = displayUser.matchesPlayed > 0 ? Math.round((displayUser.wins / displayUser.matchesPlayed) * 100) : 0;
 

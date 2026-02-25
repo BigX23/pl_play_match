@@ -61,24 +61,41 @@ export async function getMatches(userId?: string): Promise<Match[]> {
 }
 
 export async function createMatch(data: Omit<Match, "id">): Promise<string> {
+  const now = new Date().toISOString();
+  const enriched = {
+    ...data,
+    participants: [data.player1Id, ...(data.player2Id ? [data.player2Id] : [])].filter(Boolean),
+    createdAt: now,
+    updatedAt: now,
+  };
   if (isFirebaseConfigured && db) {
     const { collection, addDoc } = await import("firebase/firestore");
-    const ref = await addDoc(collection(db, "matches"), data);
+    const ref = await addDoc(collection(db, "matches"), enriched);
     return ref.id;
   }
   const id = `m${matches.length + 1}`;
-  matches.push({ ...data, id } as Match);
+  matches.push({ ...enriched, id } as Match);
   return id;
 }
 
 export async function updateMatch(matchId: string, data: Partial<Match>): Promise<void> {
   if (isFirebaseConfigured && db) {
     const { doc, updateDoc } = await import("firebase/firestore");
-    await updateDoc(doc(db, "matches", matchId), data as { [x: string]: any });
+    await updateDoc(doc(db, "matches", matchId), { ...data, updatedAt: new Date().toISOString() } as { [x: string]: any });
     return;
   }
   const idx = matches.findIndex((m) => m.id === matchId);
   if (idx >= 0) Object.assign(matches[idx], data);
+}
+
+export async function deleteMatch(matchId: string): Promise<void> {
+  if (isFirebaseConfigured && db) {
+    const { doc, deleteDoc } = await import("firebase/firestore");
+    await deleteDoc(doc(db, "matches", matchId));
+    return;
+  }
+  const idx = matches.findIndex((m) => m.id === matchId);
+  if (idx >= 0) matches.splice(idx, 1);
 }
 
 // ---------- Conversations ----------
