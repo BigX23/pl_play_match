@@ -8,7 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { Trophy, Calendar, TrendingUp, Users, Send, Check, X, MessageCircle } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { getMatches, getPlayers, getMatchRequests, createMatchRequest, updateMatchRequest, createGroupConversation, addContact } from "@/lib/firestore";
-import { type Match, type Player, type MatchRequest, getPlayerById, playerToUserProfile, currentUser } from "@/lib/mock-data";
+import { type Match, type Player, type MatchRequest, getPlayerById, playerToUserProfile } from "@/lib/mock-data";
 import { findMatches, type MatchResult } from "@/lib/matching-engine";
 import Link from "next/link";
 
@@ -33,9 +33,10 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [sendingTo, setSendingTo] = useState<string | null>(null);
 
-  const displayUser = user || currentUser;
+  const displayUser = user;
 
   const loadData = useCallback(async () => {
+    if (!displayUser) return;
     try {
       const [m, p, r] = await Promise.all([
         getMatches(displayUser.id),
@@ -63,6 +64,8 @@ export default function DashboardPage() {
   }, [displayUser]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  if (!displayUser) return null;
 
   const upcoming = userMatches.filter((m) => m.status === "scheduled" || m.status === "confirmed");
   const completed = userMatches.filter((m) => m.status === "completed");

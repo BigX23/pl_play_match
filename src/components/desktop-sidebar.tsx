@@ -7,7 +7,6 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { conversations, notifications } from "@/lib/mock-data";
 
 const items = [
   { href: "/dashboard", icon: Home, label: "Dashboard" },
@@ -22,11 +21,10 @@ export default function DesktopSidebar() {
   const pathname = usePathname();
   const { logout, user } = useAuth();
   const router = useRouter();
-  const userId = user?.id || "p1";
 
   const badges = {
-    messages: conversations.filter((c) => c.participants.includes(userId) && c.unreadCount > 0).reduce((sum, c) => sum + c.unreadCount, 0),
-    notifications: notifications.filter((n) => n.userId === userId && !n.read).length,
+    messages: 0,
+    notifications: 0,
   };
 
   return (

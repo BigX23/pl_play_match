@@ -29,21 +29,35 @@ export default function ChatPage() {
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [participantNames, setParticipantNames] = useState<Record<string, string>>({});
 
+  console.log("[ChatPage] render — conversationId:", conversationId, "user:", user?.id, "loading:", loading, "conversation:", conversation?.id);
+
   // Load conversation
   useEffect(() => {
-    if (!conversationId || conversationId === "placeholder") return;
+    console.log("[ChatPage] useEffect[loadConversation] — conversationId:", conversationId);
+    if (!conversationId || conversationId === "placeholder") {
+      console.log("[ChatPage] skipping load — placeholder or missing id");
+      return;
+    }
     setLoading(true);
     getConversation(conversationId).then((conv) => {
+      console.log("[ChatPage] getConversation result:", conv ? { id: conv.id, type: conv.type, participants: conv.participants, name: conv.name } : "NOT FOUND");
       if (conv) setConversation(conv);
+      setLoading(false);
+    }).catch((err) => {
+      console.error("[ChatPage] getConversation error:", err);
       setLoading(false);
     });
   }, [conversationId]);
 
   // Load participant names
   useEffect(() => {
-    if (!conversation || !user) return;
+    if (!conversation || !user) {
+      console.log("[ChatPage] useEffect[loadNames] — skipping, conversation:", !!conversation, "user:", !!user);
+      return;
+    }
     let cancelled = false;
     const otherIds = conversation.participants.filter((id) => id !== user.id);
+    console.log("[ChatPage] useEffect[loadNames] — loading names for:", otherIds);
 
     async function loadNames() {
       const names: Record<string, string> = {};
@@ -66,6 +80,7 @@ export default function ChatPage() {
         }
       }
       if (!cancelled) setParticipantNames(names);
+      console.log("[ChatPage] participant names loaded:", names);
     }
     loadNames();
     return () => { cancelled = true; };
@@ -73,8 +88,14 @@ export default function ChatPage() {
 
   // Load messages
   useEffect(() => {
+    console.log("[ChatPage] useEffect[loadMessages] — conversationId:", conversationId);
     if (!conversationId || conversationId === "placeholder") return;
-    getMessages(conversationId).then(setMsgs);
+    getMessages(conversationId).then((m) => {
+      console.log("[ChatPage] getMessages result:", m.length, "messages");
+      setMsgs(m);
+    }).catch((err) => {
+      console.error("[ChatPage] getMessages error:", err);
+    });
   }, [conversationId]);
 
   // Auto-scroll
@@ -94,7 +115,9 @@ export default function ChatPage() {
 
   const handleSend = async (text: string) => {
     if (!user || !conversationId) return;
+    console.log("[ChatPage] handleSend:", { text: text.substring(0, 50), userId: user.id, conversationId });
     const msg = await sendMessage(conversationId, text, user.id, user.firstName || user.name);
+    console.log("[ChatPage] message sent:", msg.id);
     setMsgs((prev) => [...prev, msg]);
 
     // If Rally is in conversation, maybe respond

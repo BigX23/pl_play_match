@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
-import { currentUser, type Player } from "./mock-data";
+import { type Player } from "./mock-data";
 import { isFirebaseConfigured, auth as firebaseAuth } from "./firebase";
 import { onAuthStateChanged, type User as FirebaseUser } from "firebase/auth";
 
@@ -122,7 +122,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch { return false; }
     }
     // Mock
-    const u = { ...currentUser, email };
+    const u = { id: "mock", name: email.split("@")[0], email, profileComplete: false } as unknown as Player;
     setUser(u);
     persistMock(u);
     return true;
@@ -141,8 +141,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return true;
       } catch { return false; }
     }
-    setUser(currentUser);
-    persistMock(currentUser);
+    const mockG = { id: "mock", name: "Mock User", email: "mock@playmatch.app", profileComplete: false } as unknown as Player;
+    setUser(mockG);
+    persistMock(mockG);
     return true;
   }, [loadAndSetProfile]);
 
@@ -159,7 +160,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return true;
       } catch { return false; }
     }
-    const u = { ...currentUser, ...data } as Player;
+    const u = { id: "mock", name: `${data.firstName || ""} ${data.lastName || ""}`.trim(), profileComplete: false, ...data } as Player;
     setUser(u);
     persistMock(u);
     return true;
