@@ -66,7 +66,7 @@ export const onNewMessage = functions.firestore
     const { conversationId, senderId, senderName, text, isAI } = msg;
 
     // Don't send push for AI messages (Rally bot messages)
-    if (isAI || senderId === "ai") return;
+    if (isAI || senderId === "ai" || senderId === "rally") return;
 
     // Find the conversation to get participants
     const convDoc = await db.collection("conversations").doc(conversationId).get();
@@ -74,8 +74,8 @@ export const onNewMessage = functions.firestore
 
     const participants: string[] = convDoc.data()?.participants || [];
 
-    // Notify all participants except the sender and the AI
-    const recipients = participants.filter((id: string) => id !== senderId && id !== "ai");
+    // Notify all participants except the sender and Rally
+    const recipients = participants.filter((id: string) => id !== senderId && id !== "ai" && id !== "rally");
 
     const truncatedText = text.length > 80 ? text.substring(0, 80) + "..." : text;
 
@@ -151,7 +151,7 @@ export const onNewConversation = functions.firestore
     if (!conv) return;
 
     const participants: string[] = conv.participants || [];
-    const humanParticipants = participants.filter((id: string) => id !== "ai");
+    const humanParticipants = participants.filter((id: string) => id !== "ai" && id !== "rally");
 
     await Promise.all(
       humanParticipants.map((userId: string) =>

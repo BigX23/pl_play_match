@@ -1,6 +1,6 @@
 import { type Player } from "./mock-data";
 
-export const AI_SENDER_ID = "ai";
+export const AI_SENDER_ID = "rally";
 export const AI_SENDER_NAME = "Rally";
 
 /**

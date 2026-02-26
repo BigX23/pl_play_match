@@ -38,10 +38,11 @@ import {
   createMatch,
   updateMatch,
   deleteMatch,
-  createConversation,
+  createGroupConversation,
+  addContact,
   getUser,
 } from "@/lib/firestore";
-import { type Match, type MatchStatus, type Player, getPlayerById, currentUser } from "@/lib/mock-data";
+import { type Match, type MatchStatus, type Player, type Contact, getPlayerById, currentUser } from "@/lib/mock-data";
 
 /* ──────────────────── status helpers ──────────────────── */
 const STATUS_CONFIG: Record<
@@ -201,15 +202,27 @@ export default function OpenMatchesPage() {
 
   const handleAcceptPartner = (match: Match) =>
     withLoading(match.id, async () => {
-      const creator = findPlayer(match.createdBy || match.player1Id);
-      const partner = findPlayer(match.acceptedBy || match.player2Id);
+      const creatorId = match.createdBy || match.player1Id;
+      const partnerId = match.acceptedBy || match.player2Id;
+      const creator = findPlayer(creatorId);
+      const partner = findPlayer(partnerId);
       const cName = creator?.firstName || creator?.name || "Champion";
       const pName = partner?.firstName || partner?.name || "Champion";
       const intro = `GAME ON! 🎾🔥 Hey ${cName} and ${pName}! I'm Rally, your match coach! You're set to play ${match.sport} ${match.matchType || "singles"} on ${match.date} at ${match.time} at ${match.location}. Time to reserve a court — call (925) 460-8600 and LET'S GO! 🏟️💪`;
-      const convId = await createConversation(
-        [match.createdBy || match.player1Id, match.acceptedBy || match.player2Id],
-        intro,
-      );
+      const participantIds = [creatorId, partnerId].filter(Boolean);
+      const groupName = `Match: ${cName} vs ${pName}`;
+      const convId = await createGroupConversation(participantIds, match.id, groupName, intro);
+
+      // Auto-add each other as contacts
+      if (creator) {
+        const creatorContact: Contact = { id: creatorId, name: cName, email: creator.email, avatar: creator.avatar, addedAt: new Date().toISOString() };
+        await addContact(partnerId, creatorContact).catch(() => {});
+      }
+      if (partner) {
+        const partnerContact: Contact = { id: partnerId, name: pName, email: partner.email, avatar: partner.avatar, addedAt: new Date().toISOString() };
+        await addContact(creatorId, partnerContact).catch(() => {});
+      }
+
       await updateMatch(match.id, {
         status: "confirmed" as MatchStatus,
         conversationId: convId,
