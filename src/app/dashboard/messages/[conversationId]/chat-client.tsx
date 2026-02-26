@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { getMessages, sendMessage, getUser, getConversation, addContact, deleteConversation } from "@/lib/firestore";
 import { type Message, type Conversation, getPlayerById, RALLY_USER } from "@/lib/mock-data";
@@ -19,7 +19,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export default function ChatPage() {
-  const { conversationId } = useParams<{ conversationId: string }>();
+  const pathname = usePathname();
+  // Extract conversation ID from URL pathname instead of useParams
+  // (useParams returns "placeholder" on static-export full-page loads)
+  const segments = pathname.replace(/\/+$/, "").split("/");
+  const conversationId = segments[segments.length - 1] || "";
   const { user } = useAuth();
   const router = useRouter();
   const [msgs, setMsgs] = useState<Message[]>([]);
