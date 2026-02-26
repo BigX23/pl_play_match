@@ -6,7 +6,6 @@ import {
   messages,
   notifications,
   matchRequests,
-  currentUser,
   RALLY_USER,
   type Player,
   type Match,
@@ -20,12 +19,17 @@ import {
 
 // ---------- Users ----------
 export async function getUser(userId: string): Promise<Player | undefined> {
+  console.log("[getUser] called with userId:", userId);
   if (isFirebaseConfigured && db) {
     const { doc, getDoc } = await import("firebase/firestore");
     const snap = await getDoc(doc(db, "users", userId));
-    return snap.exists() ? ({ id: snap.id, ...snap.data() } as Player) : undefined;
+    const exists = snap.exists();
+    console.log("[getUser] Firestore doc exists:", exists, "for userId:", userId);
+    return exists ? ({ id: snap.id, ...snap.data() } as Player) : undefined;
   }
-  return players.find((p) => p.id === userId);
+  const result = players.find((p) => p.id === userId);
+  console.log("[getUser] mock result:", result ? result.name : "not found");
+  return result;
 }
 
 export async function updateUser(userId: string, data: Partial<Player>): Promise<void> {
@@ -103,6 +107,8 @@ export async function deleteMatch(matchId: string): Promise<void> {
 
 // ---------- Conversations ----------
 export async function getConversations(userId: string): Promise<Conversation[]> {
+  console.log("[getConversations] called with userId:", userId);
+  console.log("[getConversations] isFirebaseConfigured:", isFirebaseConfigured, "db:", !!db);
   if (isFirebaseConfigured && db) {
     const { collection, getDocs, query, where, orderBy } = await import("firebase/firestore");
     const q = query(
@@ -111,23 +117,39 @@ export async function getConversations(userId: string): Promise<Conversation[]> 
       orderBy("lastMessageAt", "desc")
     );
     const snap = await getDocs(q);
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Conversation));
+    const result = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Conversation));
+    console.log("[getConversations] Firestore returned", result.length, "conversations:", result.map(c => ({ id: c.id, type: c.type, participants: c.participants })));
+    return result;
   }
-  return conversations
+  const result = conversations
     .filter((c) => c.participants.includes(userId))
     .sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
+  console.log("[getConversations] mock returned", result.length, "conversations");
+  return result;
 }
 
 export async function getConversation(conversationId: string): Promise<Conversation | undefined> {
+  console.log("[getConversation] called with conversationId:", conversationId);
+  console.log("[getConversation] isFirebaseConfigured:", isFirebaseConfigured, "db:", !!db);
   if (isFirebaseConfigured && db) {
     const { doc, getDoc } = await import("firebase/firestore");
     const snap = await getDoc(doc(db, "conversations", conversationId));
-    return snap.exists() ? ({ id: snap.id, ...snap.data() } as Conversation) : undefined;
+    const exists = snap.exists();
+    console.log("[getConversation] Firestore doc exists:", exists);
+    if (exists) {
+      const data = { id: snap.id, ...snap.data() } as Conversation;
+      console.log("[getConversation] Firestore data:", { id: data.id, type: data.type, participants: data.participants, name: data.name });
+      return data;
+    }
+    return undefined;
   }
-  return conversations.find((c) => c.id === conversationId);
+  const result = conversations.find((c) => c.id === conversationId);
+  console.log("[getConversation] mock result:", result ? { id: result.id } : "not found");
+  return result;
 }
 
 export async function deleteConversation(conversationId: string): Promise<void> {
+  console.log("[deleteConversation] called with conversationId:", conversationId);
   if (isFirebaseConfigured && db) {
     const { doc, deleteDoc, collection, getDocs, query, where, writeBatch } = await import("firebase/firestore");
     // Delete all messages in the conversation
@@ -168,6 +190,7 @@ export async function findDirectConversation(userId1: string, userId2: string): 
 
 /** Create a 1-on-1 direct conversation (no Rally) */
 export async function createDirectConversation(userId1: string, userId2: string, user1Name: string, user2Name: string): Promise<string> {
+  console.log("[createDirectConversation] called:", { userId1, userId2, user1Name, user2Name });
   // Check if one already exists
   const existing = await findDirectConversation(userId1, userId2);
   if (existing) return existing.id;
@@ -200,6 +223,7 @@ export async function createGroupConversation(
   groupName: string,
   rallyIntro: string,
 ): Promise<string> {
+  console.log("[createGroupConversation] called:", { participantIds, matchId, groupName });
   const convId = `conv_${Date.now()}`;
   const now = new Date().toISOString();
   const allParticipants = [...participantIds, RALLY_USER.id];
@@ -238,6 +262,8 @@ export async function createGroupConversation(
 
 // ---------- Messages ----------
 export async function getMessages(conversationId: string): Promise<Message[]> {
+  console.log("[getMessages] called with conversationId:", conversationId);
+  console.log("[getMessages] isFirebaseConfigured:", isFirebaseConfigured, "db:", !!db);
   if (isFirebaseConfigured && db) {
     const { collection, getDocs, query, where, orderBy } = await import("firebase/firestore");
     const q = query(
@@ -245,20 +271,30 @@ export async function getMessages(conversationId: string): Promise<Message[]> {
       where("conversationId", "==", conversationId),
       orderBy("createdAt", "asc")
     );
-    const snap = await getDocs(q);
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Message));
+    try {
+      const snap = await getDocs(q);
+      const result = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Message));
+      console.log("[getMessages] Firestore returned", result.length, "messages");
+      return result;
+    } catch (err) {
+      console.error("[getMessages] Firestore error:", err);
+      return [];
+    }
   }
-  return messages
+  const result = messages
     .filter((m) => m.conversationId === conversationId)
     .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  console.log("[getMessages] mock returned", result.length, "messages");
+  return result;
 }
 
 export async function sendMessage(
   conversationId: string,
   text: string,
-  senderId: string = currentUser.id,
-  senderName: string = currentUser.name
+  senderId: string = "",
+  senderName: string = ""
 ): Promise<Message> {
+  console.log("[sendMessage] called:", { conversationId, text: text.substring(0, 50), senderId, senderName });
   const msg: Message = {
     id: `msg${Date.now()}`,
     conversationId,
@@ -290,10 +326,7 @@ export async function sendMessage(
 }
 
 // ---------- Contacts ----------
-const mockContacts: Contact[] = [
-  { id: "p2", name: "Sarah Chen", email: "sarah@example.com", avatar: "💪", addedAt: "2026-02-14T10:00:00Z" },
-  { id: "p6", name: "Lisa Park", email: "lisa@example.com", avatar: "⭐", addedAt: "2026-02-15T14:00:00Z" },
-];
+const mockContacts: Contact[] = [];
 
 export async function getContacts(userId: string): Promise<Contact[]> {
   if (isFirebaseConfigured && db) {

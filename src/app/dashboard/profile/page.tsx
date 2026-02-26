@@ -15,7 +15,7 @@ import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { getMatches, getPlayers, updateUser } from "@/lib/firestore";
 import { storage, isFirebaseConfigured } from "@/lib/firebase";
-import { type Match, type Player, currentUser, getPlayerById } from "@/lib/mock-data";
+import { type Match, type Player, getPlayerById } from "@/lib/mock-data";
 import type { GameType, SportType, MatchFormat, AgeRange, DayAvailability } from "@/lib/matching-engine";
 
 const NTRP_OPTIONS = ["2.0", "2.5", "3.0", "3.5", "4.0", "4.5", "5.0", "5.5"];
@@ -39,30 +39,31 @@ function fmt(h: number) {
 
 export default function ProfilePage() {
   const { user, updateUserProfile } = useAuth();
-  const displayUser = user || currentUser;
+  const displayUser = user;
 
   const [userMatches, setUserMatches] = useState<Match[]>([]);
   const [allPlayers, setAllPlayers] = useState<Player[]>([]);
 
   useEffect(() => {
+    if (!displayUser) return;
     async function load() {
-      const [m, p] = await Promise.all([getMatches(displayUser.id), getPlayers()]);
+      const [m, p] = await Promise.all([getMatches(displayUser!.id), getPlayers()]);
       setUserMatches(m);
       setAllPlayers(p);
     }
     load();
-  }, [displayUser.id]);
+  }, [displayUser?.id]);
 
   // ── Basic Info ─────────────────────────────────────────────────────────────
   const [editingBasic, setEditingBasic] = useState(false);
-  const [firstName, setFirstName] = useState(displayUser.firstName || "");
-  const [lastName, setLastName]   = useState(displayUser.lastName || "");
-  const [age, setAge]             = useState(displayUser.age?.toString() || "");
-  const [gender, setGender]       = useState(displayUser.gender || "");
-  const [avatar, setAvatar]       = useState(displayUser.avatar || "");
-  const [aboutMe, setAboutMe]     = useState(displayUser.aboutMe || displayUser.bio || "");
-  const [photoURL, setPhotoURL]   = useState(displayUser.photoURL || "");
-  const [photoPreview, setPhotoPreview] = useState(displayUser.photoURL || "");
+  const [firstName, setFirstName] = useState(displayUser?.firstName || "");
+  const [lastName, setLastName]   = useState(displayUser?.lastName || "");
+  const [age, setAge]             = useState(displayUser?.age?.toString() || "");
+  const [gender, setGender]       = useState(displayUser?.gender || "");
+  const [avatar, setAvatar]       = useState(displayUser?.avatar || "");
+  const [aboutMe, setAboutMe]     = useState(displayUser?.aboutMe || displayUser?.bio || "");
+  const [photoURL, setPhotoURL]   = useState(displayUser?.photoURL || "");
+  const [photoPreview, setPhotoPreview] = useState(displayUser?.photoURL || "");
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -76,7 +77,7 @@ export default function ProfilePage() {
     setUploading(true);
     try {
       const { ref, uploadBytes, getDownloadURL } = await import("firebase/storage");
-      const storageRef = ref(storage, `profile-photos/${displayUser.id}`);
+      const storageRef = ref(storage, `profile-photos/${displayUser!.id}`);
       await uploadBytes(storageRef, file);
       const url = await getDownloadURL(storageRef);
       setPhotoURL(url);
@@ -88,21 +89,21 @@ export default function ProfilePage() {
 
   const saveBasic = async () => {
     const data = { firstName, lastName, name: `${firstName} ${lastName}`, age: parseInt(age), gender, avatar, aboutMe, bio: aboutMe, ...(photoURL ? { photoURL } : {}) };
-    await updateUser(displayUser.id, data);
+    await updateUser(displayUser!.id, data);
     updateUserProfile(data);
     setEditingBasic(false);
   };
 
   // ── Play Preferences ───────────────────────────────────────────────────────
   const [editingPlay, setEditingPlay] = useState(false);
-  const [ntrp, setNtrp]               = useState(displayUser.ntrpRating?.toString() || "3.5");
-  const [sports, setSports]           = useState<SportType[]>(displayUser.sports || []);
-  const [matchFormats, setMatchFormats] = useState<MatchFormat[]>(displayUser.matchFormats || []);
-  const [gameType, setGameType]       = useState<GameType>(displayUser.gameType || "slightly-competitive");
+  const [ntrp, setNtrp]               = useState(displayUser?.ntrpRating?.toString() || "3.5");
+  const [sports, setSports]           = useState<SportType[]>(displayUser?.sports || []);
+  const [matchFormats, setMatchFormats] = useState<MatchFormat[]>(displayUser?.matchFormats || []);
+  const [gameType, setGameType]       = useState<GameType>(displayUser?.gameType || "slightly-competitive");
 
   const savePlay = async () => {
     const data = { ntrpRating: parseFloat(ntrp), sports, matchFormats, gameType };
-    await updateUser(displayUser.id, data);
+    await updateUser(displayUser!.id, data);
     updateUserProfile(data);
     setEditingPlay(false);
   };
@@ -111,7 +112,7 @@ export default function ProfilePage() {
   const [editingAvail, setEditingAvail] = useState(false);
   const [selectedSlots, setSelectedSlots] = useState<Set<string>>(() => {
     const set = new Set<string>();
-    (displayUser.weeklyAvailability || []).forEach((day: DayAvailability) => {
+    (displayUser?.weeklyAvailability || []).forEach((day: DayAvailability) => {
       if (day.enabled) {
         day.slots.forEach((slot) => {
           TIME_PERIODS.forEach((period, i) => {
@@ -133,35 +134,37 @@ export default function ProfilePage() {
       const enabledPeriods = TIME_PERIODS.filter((_, i) => selectedSlots.has(`${day}-${i}`));
       return { day, enabled: enabledPeriods.length > 0, slots: enabledPeriods.map((p) => ({ start: p.start, end: p.end })) };
     });
-    await updateUser(displayUser.id, { weeklyAvailability });
+    await updateUser(displayUser!.id, { weeklyAvailability });
     updateUserProfile({ weeklyAvailability });
     setEditingAvail(false);
   };
 
   // ── Partner Preferences ────────────────────────────────────────────────────
   const [editingPartner, setEditingPartner] = useState(false);
-  const [ageRange, setAgeRange]             = useState<AgeRange>(displayUser.partnerPreferences?.ageRange || "10");
-  const [partnerNtrpMin, setPartnerNtrpMin] = useState(displayUser.partnerPreferences?.ntrpMin?.toString() || "2.0");
-  const [partnerNtrpMax, setPartnerNtrpMax] = useState(displayUser.partnerPreferences?.ntrpMax?.toString() || "5.5");
-  const [partnerGameTypes, setPartnerGameTypes] = useState<GameType[]>(displayUser.partnerPreferences?.gameTypes || []);
-  const [partnerSports, setPartnerSports]   = useState<SportType[]>(displayUser.partnerPreferences?.sports || []);
-  const [partnerFormats, setPartnerFormats] = useState<MatchFormat[]>(displayUser.partnerPreferences?.matchFormats || []);
-  const [partnerGender, setPartnerGender] = useState<"Male" | "Female" | "No Preference">(displayUser.partnerPreferences?.genderPreference || "No Preference");
+  const [ageRange, setAgeRange]             = useState<AgeRange>(displayUser?.partnerPreferences?.ageRange || "10");
+  const [partnerNtrpMin, setPartnerNtrpMin] = useState(displayUser?.partnerPreferences?.ntrpMin?.toString() || "2.0");
+  const [partnerNtrpMax, setPartnerNtrpMax] = useState(displayUser?.partnerPreferences?.ntrpMax?.toString() || "5.5");
+  const [partnerGameTypes, setPartnerGameTypes] = useState<GameType[]>(displayUser?.partnerPreferences?.gameTypes || []);
+  const [partnerSports, setPartnerSports]   = useState<SportType[]>(displayUser?.partnerPreferences?.sports || []);
+  const [partnerFormats, setPartnerFormats] = useState<MatchFormat[]>(displayUser?.partnerPreferences?.matchFormats || []);
+  const [partnerGender, setPartnerGender] = useState<"Male" | "Female" | "No Preference">(displayUser?.partnerPreferences?.genderPreference || "No Preference");
 
   const savePartner = async () => {
     const partnerPreferences = { ageRange, ntrpMin: parseFloat(partnerNtrpMin), ntrpMax: parseFloat(partnerNtrpMax), gameTypes: partnerGameTypes, sports: partnerSports, matchFormats: partnerFormats, genderPreference: partnerGender };
-    await updateUser(displayUser.id, { partnerPreferences });
+    await updateUser(displayUser!.id, { partnerPreferences });
     updateUserProfile({ partnerPreferences });
     setEditingPartner(false);
   };
 
   // ── Stats helpers ──────────────────────────────────────────────────────────
   const completed = userMatches.filter((m) => m.status === "completed");
-  const winRate = (displayUser.matchesPlayed ?? 0) > 0 ? Math.round(((displayUser.wins ?? 0) / displayUser.matchesPlayed) * 100) : 0;
+  const winRate = (displayUser?.matchesPlayed ?? 0) > 0 ? Math.round(((displayUser?.wins ?? 0) / displayUser!.matchesPlayed) * 100) : 0;
   const getOpponent = (match: Match) => {
-    const id = match.player1Id === displayUser.id ? match.player2Id : match.player1Id;
+    const id = match.player1Id === displayUser!.id ? match.player2Id : match.player1Id;
     return allPlayers.find((p) => p.id === id) || getPlayerById(id);
   };
+
+  if (!displayUser) return null;
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-3xl mx-auto">

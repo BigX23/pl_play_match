@@ -42,7 +42,7 @@ import {
   addContact,
   getUser,
 } from "@/lib/firestore";
-import { type Match, type MatchStatus, type Player, type Contact, getPlayerById, currentUser } from "@/lib/mock-data";
+import { type Match, type MatchStatus, type Player, type Contact, getPlayerById } from "@/lib/mock-data";
 
 /* ──────────────────── status helpers ──────────────────── */
 const STATUS_CONFIG: Record<
@@ -60,8 +60,8 @@ const STATUS_CONFIG: Record<
 
 export default function OpenMatchesPage() {
   const { user } = useAuth();
-  const displayUser = user || currentUser;
-  const userId = displayUser.id;
+  const displayUser = user;
+  const userId = displayUser?.id || "";
 
   const [sportFilter, setSportFilter] = useState("all");
   const [search, setSearch] = useState("");

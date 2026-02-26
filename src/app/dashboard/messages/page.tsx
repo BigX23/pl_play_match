@@ -24,8 +24,11 @@ export default function MessagesPage() {
   const [addContactError, setAddContactError] = useState("");
 
   const loadData = useCallback(async () => {
-    if (!user) return;
+    if (!user) { console.log("[MessagesPage] loadData: no user, skipping"); return; }
+    console.log("[MessagesPage] loadData: fetching for user", user.id);
     const [c, ct] = await Promise.all([getConversations(user.id), getContacts(user.id)]);
+    console.log("[MessagesPage] loadData: got", c.length, "convos,", ct.length, "contacts");
+    console.log("[MessagesPage] conversations:", c.map(conv => ({ id: conv.id, type: conv.type, participants: conv.participants, lastMessage: conv.lastMessage?.substring(0, 30) })));
     setConvos(c);
     setContacts(ct);
   }, [user]);
@@ -39,13 +42,16 @@ export default function MessagesPage() {
   });
 
   const handleDelete = async (convId: string) => {
+    console.log("[MessagesPage] handleDelete:", convId);
     await deleteConversation(convId);
     setConvos((prev) => prev.filter((c) => c.id !== convId));
   };
 
   const handleStartChat = async (contactId: string, contactName: string) => {
     if (!user) return;
+    console.log("[MessagesPage] handleStartChat:", { contactId, contactName });
     const convId = await createDirectConversation(user.id, contactId, user.firstName || user.name, contactName);
+    console.log("[MessagesPage] navigating to conversation:", convId);
     router.push(`/dashboard/messages/${convId}/`);
   };
 
@@ -126,7 +132,7 @@ export default function MessagesPage() {
               <ConversationCard
                 key={c.id}
                 conversation={c}
-                currentUserId={user?.id || "p1"}
+                currentUserId={user?.id || ""}
                 onDelete={() => handleDelete(c.id)}
               />
             ))

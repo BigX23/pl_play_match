@@ -21,6 +21,9 @@ export default function ConversationCard({ conversation, currentUserId, onDelete
   const [displayName, setDisplayName] = useState<string>("Loading...");
   const [initial, setInitial] = useState<string>("?");
 
+  console.log("[ConversationCard] render:", { id: conversation.id, type: conversation.type, participants: conversation.participants, currentUserId, otherIds, isGroup });
+  console.log("[ConversationCard] link will be:", `/dashboard/messages/${conversation.id}/`);
+
   useEffect(() => {
     let cancelled = false;
     async function loadNames() {

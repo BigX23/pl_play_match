@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { Home, Search, MessageSquare, Bell, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
-import { conversations, notifications } from "@/lib/mock-data";
 
 const items = [
   { href: "/dashboard", icon: Home, label: "Home" },
@@ -18,11 +17,10 @@ const items = [
 export default function BottomNav() {
   const pathname = usePathname();
   const { user } = useAuth();
-  const userId = user?.id || "p1";
 
   const badges = {
-    messages: conversations.filter((c) => c.participants.includes(userId) && c.unreadCount > 0).reduce((sum, c) => sum + c.unreadCount, 0),
-    notifications: notifications.filter((n) => n.userId === userId && !n.read).length,
+    messages: 0,
+    notifications: 0,
   };
 
   return (
