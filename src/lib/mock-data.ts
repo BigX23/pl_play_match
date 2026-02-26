@@ -30,22 +30,32 @@ export interface Player {
   profileComplete?: boolean;
 }
 
+export type MatchStatus = "open" | "pending" | "confirmed" | "scheduled" | "in_progress" | "completed" | "cancelled";
+
 export interface Match {
   id: string;
   player1Id: string;
   player2Id: string;
+  player3Id?: string;
+  player4Id?: string;
   date: string;
   time: string;
   location: string;
   sport: "tennis" | "pickleball";
-  status: "upcoming" | "completed" | "open" | "confirmed" | "reserved" | "cancelled";
+  status: MatchStatus;
   score?: string;
   compatibilityScore: number;
   matchExplanation: string;
-  // Open match fields
   matchType?: "singles" | "doubles";
   notes?: string;
   createdBy?: string;
+  acceptedBy?: string;
+  conversationId?: string;
+  cancelledBy?: string;
+  cancelReason?: string;
+  participants?: string[];
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface MatchRequest {
@@ -204,8 +214,8 @@ export const players: Player[] = [
 ];
 
 export const matches: Match[] = [
-  { id: "m1", player1Id: "p1", player2Id: "p2", date: "2026-02-20", time: "9:00 AM", location: "Lifetime Activities Pleasanton", sport: "tennis", status: "upcoming", compatibilityScore: 92, matchExplanation: "Same NTRP rating, overlapping availability on Mon/Wed/Sat, both prefer morning play." },
-  { id: "m2", player1Id: "p1", player2Id: "p6", date: "2026-02-22", time: "6:00 PM", location: "Lifetime Activities Pleasanton", sport: "pickleball", status: "upcoming", compatibilityScore: 88, matchExplanation: "Matching NTRP, both enjoy tennis and pickleball, overlapping Sat availability." },
+  { id: "m1", player1Id: "p1", player2Id: "p2", date: "2026-02-20", time: "9:00 AM", location: "Lifetime Activities Pleasanton", sport: "tennis", status: "scheduled", compatibilityScore: 92, matchExplanation: "Same NTRP rating, overlapping availability on Mon/Wed/Sat, both prefer morning play.", participants: ["p1", "p2"], createdBy: "p1" },
+  { id: "m2", player1Id: "p1", player2Id: "p6", date: "2026-02-22", time: "6:00 PM", location: "Lifetime Activities Pleasanton", sport: "pickleball", status: "scheduled", compatibilityScore: 88, matchExplanation: "Matching NTRP, both enjoy tennis and pickleball, overlapping Sat availability.", participants: ["p1", "p6"], createdBy: "p1" },
   { id: "m3", player1Id: "p1", player2Id: "p3", date: "2026-02-15", time: "10:00 AM", location: "Lifetime Activities Pleasanton", sport: "tennis", status: "completed", score: "6-4, 3-6, 7-5", compatibilityScore: 78, matchExplanation: "Close NTRP ratings, both competitive players. Slight rating gap makes for a challenging match." },
   { id: "m4", player1Id: "p1", player2Id: "p10", date: "2026-02-12", time: "8:00 AM", location: "Lifetime Activities Pleasanton", sport: "tennis", status: "completed", score: "6-3, 6-4", compatibilityScore: 85, matchExplanation: "Same NTRP, similar play style preferences." },
   { id: "m5", player1Id: "p3", player2Id: "p9", date: "2026-02-25", time: "2:00 PM", location: "Lifetime Activities Pleasanton", sport: "tennis", status: "open", compatibilityScore: 90, matchExplanation: "Same NTRP 4.0, both competitive players.", matchType: "singles", createdBy: "p3" },
@@ -222,14 +232,49 @@ export const matchRequests: MatchRequest[] = [
   { id: "mr4", fromUserId: "p13", toUserId: "p1", status: "pending", score: 80, createdAt: "2026-02-16T14:00:00Z" },
 ];
 
+export type ConversationType = "direct" | "group";
+
 export interface Conversation {
   id: string;
   participants: string[];
+  type: ConversationType;
+  name?: string;           // Display name for group chats (e.g. "Match: Alex vs Sarah")
+  matchId?: string;        // Link to the match that created this group chat
   lastMessage: string;
   lastMessageAt: string;
   unreadCount: number;
   createdAt: string;
 }
+
+export interface Contact {
+  id: string;         // The contact user's ID
+  name: string;
+  email?: string;
+  avatar?: string;
+  addedAt: string;
+}
+
+// Rally — the system chatbot
+export const RALLY_USER: Player = {
+  id: "rally",
+  name: "Rally",
+  email: "rally@playmatch.app",
+  ntrpRating: 0,
+  avatar: "🎾",
+  photoURL: "/images/rally-avatar.png",
+  location: "",
+  availability: [],
+  preferredTimes: [],
+  sport: "both",
+  matchesPlayed: 0,
+  wins: 0,
+  losses: 0,
+  bio: "I'm Rally, your AI match coach! 🎾",
+  joinedDate: "2024-01-01",
+  firstName: "Rally",
+  lastName: "",
+  profileComplete: true,
+};
 
 export interface Message {
   id: string;
@@ -256,10 +301,10 @@ export interface Notification {
 }
 
 export const conversations: Conversation[] = [
-  { id: "conv1", participants: ["p1", "p2"], lastMessage: "See you Saturday morning!", lastMessageAt: "2026-02-17T08:30:00Z", unreadCount: 1, createdAt: "2026-02-14T10:00:00Z" },
-  { id: "conv2", participants: ["p1", "p6"], lastMessage: "The courts at Val Vista are great for pickleball", lastMessageAt: "2026-02-16T19:00:00Z", unreadCount: 0, createdAt: "2026-02-15T14:00:00Z" },
-  { id: "conv3", participants: ["p1", "p2", "ai"], lastMessage: "Hey Sarah and Alex! You're both 3.5 NTRP players who love playing on Mon/Wed/Sat mornings. Want to set up a match this week?", lastMessageAt: "2026-02-14T09:00:00Z", unreadCount: 0, createdAt: "2026-02-14T09:00:00Z" },
-  { id: "conv4", participants: ["p1", "p13", "ai"], lastMessage: "How did your match with Kevin go? Report your score! 🎾", lastMessageAt: "2026-02-11T10:00:00Z", unreadCount: 1, createdAt: "2026-02-09T12:00:00Z" },
+  { id: "conv1", participants: ["p1", "p2"], type: "direct", lastMessage: "See you Saturday morning!", lastMessageAt: "2026-02-17T08:30:00Z", unreadCount: 1, createdAt: "2026-02-14T10:00:00Z" },
+  { id: "conv2", participants: ["p1", "p6"], type: "direct", lastMessage: "The courts at Val Vista are great for pickleball", lastMessageAt: "2026-02-16T19:00:00Z", unreadCount: 0, createdAt: "2026-02-15T14:00:00Z" },
+  { id: "conv3", participants: ["p1", "p2", "rally"], type: "group", name: "Match: Alex vs Sarah", matchId: "m1", lastMessage: "Hey Sarah and Alex! You're both 3.5 NTRP players who love playing on Mon/Wed/Sat mornings. Want to set up a match this week?", lastMessageAt: "2026-02-14T09:00:00Z", unreadCount: 0, createdAt: "2026-02-14T09:00:00Z" },
+  { id: "conv4", participants: ["p1", "p13", "rally"], type: "group", name: "Match: Alex vs Kevin", matchId: "m9", lastMessage: "How did your match with Kevin go? Report your score! 🎾", lastMessageAt: "2026-02-11T10:00:00Z", unreadCount: 1, createdAt: "2026-02-09T12:00:00Z" },
 ];
 
 export const messages: Message[] = [
@@ -268,11 +313,11 @@ export const messages: Message[] = [
   { id: "msg3", conversationId: "conv1", senderId: "p2", senderName: "Sarah Chen", text: "See you Saturday morning!", createdAt: "2026-02-17T08:30:00Z", readBy: ["p2"] },
   { id: "msg4", conversationId: "conv2", senderId: "p1", senderName: "Alex Johnson", text: "Hey Lisa, want to play pickleball this Saturday?", createdAt: "2026-02-16T18:00:00Z", readBy: ["p1", "p6"] },
   { id: "msg5", conversationId: "conv2", senderId: "p6", senderName: "Lisa Park", text: "The courts at Val Vista are great for pickleball", createdAt: "2026-02-16T19:00:00Z", readBy: ["p6", "p1"] },
-  { id: "msg6", conversationId: "conv3", senderId: "ai", senderName: "Rally", text: "Hey Sarah and Alex! You're both 3.5 NTRP players who love playing on Mon/Wed/Sat mornings. Want to set up a match this week?", createdAt: "2026-02-14T09:00:00Z", readBy: ["ai", "p1", "p2"], isAI: true },
-  { id: "msg7", conversationId: "conv4", senderId: "ai", senderName: "Rally", text: "Hey Alex and Kevin! You're both competitive players who enjoy evening tennis. I think you'd have a great match!", createdAt: "2026-02-09T12:00:00Z", readBy: ["ai", "p1", "p13"], isAI: true },
+  { id: "msg6", conversationId: "conv3", senderId: "rally", senderName: "Rally", text: "Hey Sarah and Alex! You're both 3.5 NTRP players who love playing on Mon/Wed/Sat mornings. Want to set up a match this week?", createdAt: "2026-02-14T09:00:00Z", readBy: ["rally", "p1", "p2"], isAI: true },
+  { id: "msg7", conversationId: "conv4", senderId: "rally", senderName: "Rally", text: "Hey Alex and Kevin! You're both competitive players who enjoy evening tennis. I think you'd have a great match!", createdAt: "2026-02-09T12:00:00Z", readBy: ["rally", "p1", "p13"], isAI: true },
   { id: "msg8", conversationId: "conv4", senderId: "p1", senderName: "Alex Johnson", text: "Sounds good! Kevin, are you free this Tuesday evening?", createdAt: "2026-02-09T13:00:00Z", readBy: ["p1", "p13"] },
   { id: "msg9", conversationId: "conv4", senderId: "p13", senderName: "Kevin Nguyen", text: "Tuesday works! 7pm at Pleasanton Tennis Park?", createdAt: "2026-02-09T14:00:00Z", readBy: ["p13", "p1"] },
-  { id: "msg10", conversationId: "conv4", senderId: "ai", senderName: "Rally", text: "How did your match with Kevin go? Report your score! 🎾", createdAt: "2026-02-11T10:00:00Z", readBy: ["ai"], isAI: true },
+  { id: "msg10", conversationId: "conv4", senderId: "rally", senderName: "Rally", text: "How did your match with Kevin go? Report your score! 🎾", createdAt: "2026-02-11T10:00:00Z", readBy: ["rally"], isAI: true },
 ];
 
 export const notifications: Notification[] = [

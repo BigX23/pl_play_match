@@ -1,0 +1,4 @@
+2026-02-25T07:02:19.7060000Z Evaluating deploy-preview.if
+2026-02-25T07:02:19.7060000Z Evaluating: (success() && ((github.event_name == 'pull_request')))
+2026-02-25T07:02:19.7060000Z Expanded: (true && ('push' == 'pull_request'))
+2026-02-25T07:02:19.7060000Z Result: false

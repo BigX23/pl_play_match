@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Trophy, Calendar, TrendingUp, Users, Send, Check, X, MessageCircle } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { getMatches, getPlayers, getMatchRequests, createMatchRequest, updateMatchRequest, createConversation } from "@/lib/firestore";
+import { getMatches, getPlayers, getMatchRequests, createMatchRequest, updateMatchRequest, createGroupConversation, addContact } from "@/lib/firestore";
 import { type Match, type Player, type MatchRequest, getPlayerById, playerToUserProfile, currentUser } from "@/lib/mock-data";
 import { findMatches, type MatchResult } from "@/lib/matching-engine";
 import Link from "next/link";
@@ -64,7 +64,7 @@ export default function DashboardPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const upcoming = userMatches.filter((m) => m.status === "upcoming");
+  const upcoming = userMatches.filter((m) => m.status === "scheduled" || m.status === "confirmed");
   const completed = userMatches.filter((m) => m.status === "completed");
   const winRate = displayUser.matchesPlayed > 0 ? Math.round((displayUser.wins / displayUser.matchesPlayed) * 100) : 0;
 
@@ -98,7 +98,15 @@ export default function DashboardPage() {
     const fromName = fromPlayer?.firstName || fromPlayer?.name || "Champion";
     const toName = toPlayer?.firstName || toPlayer?.name || "Champion";
     const intro = `GAME ON! 🎾🔥 Hey ${fromName} and ${toName}! I'm Rally, your match coach! You two are matched with ${req.score}% compatibility — this is gonna be INCREDIBLE! 💪 Time to schedule your first game at Lifetime Activities Pleasanton! Call (925) 460-8600 to reserve a court and LET'S GO! 🏟️🏆`;
-    const convId = await createConversation([req.fromUserId, req.toUserId], intro);
+    const groupName = `Match: ${fromName} vs ${toName}`;
+    const convId = await createGroupConversation([req.fromUserId, req.toUserId], "", groupName, intro);
+    // Auto-add contacts
+    if (fromPlayer) {
+      await addContact(req.toUserId, { id: req.fromUserId, name: fromName, email: fromPlayer.email, avatar: fromPlayer.avatar, addedAt: new Date().toISOString() }).catch(() => {});
+    }
+    if (toPlayer) {
+      await addContact(req.fromUserId, { id: req.toUserId, name: toName, email: toPlayer.email, avatar: toPlayer.avatar, addedAt: new Date().toISOString() }).catch(() => {});
+    }
     await updateMatchRequest(req.id, { status: "accepted", conversationId: convId });
     await loadData();
   };

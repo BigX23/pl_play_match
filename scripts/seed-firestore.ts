@@ -50,8 +50,8 @@ const players = [
 ];
 
 const matches = [
-  { id: "m1", player1Id: "p1", player2Id: "p2", participants: ["p1", "p2"], date: "2026-02-20", time: "9:00 AM", location: "Lifetime Activities Pleasanton", sport: "tennis", status: "upcoming", compatibilityScore: 92, matchExplanation: "Same NTRP rating, overlapping availability." },
-  { id: "m2", player1Id: "p1", player2Id: "p6", participants: ["p1", "p6"], date: "2026-02-22", time: "6:00 PM", location: "Lifetime Activities Pleasanton", sport: "pickleball", status: "upcoming", compatibilityScore: 88, matchExplanation: "Matching NTRP, both enjoy both sports." },
+  { id: "m1", player1Id: "p1", player2Id: "p2", participants: ["p1", "p2"], date: "2026-02-20", time: "9:00 AM", location: "Lifetime Activities Pleasanton", sport: "tennis", status: "scheduled", compatibilityScore: 92, matchExplanation: "Same NTRP rating, overlapping availability.", createdBy: "p1", matchType: "singles" },
+  { id: "m2", player1Id: "p1", player2Id: "p6", participants: ["p1", "p6"], date: "2026-02-22", time: "6:00 PM", location: "Lifetime Activities Pleasanton", sport: "pickleball", status: "scheduled", compatibilityScore: 88, matchExplanation: "Matching NTRP, both enjoy both sports.", createdBy: "p1", matchType: "singles" },
   { id: "m3", player1Id: "p1", player2Id: "p3", participants: ["p1", "p3"], date: "2026-02-15", time: "10:00 AM", location: "Lifetime Activities Pleasanton", sport: "tennis", status: "completed", score: "6-4, 3-6, 7-5", compatibilityScore: 78, matchExplanation: "Close NTRP ratings." },
   { id: "m4", player1Id: "p1", player2Id: "p10", participants: ["p1", "p10"], date: "2026-02-12", time: "8:00 AM", location: "Lifetime Activities Pleasanton", sport: "tennis", status: "completed", score: "6-3, 6-4", compatibilityScore: 85, matchExplanation: "Same NTRP." },
   { id: "m5", player1Id: "p3", player2Id: "p9", participants: ["p3", "p9"], date: "2026-02-25", time: "2:00 PM", location: "Lifetime Activities Pleasanton", sport: "tennis", status: "open", compatibilityScore: 90, matchExplanation: "Same NTRP 4.0." },

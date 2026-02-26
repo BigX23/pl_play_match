@@ -9,8 +9,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Camera, Edit2, Save, X } from "lucide-react";
+import { Camera, Edit2, Save, Settings, X } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { getMatches, getPlayers, updateUser } from "@/lib/firestore";
 import { storage, isFirebaseConfigured } from "@/lib/firebase";
@@ -177,10 +178,17 @@ export default function ProfilePage() {
               </div>
             )}
           </div>
-          <div>
+          <div className="flex-1 min-w-0">
             <h1 className="text-2xl font-bold">{displayUser.name || `${displayUser.firstName} ${displayUser.lastName}`}</h1>
             <p className="text-sm text-muted-foreground">{displayUser.email}</p>
           </div>
+          <Link
+            href="/dashboard/settings"
+            className="md:hidden shrink-0 h-10 w-10 rounded-full border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            aria-label="Settings"
+          >
+            <Settings className="h-5 w-5" />
+          </Link>
         </CardContent>
       </Card>
 

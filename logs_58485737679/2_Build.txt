@@ -1,0 +1,428 @@
+﻿2026-02-25T07:00:51.2000287Z Current runner version: '2.331.0'
+2026-02-25T07:00:51.2024121Z ##[group]Runner Image Provisioner
+2026-02-25T07:00:51.2025036Z Hosted Compute Agent
+2026-02-25T07:00:51.2025662Z Version: 20260123.484
+2026-02-25T07:00:51.2026395Z Commit: 6bd6555ca37d84114959e1c76d2c01448ff61c5d
+2026-02-25T07:00:51.2027141Z Build Date: 2026-01-23T19:41:17Z
+2026-02-25T07:00:51.2027889Z Worker ID: {861af101-d88e-44be-9f70-2d66c50fb7ff}
+2026-02-25T07:00:51.2028716Z Azure Region: westcentralus
+2026-02-25T07:00:51.2029326Z ##[endgroup]
+2026-02-25T07:00:51.2030840Z ##[group]Operating System
+2026-02-25T07:00:51.2031626Z Ubuntu
+2026-02-25T07:00:51.2032459Z 24.04.3
+2026-02-25T07:00:51.2033089Z LTS
+2026-02-25T07:00:51.2033652Z ##[endgroup]
+2026-02-25T07:00:51.2034289Z ##[group]Runner Image
+2026-02-25T07:00:51.2034951Z Image: ubuntu-24.04
+2026-02-25T07:00:51.2035596Z Version: 20260201.15.1
+2026-02-25T07:00:51.2036916Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260201.15/images/ubuntu/Ubuntu2404-Readme.md
+2026-02-25T07:00:51.2038550Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260201.15
+2026-02-25T07:00:51.2039560Z ##[endgroup]
+2026-02-25T07:00:51.2041057Z ##[group]GITHUB_TOKEN Permissions
+2026-02-25T07:00:51.2043432Z Contents: read
+2026-02-25T07:00:51.2044063Z Metadata: read
+2026-02-25T07:00:51.2044744Z Packages: read
+2026-02-25T07:00:51.2045314Z ##[endgroup]
+2026-02-25T07:00:51.2047446Z Secret source: Actions
+2026-02-25T07:00:51.2048430Z Prepare workflow directory
+2026-02-25T07:00:51.2608418Z Prepare all required actions
+2026-02-25T07:00:51.2645098Z Getting action download info
+2026-02-25T07:00:51.6823600Z Download action repository 'actions/checkout@v4' (SHA:34e114876b0b11c390a56381ad16ebd13914f8d5)
+2026-02-25T07:00:51.7674146Z Download action repository 'actions/setup-node@v4' (SHA:49933ea5288caeca8642d1e84afbd3f7d6820020)
+2026-02-25T07:00:51.8545156Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+2026-02-25T07:00:52.0596778Z Complete job name: Build
+2026-02-25T07:00:52.1238453Z ##[group]Run actions/checkout@v4
+2026-02-25T07:00:52.1239315Z with:
+2026-02-25T07:00:52.1239765Z   repository: BigX23/pl_play_match
+2026-02-25T07:00:52.1240451Z   token: ***
+2026-02-25T07:00:52.1240872Z   ssh-strict: true
+2026-02-25T07:00:52.1241291Z   ssh-user: git
+2026-02-25T07:00:52.1241722Z   persist-credentials: true
+2026-02-25T07:00:52.1242389Z   clean: true
+2026-02-25T07:00:52.1242826Z   sparse-checkout-cone-mode: true
+2026-02-25T07:00:52.1243345Z   fetch-depth: 1
+2026-02-25T07:00:52.1243763Z   fetch-tags: false
+2026-02-25T07:00:52.1244201Z   show-progress: true
+2026-02-25T07:00:52.1244640Z   lfs: false
+2026-02-25T07:00:52.1245037Z   submodules: false
+2026-02-25T07:00:52.1245480Z   set-safe-directory: true
+2026-02-25T07:00:52.1246179Z env:
+2026-02-25T07:00:52.1246825Z   NEXT_PUBLIC_FIREBASE_API_KEY: ***
+2026-02-25T07:00:52.1247593Z   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ***
+2026-02-25T07:00:52.1248267Z   NEXT_PUBLIC_FIREBASE_PROJECT_ID: ***
+2026-02-25T07:00:52.1249065Z   NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ***
+2026-02-25T07:00:52.1249720Z   NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ***
+2026-02-25T07:00:52.1250462Z   NEXT_PUBLIC_FIREBASE_APP_ID: ***
+2026-02-25T07:00:52.1251047Z   NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ***
+2026-02-25T07:00:52.1252323Z   NEXT_PUBLIC_FIREBASE_VAPID_KEY: ***
+
+2026-02-25T07:00:52.1252866Z ##[endgroup]
+2026-02-25T07:00:52.2339521Z Syncing repository: BigX23/pl_play_match
+2026-02-25T07:00:52.2341284Z ##[group]Getting Git version info
+2026-02-25T07:00:52.2342400Z Working directory is '/home/runner/work/pl_play_match/pl_play_match'
+2026-02-25T07:00:52.2343637Z [command]/usr/bin/git version
+2026-02-25T07:00:52.2409700Z git version 2.52.0
+2026-02-25T07:00:52.2437558Z ##[endgroup]
+2026-02-25T07:00:52.2453258Z Temporarily overriding HOME='/home/runner/work/_temp/f9ee0919-ef44-45f6-a1ac-45dc9cb13325' before making global git config changes
+2026-02-25T07:00:52.2456055Z Adding repository directory to the temporary git global config as a safe directory
+2026-02-25T07:00:52.2472706Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/pl_play_match/pl_play_match
+2026-02-25T07:00:52.2514364Z Deleting the contents of '/home/runner/work/pl_play_match/pl_play_match'
+2026-02-25T07:00:52.2519132Z ##[group]Initializing the repository
+2026-02-25T07:00:52.2525532Z [command]/usr/bin/git init /home/runner/work/pl_play_match/pl_play_match
+2026-02-25T07:00:52.2613323Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-02-25T07:00:52.2615048Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-02-25T07:00:52.2616693Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-02-25T07:00:52.2618026Z hint: call:
+2026-02-25T07:00:52.2618695Z hint:
+2026-02-25T07:00:52.2619454Z hint: 	git config --global init.defaultBranch <name>
+2026-02-25T07:00:52.2620108Z hint:
+2026-02-25T07:00:52.2620732Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-02-25T07:00:52.2621737Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-02-25T07:00:52.2622866Z hint:
+2026-02-25T07:00:52.2623338Z hint: 	git branch -m <name>
+2026-02-25T07:00:52.2623845Z hint:
+2026-02-25T07:00:52.2624498Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-02-25T07:00:52.2625721Z Initialized empty Git repository in /home/runner/work/pl_play_match/pl_play_match/.git/
+2026-02-25T07:00:52.2634397Z [command]/usr/bin/git remote add origin https://github.com/BigX23/pl_play_match
+2026-02-25T07:00:52.2669647Z ##[endgroup]
+2026-02-25T07:00:52.2670471Z ##[group]Disabling automatic garbage collection
+2026-02-25T07:00:52.2676078Z [command]/usr/bin/git config --local gc.auto 0
+2026-02-25T07:00:52.2707256Z ##[endgroup]
+2026-02-25T07:00:52.2708605Z ##[group]Setting up auth
+2026-02-25T07:00:52.2714427Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-02-25T07:00:52.2747964Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-02-25T07:00:52.3066539Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-02-25T07:00:52.3096501Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-02-25T07:00:52.3314692Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-02-25T07:00:52.3348096Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-02-25T07:00:52.3580664Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-02-25T07:00:52.3617615Z ##[endgroup]
+2026-02-25T07:00:52.3619075Z ##[group]Fetching the repository
+2026-02-25T07:00:52.3627751Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +a78651e99568b59575e54d5eecbb2b0bf59f6887:refs/remotes/origin/master
+2026-02-25T07:00:53.9509538Z From https://github.com/BigX23/pl_play_match
+2026-02-25T07:00:53.9510645Z  * [new ref]         a78651e99568b59575e54d5eecbb2b0bf59f6887 -> origin/master
+2026-02-25T07:00:53.9539447Z ##[endgroup]
+2026-02-25T07:00:53.9540239Z ##[group]Determining the checkout info
+2026-02-25T07:00:53.9542576Z ##[endgroup]
+2026-02-25T07:00:53.9548201Z [command]/usr/bin/git sparse-checkout disable
+2026-02-25T07:00:53.9586518Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-02-25T07:00:53.9612721Z ##[group]Checking out the ref
+2026-02-25T07:00:53.9616012Z [command]/usr/bin/git checkout --progress --force -B master refs/remotes/origin/master
+2026-02-25T07:00:53.9750123Z Reset branch 'master'
+2026-02-25T07:00:53.9753913Z branch 'master' set up to track 'origin/master'.
+2026-02-25T07:00:53.9761759Z ##[endgroup]
+2026-02-25T07:00:53.9796316Z [command]/usr/bin/git log -1 --format=%H
+2026-02-25T07:00:53.9818194Z a78651e99568b59575e54d5eecbb2b0bf59f6887
+2026-02-25T07:00:54.0064888Z ##[group]Run actions/setup-node@v4
+2026-02-25T07:00:54.0065518Z with:
+2026-02-25T07:00:54.0065953Z   node-version: 18
+2026-02-25T07:00:54.0066411Z   cache: npm
+2026-02-25T07:00:54.0066852Z   always-auth: false
+2026-02-25T07:00:54.0067333Z   check-latest: false
+2026-02-25T07:00:54.0067980Z   token: ***
+2026-02-25T07:00:54.0068414Z env:
+2026-02-25T07:00:54.0069053Z   NEXT_PUBLIC_FIREBASE_API_KEY: ***
+2026-02-25T07:00:54.0069819Z   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ***
+2026-02-25T07:00:54.0070489Z   NEXT_PUBLIC_FIREBASE_PROJECT_ID: ***
+2026-02-25T07:00:54.0071286Z   NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ***
+2026-02-25T07:00:54.0072242Z   NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ***
+2026-02-25T07:00:54.0073103Z   NEXT_PUBLIC_FIREBASE_APP_ID: ***
+2026-02-25T07:00:54.0073775Z   NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ***
+2026-02-25T07:00:54.0074975Z   NEXT_PUBLIC_FIREBASE_VAPID_KEY: ***
+
+2026-02-25T07:00:54.0075555Z ##[endgroup]
+2026-02-25T07:00:54.1896122Z Attempting to download 18...
+2026-02-25T07:00:54.9533013Z Acquiring 18.20.8 - x64 from https://github.com/actions/node-versions/releases/download/18.20.8-14110393767/node-18.20.8-linux-x64.tar.gz
+2026-02-25T07:00:55.5707994Z Extracting ...
+2026-02-25T07:00:55.5817828Z [command]/usr/bin/tar xz --strip 1 --warning=no-unknown-keyword --overwrite -C /home/runner/work/_temp/634e24b1-759b-4f93-b792-18056da777a2 -f /home/runner/work/_temp/c979fc3f-407b-4460-a3f7-1adcf6d3a05b
+2026-02-25T07:00:56.5072599Z Adding to the cache ...
+2026-02-25T07:00:58.1902553Z ##[group]Environment details
+2026-02-25T07:00:58.4162104Z node: v18.20.8
+2026-02-25T07:00:58.4162610Z npm: 10.8.2
+2026-02-25T07:00:58.4162928Z yarn: 1.22.22
+2026-02-25T07:00:58.4165349Z ##[endgroup]
+2026-02-25T07:00:58.4186002Z [command]/opt/hostedtoolcache/node/18.20.8/x64/bin/npm config get cache
+2026-02-25T07:00:58.5329262Z /home/runner/.npm
+2026-02-25T07:00:58.7099569Z Cache hit for: node-cache-Linux-x64-npm-2bbf5b792f7898b7523e4a1b7638627758eb7617641b35db5afc63581f5722b8
+2026-02-25T07:00:59.9210271Z Received 54525952 of 218074460 (25.0%), 51.9 MBs/sec
+2026-02-25T07:01:00.9211049Z Received 180355072 of 218074460 (82.7%), 85.9 MBs/sec
+2026-02-25T07:01:01.1465870Z Received 218074460 of 218074460 (100.0%), 93.3 MBs/sec
+2026-02-25T07:01:01.1466696Z Cache Size: ~208 MB (218074460 B)
+2026-02-25T07:01:01.1588097Z [command]/usr/bin/tar -xf /home/runner/work/_temp/1128a78f-bddd-487f-854c-4dd5b523d180/cache.tzst -P -C /home/runner/work/pl_play_match/pl_play_match --use-compress-program unzstd
+2026-02-25T07:01:01.7171326Z Cache restored successfully
+2026-02-25T07:01:01.7597981Z Cache restored from key: node-cache-Linux-x64-npm-2bbf5b792f7898b7523e4a1b7638627758eb7617641b35db5afc63581f5722b8
+2026-02-25T07:01:01.7753826Z ##[group]Run npm ci
+2026-02-25T07:01:01.7754135Z [36;1mnpm ci[0m
+2026-02-25T07:01:01.7790484Z shell: /usr/bin/bash -e {0}
+2026-02-25T07:01:01.7790761Z env:
+2026-02-25T07:01:01.7791315Z   NEXT_PUBLIC_FIREBASE_API_KEY: ***
+2026-02-25T07:01:01.7791736Z   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ***
+2026-02-25T07:01:01.7792343Z   NEXT_PUBLIC_FIREBASE_PROJECT_ID: ***
+2026-02-25T07:01:01.7792778Z   NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ***
+2026-02-25T07:01:01.7793135Z   NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ***
+2026-02-25T07:01:01.7793533Z   NEXT_PUBLIC_FIREBASE_APP_ID: ***
+2026-02-25T07:01:01.7793845Z   NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ***
+2026-02-25T07:01:01.7794514Z   NEXT_PUBLIC_FIREBASE_VAPID_KEY: ***
+
+2026-02-25T07:01:01.7794781Z ##[endgroup]
+2026-02-25T07:01:02.7251506Z npm warn EBADENGINE Unsupported engine {
+2026-02-25T07:01:02.7252778Z npm warn EBADENGINE   package: 'eslint-visitor-keys@5.0.1',
+2026-02-25T07:01:02.7253905Z npm warn EBADENGINE   required: { node: '^20.19.0 || ^22.13.0 || >=24' },
+2026-02-25T07:01:02.7254965Z npm warn EBADENGINE   current: { node: 'v18.20.8', npm: '10.8.2' }
+2026-02-25T07:01:02.7256160Z npm warn EBADENGINE }
+2026-02-25T07:01:07.7690923Z npm warn deprecated @types/handlebars@4.1.0: This is a stub types definition. handlebars provides its own type definitions, so you do not need this installed.
+2026-02-25T07:01:07.8139242Z npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+2026-02-25T07:01:07.8438413Z npm warn deprecated @npmcli/move-file@1.1.2: This functionality has been moved to @npmcli/fs
+2026-02-25T07:01:07.9493371Z npm warn deprecated rimraf@2.7.1: Rimraf versions prior to v4 are no longer supported
+2026-02-25T07:01:07.9542678Z npm warn deprecated npmlog@6.0.2: This package is no longer supported.
+2026-02-25T07:01:08.0497690Z npm warn deprecated @humanwhocodes/config-array@0.13.0: Use @eslint/config-array instead
+2026-02-25T07:01:08.0893217Z npm warn deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported
+2026-02-25T07:01:08.0906718Z npm warn deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported
+2026-02-25T07:01:08.1004843Z npm warn deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported
+2026-02-25T07:01:08.1028086Z npm warn deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported
+2026-02-25T07:01:08.1690497Z npm warn deprecated are-we-there-yet@3.0.1: This package is no longer supported.
+2026-02-25T07:01:08.2128322Z npm warn deprecated @humanwhocodes/object-schema@2.0.3: Use @eslint/object-schema instead
+2026-02-25T07:01:08.2243663Z npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+2026-02-25T07:01:08.2245969Z npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+2026-02-25T07:01:08.2255149Z npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+2026-02-25T07:01:08.2260574Z npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+2026-02-25T07:01:08.2291478Z npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+2026-02-25T07:01:08.6548035Z npm warn deprecated gauge@4.0.4: This package is no longer supported.
+2026-02-25T07:01:13.5208638Z npm warn deprecated eslint@8.57.1: This version is no longer supported. Please see https://eslint.org/version-support for other options.
+2026-02-25T07:01:23.8942433Z 
+2026-02-25T07:01:23.8943426Z added 1121 packages, and audited 1122 packages in 22s
+2026-02-25T07:01:23.8943942Z 
+2026-02-25T07:01:23.8944364Z 206 packages are looking for funding
+2026-02-25T07:01:23.8944953Z   run `npm fund` for details
+2026-02-25T07:01:24.0159551Z 
+2026-02-25T07:01:24.0160288Z 29 vulnerabilities (5 low, 5 moderate, 17 high, 2 critical)
+2026-02-25T07:01:24.0160777Z 
+2026-02-25T07:01:24.0161155Z To address issues that do not require attention, run:
+2026-02-25T07:01:24.0161705Z   npm audit fix
+2026-02-25T07:01:24.0162260Z 
+2026-02-25T07:01:24.0162671Z To address all issues (including breaking changes), run:
+2026-02-25T07:01:24.0163292Z   npm audit fix --force
+2026-02-25T07:01:24.0163537Z 
+2026-02-25T07:01:24.0163738Z Run `npm audit` for details.
+2026-02-25T07:01:24.1184779Z ##[group]Run cd functions && npm ci
+2026-02-25T07:01:24.1185114Z [36;1mcd functions && npm ci[0m
+2026-02-25T07:01:24.1221154Z shell: /usr/bin/bash -e {0}
+2026-02-25T07:01:24.1221407Z env:
+2026-02-25T07:01:24.1222037Z   NEXT_PUBLIC_FIREBASE_API_KEY: ***
+2026-02-25T07:01:24.1222519Z   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ***
+2026-02-25T07:01:24.1222853Z   NEXT_PUBLIC_FIREBASE_PROJECT_ID: ***
+2026-02-25T07:01:24.1223246Z   NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ***
+2026-02-25T07:01:24.1223595Z   NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ***
+2026-02-25T07:01:24.1223982Z   NEXT_PUBLIC_FIREBASE_APP_ID: ***
+2026-02-25T07:01:24.1224501Z   NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ***
+2026-02-25T07:01:24.1225141Z   NEXT_PUBLIC_FIREBASE_VAPID_KEY: ***
+
+2026-02-25T07:01:24.1225405Z ##[endgroup]
+2026-02-25T07:01:24.5763023Z npm warn EBADENGINE Unsupported engine {
+2026-02-25T07:01:24.5763926Z npm warn EBADENGINE   package: undefined,
+2026-02-25T07:01:24.5764800Z npm warn EBADENGINE   required: { node: '20' },
+2026-02-25T07:01:24.5765797Z npm warn EBADENGINE   current: { node: 'v18.20.8', npm: '10.8.2' }
+2026-02-25T07:01:24.5766577Z npm warn EBADENGINE }
+2026-02-25T07:01:26.7122907Z 
+2026-02-25T07:01:26.7123705Z added 236 packages, and audited 237 packages in 3s
+2026-02-25T07:01:26.7124205Z 
+2026-02-25T07:01:26.7124416Z 30 packages are looking for funding
+2026-02-25T07:01:26.7125048Z   run `npm fund` for details
+2026-02-25T07:01:26.7133598Z 
+2026-02-25T07:01:26.7133808Z found 0 vulnerabilities
+2026-02-25T07:01:26.7318567Z ##[group]Run npm run lint
+2026-02-25T07:01:26.7318862Z [36;1mnpm run lint[0m
+2026-02-25T07:01:26.7351023Z shell: /usr/bin/bash -e {0}
+2026-02-25T07:01:26.7351277Z env:
+2026-02-25T07:01:26.7351806Z   NEXT_PUBLIC_FIREBASE_API_KEY: ***
+2026-02-25T07:01:26.7352428Z   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ***
+2026-02-25T07:01:26.7352794Z   NEXT_PUBLIC_FIREBASE_PROJECT_ID: ***
+2026-02-25T07:01:26.7353181Z   NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ***
+2026-02-25T07:01:26.7353530Z   NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ***
+2026-02-25T07:01:26.7353914Z   NEXT_PUBLIC_FIREBASE_APP_ID: ***
+2026-02-25T07:01:26.7354213Z   NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ***
+2026-02-25T07:01:26.7354840Z   NEXT_PUBLIC_FIREBASE_VAPID_KEY: ***
+
+2026-02-25T07:01:26.7355102Z ##[endgroup]
+2026-02-25T07:01:26.8617553Z 
+2026-02-25T07:01:26.8617965Z > nextn@0.1.0 lint
+2026-02-25T07:01:26.8618364Z > next lint
+2026-02-25T07:01:26.8618546Z 
+2026-02-25T07:01:30.0522057Z Attention: Next.js now collects completely anonymous telemetry regarding usage.
+2026-02-25T07:01:30.0525997Z This information is used to shape Next.js' roadmap and prioritize features.
+2026-02-25T07:01:30.0527652Z You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+2026-02-25T07:01:30.0528790Z https://nextjs.org/telemetry
+2026-02-25T07:01:30.0529123Z 
+2026-02-25T07:01:30.2582639Z 
+2026-02-25T07:01:30.2583215Z ./src/app/dashboard/page.tsx
+2026-02-25T07:01:30.2584303Z 251:21  Warning: 'player' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+2026-02-25T07:01:30.2584941Z 
+2026-02-25T07:01:30.2585135Z ./src/hooks/use-toast.ts
+2026-02-25T07:01:30.2585974Z 2:27  Warning: 'useEffect' is defined but never used.  @typescript-eslint/no-unused-vars
+2026-02-25T07:01:30.2587321Z 18:7  Warning: 'actionTypes' is assigned a value but only used as a type.  @typescript-eslint/no-unused-vars
+2026-02-25T07:01:30.2587982Z 
+2026-02-25T07:01:30.2588157Z ./src/lib/firestore.ts
+2026-02-25T07:01:30.2589115Z 31:67  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+2026-02-25T07:01:30.2590453Z 77:73  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+2026-02-25T07:01:30.2591721Z 222:81  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+2026-02-25T07:01:30.2592575Z 
+2026-02-25T07:01:30.2592774Z ./src/lib/mock-data.ts
+2026-02-25T07:01:30.2593438Z 1:79  Warning: 'AgeRange' is defined but never used.  @typescript-eslint/no-unused-vars
+2026-02-25T07:01:30.2593797Z 
+2026-02-25T07:01:30.2594371Z info  - Need to disable some ESLint rules? Learn more here: https://nextjs.org/docs/app/api-reference/config/eslint#disabling-rules
+2026-02-25T07:01:30.3548765Z ##[group]Run npm run typecheck
+2026-02-25T07:01:30.3549093Z [36;1mnpm run typecheck[0m
+2026-02-25T07:01:30.3580915Z shell: /usr/bin/bash -e {0}
+2026-02-25T07:01:30.3581173Z env:
+2026-02-25T07:01:30.3581612Z   NEXT_PUBLIC_FIREBASE_API_KEY: ***
+2026-02-25T07:01:30.3582290Z   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ***
+2026-02-25T07:01:30.3582845Z   NEXT_PUBLIC_FIREBASE_PROJECT_ID: ***
+2026-02-25T07:01:30.3583250Z   NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ***
+2026-02-25T07:01:30.3583603Z   NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ***
+2026-02-25T07:01:30.3584000Z   NEXT_PUBLIC_FIREBASE_APP_ID: ***
+2026-02-25T07:01:30.3584312Z   NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ***
+2026-02-25T07:01:30.3584934Z   NEXT_PUBLIC_FIREBASE_VAPID_KEY: ***
+
+2026-02-25T07:01:30.3585200Z ##[endgroup]
+2026-02-25T07:01:30.4797990Z 
+2026-02-25T07:01:30.4798592Z > nextn@0.1.0 typecheck
+2026-02-25T07:01:30.4799114Z > tsc --noEmit
+2026-02-25T07:01:30.4799353Z 
+2026-02-25T07:01:37.3688112Z ##[group]Run npm run build
+2026-02-25T07:01:37.3688422Z [36;1mnpm run build[0m
+2026-02-25T07:01:37.3719423Z shell: /usr/bin/bash -e {0}
+2026-02-25T07:01:37.3719682Z env:
+2026-02-25T07:01:37.3720053Z   NEXT_PUBLIC_FIREBASE_API_KEY: ***
+2026-02-25T07:01:37.3720476Z   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ***
+2026-02-25T07:01:37.3720796Z   NEXT_PUBLIC_FIREBASE_PROJECT_ID: ***
+2026-02-25T07:01:37.3721214Z   NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ***
+2026-02-25T07:01:37.3721569Z   NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ***
+2026-02-25T07:01:37.3722229Z   NEXT_PUBLIC_FIREBASE_APP_ID: ***
+2026-02-25T07:01:37.3722573Z   NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ***
+2026-02-25T07:01:37.3723209Z   NEXT_PUBLIC_FIREBASE_VAPID_KEY: ***
+
+2026-02-25T07:01:37.3723479Z ##[endgroup]
+2026-02-25T07:01:37.5070016Z 
+2026-02-25T07:01:37.5070304Z > nextn@0.1.0 build
+2026-02-25T07:01:37.5070753Z > next build
+2026-02-25T07:01:37.5070979Z 
+2026-02-25T07:01:38.2083547Z    ▲ Next.js 15.2.3
+2026-02-25T07:01:38.2084552Z    - Environments: .env
+2026-02-25T07:01:38.2085449Z 
+2026-02-25T07:01:38.2261441Z    Creating an optimized production build ...
+2026-02-25T07:01:50.6893144Z  ✓ Compiled successfully
+2026-02-25T07:01:50.6938206Z    Linting and checking validity of types ...
+2026-02-25T07:01:52.7459391Z 
+2026-02-25T07:01:52.7460092Z ./src/app/dashboard/page.tsx
+2026-02-25T07:01:52.7461149Z 251:21  Warning: 'player' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+2026-02-25T07:01:52.7462008Z 
+2026-02-25T07:01:52.7462218Z ./src/hooks/use-toast.ts
+2026-02-25T07:01:52.7463106Z 2:27  Warning: 'useEffect' is defined but never used.  @typescript-eslint/no-unused-vars
+2026-02-25T07:01:52.7464527Z 18:7  Warning: 'actionTypes' is assigned a value but only used as a type.  @typescript-eslint/no-unused-vars
+2026-02-25T07:01:52.7465202Z 
+2026-02-25T07:01:52.7465400Z ./src/lib/firestore.ts
+2026-02-25T07:01:52.7466311Z 31:67  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+2026-02-25T07:01:52.7467636Z 77:73  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+2026-02-25T07:01:52.7468802Z 222:81  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+2026-02-25T07:01:52.7469445Z 
+2026-02-25T07:01:52.7469629Z ./src/lib/mock-data.ts
+2026-02-25T07:01:52.7470444Z 1:79  Warning: 'AgeRange' is defined but never used.  @typescript-eslint/no-unused-vars
+2026-02-25T07:01:52.7471071Z 
+2026-02-25T07:01:52.7472199Z info  - Need to disable some ESLint rules? Learn more here: https://nextjs.org/docs/app/api-reference/config/eslint#disabling-rules
+2026-02-25T07:01:58.9357057Z    Collecting page data ...
+2026-02-25T07:02:01.4139332Z    Generating static pages (0/16) ...
+2026-02-25T07:02:02.3042281Z    Generating static pages (4/16) 
+2026-02-25T07:02:02.3042947Z    Generating static pages (8/16) 
+2026-02-25T07:02:02.4681415Z    Generating static pages (12/16) 
+2026-02-25T07:02:02.4682522Z  ✓ Generating static pages (16/16)
+2026-02-25T07:02:02.6609318Z    Finalizing page optimization ...
+2026-02-25T07:02:02.6609992Z    Collecting build traces ...
+2026-02-25T07:02:09.0087085Z    Exporting (0/3) ...
+2026-02-25T07:02:09.5614686Z  ✓ Exporting (3/3)
+2026-02-25T07:02:09.5739611Z 
+2026-02-25T07:02:09.5768336Z Route (app)                                  Size  First Load JS
+2026-02-25T07:02:09.5769428Z ┌ ○ /                                     2.33 kB         114 kB
+2026-02-25T07:02:09.5770664Z ├ ○ /_not-found                             977 B         102 kB
+2026-02-25T07:02:09.5771562Z ├ ○ /dashboard                            8.48 kB         270 kB
+2026-02-25T07:02:09.5772782Z ├ ○ /dashboard/messages                   2.85 kB         261 kB
+2026-02-25T07:02:09.5773759Z ├ ● /dashboard/messages/[conversationId]  5.03 kB         263 kB
+2026-02-25T07:02:09.5774558Z ├   └ /dashboard/messages/placeholder
+2026-02-25T07:02:09.5775388Z ├ ○ /dashboard/notifications              3.61 kB         265 kB
+2026-02-25T07:02:09.5776760Z ├ ○ /dashboard/open-matches               3.84 kB         291 kB
+2026-02-25T07:02:09.5777840Z ├ ○ /dashboard/profile                    7.71 kB         301 kB
+2026-02-25T07:02:09.5778686Z ├ ○ /dashboard/settings                   7.64 kB         291 kB
+2026-02-25T07:02:09.5779372Z ├ ○ /login                                4.35 kB         266 kB
+2026-02-25T07:02:09.5780028Z ├ ○ /onboarding                           6.83 kB         300 kB
+2026-02-25T07:02:09.5780688Z ├ ○ /register                             4.35 kB         266 kB
+2026-02-25T07:02:09.5781582Z └ ○ /register/partner-preferences         9.73 kB         118 kB
+2026-02-25T07:02:09.5782719Z + First Load JS shared by all              101 kB
+2026-02-25T07:02:09.5783422Z   ├ chunks/4bd1b696-db971fca1f9e0010.js   53.2 kB
+2026-02-25T07:02:09.5783949Z   ├ chunks/684-6dc2dc8df1554937.js        45.4 kB
+2026-02-25T07:02:09.5784485Z   └ other shared chunks (total)           2.04 kB
+2026-02-25T07:02:09.5784700Z 
+2026-02-25T07:02:09.5784707Z 
+2026-02-25T07:02:09.5785041Z ○  (Static)  prerendered as static content
+2026-02-25T07:02:09.5785673Z ●  (SSG)     prerendered as static HTML (uses generateStaticParams)
+2026-02-25T07:02:09.5786026Z 
+2026-02-25T07:02:09.6484652Z ##[group]Run cd functions && npx tsc
+2026-02-25T07:02:09.6484995Z [36;1mcd functions && npx tsc[0m
+2026-02-25T07:02:09.6516961Z shell: /usr/bin/bash -e {0}
+2026-02-25T07:02:09.6517219Z env:
+2026-02-25T07:02:09.6517638Z   NEXT_PUBLIC_FIREBASE_API_KEY: ***
+2026-02-25T07:02:09.6518118Z   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ***
+2026-02-25T07:02:09.6518458Z   NEXT_PUBLIC_FIREBASE_PROJECT_ID: ***
+2026-02-25T07:02:09.6518888Z   NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ***
+2026-02-25T07:02:09.6519233Z   NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ***
+2026-02-25T07:02:09.6519644Z   NEXT_PUBLIC_FIREBASE_APP_ID: ***
+2026-02-25T07:02:09.6519965Z   NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ***
+2026-02-25T07:02:09.6520867Z   NEXT_PUBLIC_FIREBASE_VAPID_KEY: ***
+
+2026-02-25T07:02:09.6521134Z ##[endgroup]
+2026-02-25T07:02:16.0657625Z ##[group]Run actions/upload-artifact@v4
+2026-02-25T07:02:16.0657928Z with:
+2026-02-25T07:02:16.0658109Z   name: out
+2026-02-25T07:02:16.0658292Z   path: out/
+2026-02-25T07:02:16.0658487Z   retention-days: 1
+2026-02-25T07:02:16.0658701Z   if-no-files-found: warn
+2026-02-25T07:02:16.0658940Z   compression-level: 6
+2026-02-25T07:02:16.0659150Z   overwrite: false
+2026-02-25T07:02:16.0659359Z   include-hidden-files: false
+2026-02-25T07:02:16.0659600Z env:
+2026-02-25T07:02:16.0659947Z   NEXT_PUBLIC_FIREBASE_API_KEY: ***
+2026-02-25T07:02:16.0660343Z   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ***
+2026-02-25T07:02:16.0660655Z   NEXT_PUBLIC_FIREBASE_PROJECT_ID: ***
+2026-02-25T07:02:16.0661043Z   NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ***
+2026-02-25T07:02:16.0661368Z   NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ***
+2026-02-25T07:02:16.0661791Z   NEXT_PUBLIC_FIREBASE_APP_ID: ***
+2026-02-25T07:02:16.0662358Z   NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ***
+2026-02-25T07:02:16.0663020Z   NEXT_PUBLIC_FIREBASE_VAPID_KEY: ***
+
+2026-02-25T07:02:16.0663289Z ##[endgroup]
+2026-02-25T07:02:16.3064303Z With the provided path, there will be 86 files uploaded
+2026-02-25T07:02:16.3070092Z Artifact name is valid!
+2026-02-25T07:02:16.3071205Z Root directory input is valid!
+2026-02-25T07:02:16.5272626Z Beginning upload of artifact content to blob storage
+2026-02-25T07:02:17.2060093Z Uploaded bytes 1072489
+2026-02-25T07:02:17.2655063Z Finished uploading artifact content to blob storage!
+2026-02-25T07:02:17.2658116Z SHA256 digest of uploaded artifact zip is 606968086a323fd4b8224d42cb368a75630d60bd28a0848888033818d5a3db00
+2026-02-25T07:02:17.2659601Z Finalizing artifact upload
+2026-02-25T07:02:17.3776177Z Artifact out.zip successfully finalized. Artifact ID 5649004342
+2026-02-25T07:02:17.3777340Z Artifact out has been successfully uploaded! Final size is 1072489 bytes. Artifact ID is 5649004342
+2026-02-25T07:02:17.3784532Z Artifact download URL: https://github.com/BigX23/pl_play_match/actions/runs/22385965242/artifacts/5649004342
+2026-02-25T07:02:17.3926655Z Post job cleanup.
+2026-02-25T07:02:17.5452364Z Cache hit occurred on the primary key node-cache-Linux-x64-npm-2bbf5b792f7898b7523e4a1b7638627758eb7617641b35db5afc63581f5722b8, not saving cache.
+2026-02-25T07:02:17.5558768Z Post job cleanup.
+2026-02-25T07:02:17.6490682Z [command]/usr/bin/git version
+2026-02-25T07:02:17.6526440Z git version 2.52.0
+2026-02-25T07:02:17.6568994Z Temporarily overriding HOME='/home/runner/work/_temp/52b2d0ab-95fd-4506-96ca-52b322a4df00' before making global git config changes
+2026-02-25T07:02:17.6570053Z Adding repository directory to the temporary git global config as a safe directory
+2026-02-25T07:02:17.6574508Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/pl_play_match/pl_play_match
+2026-02-25T07:02:17.6609248Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-02-25T07:02:17.6641426Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-02-25T07:02:17.6871089Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-02-25T07:02:17.6895396Z http.https://github.com/.extraheader
+2026-02-25T07:02:17.6907970Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-02-25T07:02:17.6939974Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-02-25T07:02:17.7166101Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-02-25T07:02:17.7198943Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-02-25T07:02:17.7534993Z Cleaning up orphan processes

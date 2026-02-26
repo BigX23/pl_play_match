@@ -1,0 +1,76 @@
+﻿2026-02-25T07:01:37.3688095Z ##[group]Run npm run build
+2026-02-25T07:01:37.3688418Z [36;1mnpm run build[0m
+2026-02-25T07:01:37.3719417Z shell: /usr/bin/bash -e {0}
+2026-02-25T07:01:37.3719680Z env:
+2026-02-25T07:01:37.3720050Z   NEXT_PUBLIC_FIREBASE_API_KEY: ***
+2026-02-25T07:01:37.3720473Z   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ***
+2026-02-25T07:01:37.3720794Z   NEXT_PUBLIC_FIREBASE_PROJECT_ID: ***
+2026-02-25T07:01:37.3721212Z   NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ***
+2026-02-25T07:01:37.3721567Z   NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ***
+2026-02-25T07:01:37.3722225Z   NEXT_PUBLIC_FIREBASE_APP_ID: ***
+2026-02-25T07:01:37.3722571Z   NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ***
+2026-02-25T07:01:37.3723206Z   NEXT_PUBLIC_FIREBASE_VAPID_KEY: ***
+
+2026-02-25T07:01:37.3723477Z ##[endgroup]
+2026-02-25T07:01:37.5069990Z 
+2026-02-25T07:01:37.5070297Z > nextn@0.1.0 build
+2026-02-25T07:01:37.5070747Z > next build
+2026-02-25T07:01:37.5070974Z 
+2026-02-25T07:01:38.2083516Z    ▲ Next.js 15.2.3
+2026-02-25T07:01:38.2084471Z    - Environments: .env
+2026-02-25T07:01:38.2085440Z 
+2026-02-25T07:01:38.2261420Z    Creating an optimized production build ...
+2026-02-25T07:01:50.6893110Z  ✓ Compiled successfully
+2026-02-25T07:01:50.6938194Z    Linting and checking validity of types ...
+2026-02-25T07:01:52.7459350Z 
+2026-02-25T07:01:52.7460077Z ./src/app/dashboard/page.tsx
+2026-02-25T07:01:52.7461137Z 251:21  Warning: 'player' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+2026-02-25T07:01:52.7462002Z 
+2026-02-25T07:01:52.7462214Z ./src/hooks/use-toast.ts
+2026-02-25T07:01:52.7463099Z 2:27  Warning: 'useEffect' is defined but never used.  @typescript-eslint/no-unused-vars
+2026-02-25T07:01:52.7464515Z 18:7  Warning: 'actionTypes' is assigned a value but only used as a type.  @typescript-eslint/no-unused-vars
+2026-02-25T07:01:52.7465194Z 
+2026-02-25T07:01:52.7465395Z ./src/lib/firestore.ts
+2026-02-25T07:01:52.7466280Z 31:67  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+2026-02-25T07:01:52.7467603Z 77:73  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+2026-02-25T07:01:52.7468797Z 222:81  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+2026-02-25T07:01:52.7469442Z 
+2026-02-25T07:01:52.7469625Z ./src/lib/mock-data.ts
+2026-02-25T07:01:52.7470441Z 1:79  Warning: 'AgeRange' is defined but never used.  @typescript-eslint/no-unused-vars
+2026-02-25T07:01:52.7471067Z 
+2026-02-25T07:01:52.7472193Z info  - Need to disable some ESLint rules? Learn more here: https://nextjs.org/docs/app/api-reference/config/eslint#disabling-rules
+2026-02-25T07:01:58.9357013Z    Collecting page data ...
+2026-02-25T07:02:01.4139296Z    Generating static pages (0/16) ...
+2026-02-25T07:02:02.3042239Z    Generating static pages (4/16) 
+2026-02-25T07:02:02.3042938Z    Generating static pages (8/16) 
+2026-02-25T07:02:02.4681371Z    Generating static pages (12/16) 
+2026-02-25T07:02:02.4682512Z  ✓ Generating static pages (16/16)
+2026-02-25T07:02:02.6609238Z    Finalizing page optimization ...
+2026-02-25T07:02:02.6609980Z    Collecting build traces ...
+2026-02-25T07:02:09.0087043Z    Exporting (0/3) ...
+2026-02-25T07:02:09.5614649Z  ✓ Exporting (3/3)
+2026-02-25T07:02:09.5739575Z 
+2026-02-25T07:02:09.5768312Z Route (app)                                  Size  First Load JS
+2026-02-25T07:02:09.5769422Z ┌ ○ /                                     2.33 kB         114 kB
+2026-02-25T07:02:09.5770659Z ├ ○ /_not-found                             977 B         102 kB
+2026-02-25T07:02:09.5771551Z ├ ○ /dashboard                            8.48 kB         270 kB
+2026-02-25T07:02:09.5772772Z ├ ○ /dashboard/messages                   2.85 kB         261 kB
+2026-02-25T07:02:09.5773745Z ├ ● /dashboard/messages/[conversationId]  5.03 kB         263 kB
+2026-02-25T07:02:09.5774553Z ├   └ /dashboard/messages/placeholder
+2026-02-25T07:02:09.5775382Z ├ ○ /dashboard/notifications              3.61 kB         265 kB
+2026-02-25T07:02:09.5776327Z ├ ○ /dashboard/open-matches               3.84 kB         291 kB
+2026-02-25T07:02:09.5777832Z ├ ○ /dashboard/profile                    7.71 kB         301 kB
+2026-02-25T07:02:09.5778677Z ├ ○ /dashboard/settings                   7.64 kB         291 kB
+2026-02-25T07:02:09.5779367Z ├ ○ /login                                4.35 kB         266 kB
+2026-02-25T07:02:09.5780024Z ├ ○ /onboarding                           6.83 kB         300 kB
+2026-02-25T07:02:09.5780682Z ├ ○ /register                             4.35 kB         266 kB
+2026-02-25T07:02:09.5781576Z └ ○ /register/partner-preferences         9.73 kB         118 kB
+2026-02-25T07:02:09.5782711Z + First Load JS shared by all              101 kB
+2026-02-25T07:02:09.5783411Z   ├ chunks/4bd1b696-db971fca1f9e0010.js   53.2 kB
+2026-02-25T07:02:09.5783945Z   ├ chunks/684-6dc2dc8df1554937.js        45.4 kB
+2026-02-25T07:02:09.5784481Z   └ other shared chunks (total)           2.04 kB
+2026-02-25T07:02:09.5784697Z 
+2026-02-25T07:02:09.5784705Z 
+2026-02-25T07:02:09.5785018Z ○  (Static)  prerendered as static content
+2026-02-25T07:02:09.5785669Z ●  (SSG)     prerendered as static HTML (uses generateStaticParams)
+2026-02-25T07:02:09.5786023Z 
