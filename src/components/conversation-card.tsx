@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { type Conversation, getPlayerById, RALLY_USER } from "@/lib/mock-data";
 import { getUser } from "@/lib/firestore";
@@ -69,7 +70,7 @@ export default function ConversationCard({ conversation, currentUserId, onDelete
 
   return (
     <div className="relative group">
-      <a href={`/dashboard/messages/${conversation.id}/`} className="block">
+      <Link href={`/dashboard/messages/${conversation.id}/`} className="block">
         <div className={cn(
           "flex items-center gap-3 p-4 hover:bg-muted/50 transition-colors border-b",
           conversation.unreadCount > 0 && "bg-primary/5"
@@ -112,7 +113,7 @@ export default function ConversationCard({ conversation, currentUserId, onDelete
             </div>
           )}
         </div>
-      </a>
+      </Link>
 
       {/* Delete button (visible on hover / always on mobile) */}
       {onDelete && (
