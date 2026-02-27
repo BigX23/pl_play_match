@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { getMessages, sendMessage, getUser, getConversation, addContact, deleteConversation } from "@/lib/firestore";
 import { type Message, type Conversation, getPlayerById, RALLY_USER } from "@/lib/mock-data";
-import { getAIResponse, AI_SENDER_ID, AI_SENDER_NAME } from "@/lib/ai-assistant";
+import { shouldRallyRespond, getRallyResponse, AI_SENDER_ID, AI_SENDER_NAME } from "@/lib/ai-assistant";
 import MessageBubble from "@/components/message-bubble";
 import ChatInput from "@/components/chat-input";
 import { ArrowLeft, Users, User, Trash2, UserPlus, MoreVertical } from "lucide-react";
@@ -122,17 +122,20 @@ export default function ChatPage() {
     console.log("[ChatPage] handleSend:", { text: text.substring(0, 50), userId: user.id, conversationId });
     const msg = await sendMessage(conversationId, text, user.id, user.firstName || user.name);
     console.log("[ChatPage] message sent:", msg.id);
-    setMsgs((prev) => [...prev, msg]);
+    const updatedMsgs = [...msgs, msg];
+    setMsgs(updatedMsgs);
 
-    // If Rally is in conversation, maybe respond
-    if (hasRally) {
-      const aiReply = getAIResponse(text);
-      if (aiReply) {
-        setTimeout(async () => {
+    // If Rally is in the conversation and the user mentioned "Rally", get a Gemini-powered reply
+    if (hasRally && shouldRallyRespond(text)) {
+      try {
+        const aiReply = await getRallyResponse(updatedMsgs, participantNames);
+        if (aiReply) {
           const aiMsg = await sendMessage(conversationId, aiReply, AI_SENDER_ID, AI_SENDER_NAME);
           aiMsg.isAI = true;
           setMsgs((prev) => [...prev, aiMsg]);
-        }, 1000);
+        }
+      } catch (err) {
+        console.error("[ChatPage] Rally AI error:", err);
       }
     }
   };
