@@ -49,6 +49,12 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
+
+      - name: Run E2E tests
+        run: npx playwright test
+
       - name: Build Cloud Functions
         run: cd functions && npx tsc
 

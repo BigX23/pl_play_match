@@ -1,0 +1,11 @@
+{
+  "public": "out",
+  "cleanUrls": true,
+  "trailingSlash": true,
+  "rewrites": [
+    {
+      "source": "/dashboard/messages/**",
+      "destination": "/dashboard/messages/placeholder/index.html"
+    }
+  ]
+}
