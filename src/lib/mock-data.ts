@@ -1,4 +1,4 @@
-import type { UserProfile, DayAvailability, GameType, SportType, MatchFormat, AgeRange, PartnerPreferences } from "./matching-engine";
+import type { UserProfile, DayAvailability, GameType, SportType, MatchFormat, PartnerPreferences } from "./matching-engine";
 
 export interface Player {
   id: string;
@@ -82,9 +82,10 @@ export interface Conversation {
   type: ConversationType;
   name?: string;           // Display name for group chats (e.g. "Match: Alex vs Sarah")
   matchId?: string;        // Link to the match that created this group chat
+  createdBy?: string;      // Who initiated the conversation (excluded from unread/push)
   lastMessage: string;
   lastMessageAt: string;
-  unreadCount: number;
+  unread: Record<string, number>; // per-user unread counts, keyed by userId
   createdAt: string;
 }
 
@@ -152,37 +153,9 @@ export function getPlayerById(id: string): Player | undefined {
   return players.find((p) => p.id === id);
 }
 
-export function getMatchesForPlayer(playerId: string): Match[] {
-  return matches.filter((m) => m.player1Id === playerId || m.player2Id === playerId);
-}
-
 export function getOpponent(match: Match, playerId: string): Player | undefined {
   const opponentId = match.player1Id === playerId ? match.player2Id : match.player1Id;
   return getPlayerById(opponentId);
-}
-
-export function getCompatiblePlayers(playerId: string): { player: Player; score: number; explanation: string }[] {
-  const user = getPlayerById(playerId);
-  if (!user) return [];
-  return players
-    .filter((p) => p.id !== playerId)
-    .map((p) => {
-      const ratingDiff = Math.abs(p.ntrpRating - user.ntrpRating);
-      const overlap = p.availability.filter((d) => user.availability.includes(d)).length;
-      const timeOverlap = p.preferredTimes.filter((t) => user.preferredTimes.includes(t)).length;
-      const sportMatch = p.sport === user.sport || p.sport === "both" || user.sport === "both";
-      let score = 100 - ratingDiff * 20 + overlap * 5 + timeOverlap * 5 + (sportMatch ? 10 : -10);
-      score = Math.min(99, Math.max(40, Math.round(score)));
-      const parts = [];
-      if (ratingDiff <= 0.5) parts.push("Very close skill level");
-      else if (ratingDiff <= 1.0) parts.push("Similar skill range");
-      else parts.push("Skill gap offers challenge");
-      if (overlap >= 3) parts.push("great schedule overlap");
-      else if (overlap >= 1) parts.push("some schedule overlap");
-      if (sportMatch) parts.push("compatible sport preferences");
-      return { player: p, score, explanation: parts.join(", ") + "." };
-    })
-    .sort((a, b) => b.score - a.score);
 }
 
 /** Convert a Player to UserProfile for the matching engine */

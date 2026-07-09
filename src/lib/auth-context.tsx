@@ -16,6 +16,7 @@ interface AuthContextType {
   register: (data: Partial<Player> & { password?: string }) => Promise<boolean>;
   logout: () => void;
   resetPassword: (email: string) => Promise<boolean>;
+  deleteAccount: () => Promise<void>;
   setProfileComplete: (complete: boolean) => void;
   updateUserProfile: (data: Partial<Player>) => void;
 }
@@ -47,13 +48,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     losses: 0,
   } as unknown as Player);
 
-  // Helper to eagerly load profile from Firestore and set state
+  // Helper to eagerly load profile from Firestore and set state. Never throws —
+  // on a read failure it falls back to a minimal profile so the app can proceed
+  // rather than hanging on the loading screen.
   const loadAndSetProfile = useCallback(async (fbUser: FirebaseUser) => {
-    const { getUser } = await import("./firestore");
-    const firestoreProfile = await getUser(fbUser.uid);
-    if (firestoreProfile) {
-      setUser(firestoreProfile);
-    } else {
+    try {
+      const { getUser } = await import("./firestore");
+      const firestoreProfile = await getUser(fbUser.uid);
+      setUser(firestoreProfile ?? buildMinimalUser(fbUser));
+    } catch (err) {
+      console.error("[PlayMatch] Failed to load profile:", err);
       setUser(buildMinimalUser(fbUser));
     }
   }, []);
@@ -62,14 +66,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (isFirebaseConfigured && firebaseAuth) {
       const unsub = onAuthStateChanged(firebaseAuth, async (fbUser) => {
         setFirebaseUser(fbUser);
-        if (fbUser) {
-          // Keep loading=true while we fetch the Firestore profile
-          setLoading(true);
-          await loadAndSetProfile(fbUser);
-        } else {
-          setUser(null);
+        try {
+          if (fbUser) {
+            setLoading(true);
+            await loadAndSetProfile(fbUser);
+          } else {
+            setUser(null);
+          }
+        } finally {
+          setLoading(false);
         }
-        setLoading(false);
       });
       return unsub;
     }
@@ -108,20 +114,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Auth methods throw on failure (with a Firebase error .code) so callers can
+  // surface a specific message instead of a generic "invalid credentials".
   const login = useCallback(async (email: string, password: string) => {
     if (isFirebaseConfigured) {
+      setLoading(true);
       try {
         const { signInWithEmail } = await import("./auth");
         const fbUser = await signInWithEmail(email, password);
-        // Eagerly load profile so state is ready before navigation
         setFirebaseUser(fbUser);
-        setLoading(true);
         await loadAndSetProfile(fbUser);
-        setLoading(false);
         return true;
-      } catch { return false; }
+      } finally {
+        setLoading(false);
+      }
     }
-    // Mock
     const u = { id: "mock", name: email.split("@")[0], email, profileComplete: false } as unknown as Player;
     setUser(u);
     persistMock(u);
@@ -130,16 +137,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loginWithGoogle = useCallback(async () => {
     if (isFirebaseConfigured) {
+      setLoading(true);
       try {
         const { signInWithGoogle } = await import("./auth");
         const fbUser = await signInWithGoogle();
-        // Eagerly load profile so state is ready before navigation
         setFirebaseUser(fbUser);
-        setLoading(true);
         await loadAndSetProfile(fbUser);
-        setLoading(false);
         return true;
-      } catch { return false; }
+      } finally {
+        setLoading(false);
+      }
     }
     const mockG = { id: "mock", name: "Mock User", email: "mock@playmatch.app", profileComplete: false } as unknown as Player;
     setUser(mockG);
@@ -149,16 +156,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const register = useCallback(async (data: Partial<Player> & { password?: string }) => {
     if (isFirebaseConfigured && data.email && data.password) {
+      setLoading(true);
       try {
         const { registerWithEmail } = await import("./auth");
         const fbUser = await registerWithEmail(data.email, data.password);
-        // Eagerly set state so navigation works immediately
         setFirebaseUser(fbUser);
-        setLoading(true);
         await loadAndSetProfile(fbUser);
-        setLoading(false);
         return true;
-      } catch { return false; }
+      } finally {
+        setLoading(false);
+      }
     }
     const u = { id: "mock", name: `${data.firstName || ""} ${data.lastName || ""}`.trim(), profileComplete: false, ...data } as Player;
     setUser(u);
@@ -177,13 +184,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const resetPasswordFn = useCallback(async (email: string) => {
     if (isFirebaseConfigured) {
-      try {
-        const { resetPassword } = await import("./auth");
-        await resetPassword(email);
-        return true;
-      } catch { return false; }
+      const { resetPassword } = await import("./auth");
+      await resetPassword(email);
+      return true;
     }
     return true; // mock always succeeds
+  }, []);
+
+  const deleteAccount = useCallback(async () => {
+    if (isFirebaseConfigured) {
+      const { deleteAccount: doDelete } = await import("./auth");
+      await doDelete();
+    }
+    setUser(null);
+    setFirebaseUser(null);
+    persistMock(null);
   }, []);
 
   return (
@@ -199,6 +214,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         register,
         logout,
         resetPassword: resetPasswordFn,
+        deleteAccount,
         setProfileComplete,
         updateUserProfile,
       }}

@@ -1,20 +1,43 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import { type Message, type Player } from "./mock-data";
+import { type Message } from "./mock-data";
 
 export const AI_SENDER_ID = "rally";
 export const AI_SENDER_NAME = "Rally";
 
-// ---------- Gemini setup ----------
-const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_GENAI_API_KEY ?? "";
-let genAI: GoogleGenerativeAI | null = null;
+/**
+ * Rally AI — shared, key-free helpers.
+ *
+ * The live Gemini call runs server-side in a Cloud Function (functions/src),
+ * so no API key is ever shipped to the browser. This module holds the pure
+ * pieces both client and function need: the trigger check, the system prompt,
+ * history construction, and a deterministic static fallback used in mock/dev
+ * mode where no function is available.
+ */
 
-function getGenAI(): GoogleGenerativeAI | null {
-  if (!API_KEY) {
-    console.warn("[Rally AI] No NEXT_PUBLIC_GOOGLE_GENAI_API_KEY – falling back to static responses");
-    return null;
-  }
-  if (!genAI) genAI = new GoogleGenerativeAI(API_KEY);
-  return genAI;
+// ---------- System prompt ----------
+export const RALLY_SYSTEM_PROMPT = `You are Rally, the PlayMatch assistant — a calm, concrete, helpful tennis & pickleball coach for the Pleasanton community.
+
+VOICE:
+• Warm and encouraging, but plain-spoken. Write like a knowledgeable friend, not a hype machine.
+• No ALL-CAPS words. At most one exclamation mark per message. Emoji are optional and rare (never more than one).
+• Be specific and useful. Answer the actual question asked.
+
+KNOWLEDGE:
+• Local courts, especially Lifetime Activities Pleasanton — (925) 460-8600.
+• Match logistics: scheduling, court reservations, warm-up tips, directions.
+
+RULES:
+• Keep replies under 80 words.
+• You are in a group chat with real players — reference what they actually said; don't repeat yourself.
+• If you don't know something, say so briefly.
+• Stay in character as Rally, the coach.`;
+
+// ---------- Trigger ----------
+/**
+ * Rally replies only when explicitly addressed with an "@rally" mention, so a
+ * casual "great rally!" doesn't summon the bot.
+ */
+export function shouldRallyRespond(text: string): boolean {
+  return /@rally\b/i.test(text) || /\brally[,:]/i.test(text.trim());
 }
 
 // ---------- Token budget ----------
@@ -25,217 +48,109 @@ const HISTORY_TOKEN_BUDGET =
   MAX_CONVERSATION_TOKENS - SYSTEM_PROMPT_TOKENS - RESPONSE_RESERVE_TOKENS;
 
 /** Rough token estimate: ~4 chars per token for English text. */
-function estimateTokens(text: string): number {
+export function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }
 
-// ---------- System prompt ----------
-const RALLY_SYSTEM_PROMPT = `You are Rally 🎾, the PlayMatch chat bot — a friendly, motivational, energetic, and helpful tennis & pickleball coach.
-
-PERSONALITY:
-• Warm, kind, and genuinely supportive — treat every player like a valued friend
-• Motivational and energetic — you lift people up and get them excited to play
-• Uses tennis/pickleball terminology naturally
-• Uses emojis sparingly but effectively (🎾🔥💪🏆)
-• Upbeat and enthusiastic — exclamation marks are your thing!
-
-TONE RULES — VERY IMPORTANT:
-• NEVER be rude, condescending, sarcastic, or dismissive
-• NEVER talk down to anyone regardless of their skill level
-• Always be patient and encouraging, even with beginner questions
-• If someone is frustrated or upset, respond with empathy first
-• Celebrate every effort — not just wins
-
-KNOWLEDGE:
-• You know about local courts, especially Lifetime Activities Pleasanton — (925) 460-8600
-• You can help with match logistics: scheduling, court reservations, warm-up tips, directions
-• You celebrate wins, console losses, and always motivate
-• You can search the web to answer questions about courts, rules, gear, restaurants nearby, weather, etc.
-
-RULES:
-• Keep every reply under 100 words — be concise and punchy
-• You are part of a group chat with real players — stay contextually relevant
-• Reference what people actually said — don't repeat generic lines
-• If asked something you don't know, search for it or be honest — but always keep it fun
-• Never break character — you ARE Rally the coach
-• Do NOT repeat yourself — check what you've already said in the conversation
-• Be HELPFUL above all else — if a player asks a question, do your best to answer it`;
-
-// ---------- Public API ----------
-
 /**
- * Check whether Rally should respond to this message.
- * Rally replies only when someone mentions "rally" (case-insensitive).
+ * Build a chronological transcript that fits the token budget. Always includes
+ * at least the newest message (truncated if it alone exceeds the budget) so the
+ * model never receives an empty conversation.
  */
-export function shouldRallyRespond(text: string): boolean {
-  return /\brally\b/i.test(text);
-}
-
-/**
- * Ask Rally (Gemini) for a contextual reply.
- *
- * @param conversationMessages  Full message history for the conversation
- * @param participantNames      Map of userId → display name
- * @returns Rally's reply text, or null if the API is unavailable
- */
-export async function getRallyResponse(
-  conversationMessages: Message[],
-  participantNames: Record<string, string>,
-): Promise<string | null> {
-  // --- Try Gemini first ---
-  const ai = getGenAI();
-  if (ai) {
-    try {
-      const model = ai.getGenerativeModel({
-        model: "gemini-2.0-flash",
-        generationConfig: {
-          maxOutputTokens: 150, // ~100 words
-          temperature: 0.9,
-        },
-        tools: [{ googleSearch: {} } as any],
-      });
-
-      // Build trimmed conversation history that fits the token budget
-      const history = buildHistory(conversationMessages, participantNames);
-
-      const prompt = `${RALLY_SYSTEM_PROMPT}\n\n--- CONVERSATION ---\n${history}\n\n--- YOUR TURN ---\nReply as Rally (under 100 words):`;
-
-      console.log(
-        "[Rally AI] Sending prompt to Gemini, estimated tokens:",
-        estimateTokens(prompt),
-      );
-
-      const result = await model.generateContent(prompt);
-      const response = result.response;
-      let text = response.text().trim();
-
-      // Safety: enforce 100-word limit client-side
-      const words = text.split(/\s+/);
-      if (words.length > 100) {
-        text = words.slice(0, 100).join(" ");
-      }
-
-      console.log("[Rally AI] Gemini replied:", text.substring(0, 80) + "...");
-      return text;
-    } catch (err) {
-      console.error("[Rally AI] Gemini error, falling back to static:", err);
-    }
-  }
-
-  // --- Fallback: keyword-based static response ---
-  const lastMsg = conversationMessages[conversationMessages.length - 1];
-  return lastMsg ? getStaticResponse(lastMsg.text) : null;
-}
-
-// ---------- History builder ----------
-
-function buildHistory(
-  messages: Message[],
-  names: Record<string, string>,
+export function buildHistory(
+  msgs: Message[],
+  names: Record<string, string>
 ): string {
+  if (msgs.length === 0) return "";
   const lines: string[] = [];
   let tokenCount = 0;
 
-  // Walk backwards from newest, accumulating until we hit the token budget
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const m = messages[i];
-    const sender =
-      m.senderId === AI_SENDER_ID
-        ? "Rally"
-        : names[m.senderId] || "User";
-    const line = `${sender}: ${m.text}`;
-    const lineTokens = estimateTokens(line);
+  for (let i = msgs.length - 1; i >= 0; i--) {
+    const m = msgs[i];
+    const sender = m.senderId === AI_SENDER_ID ? "Rally" : names[m.senderId] || "User";
+    let line = `${sender}: ${m.text}`;
+    let lineTokens = estimateTokens(line);
 
-    if (tokenCount + lineTokens > HISTORY_TOKEN_BUDGET) break;
-    lines.unshift(line); // prepend to maintain chronological order
+    if (tokenCount + lineTokens > HISTORY_TOKEN_BUDGET) {
+      // Always include the newest message; truncate it to fit rather than drop it.
+      if (i === msgs.length - 1) {
+        const budgetChars = Math.max(0, HISTORY_TOKEN_BUDGET) * 4;
+        line = line.slice(0, budgetChars);
+        lineTokens = estimateTokens(line);
+        lines.unshift(line);
+        tokenCount += lineTokens;
+      }
+      break;
+    }
+    lines.unshift(line);
     tokenCount += lineTokens;
   }
-
-  console.log(
-    "[Rally AI] History:",
-    lines.length,
-    "messages,",
-    tokenCount,
-    "est. tokens",
-  );
   return lines.join("\n");
 }
 
-// ---------- Static fallback (original keyword matching) ----------
+/** Compose the full prompt the Cloud Function sends to Gemini. */
+export function buildRallyPrompt(
+  msgs: Message[],
+  names: Record<string, string>
+): string {
+  const history = buildHistory(msgs, names);
+  return `${history}\n\n--- Reply as Rally (under 80 words) ---`;
+}
 
-function getStaticResponse(text: string): string | null {
+/** Clamp a reply to at most `maxWords`, trimming on a sentence boundary if possible. */
+export function clampWords(text: string, maxWords = 80): string {
+  const words = text.trim().split(/\s+/);
+  if (words.length <= maxWords) return text.trim();
+  const clipped = words.slice(0, maxWords).join(" ");
+  const lastStop = Math.max(clipped.lastIndexOf("."), clipped.lastIndexOf("!"), clipped.lastIndexOf("?"));
+  return lastStop > clipped.length * 0.6 ? clipped.slice(0, lastStop + 1) : clipped + "…";
+}
+
+// ---------- Static fallback (mock/dev mode) ----------
+/**
+ * Deterministic keyword response used when no Cloud Function is available
+ * (mock mode). Calm, concrete voice — matches the system prompt.
+ */
+export function getStaticResponse(text: string): string {
   const lower = text.toLowerCase();
   if (lower.includes("what time") || lower.includes("when"))
-    return "GREAT question! 📅 Based on your mutual availability, weekday evenings or Saturday mornings are your sweet spot! Let's lock in a time and MAKE IT HAPPEN! 🎾💪";
-  if (lower.includes("where") || lower.includes("court"))
-    return "Oh I LOVE this energy! 🏟️ Lifetime Activities Pleasanton is THE spot — top-notch courts waiting for you champions! Call (925) 460-8600 to reserve! LET'S GO! 🎾🔥";
+    return "Based on your shared availability, weekday evenings or Saturday mornings tend to work best. Want me to pencil in a time?";
+  if (lower.includes("where") || lower.includes("court") || lower.includes("address"))
+    return "Lifetime Activities Pleasanton is the usual spot — call (925) 460-8600 to reserve a court.";
   if (lower.includes("score") || lower.includes("won") || lower.includes("lost"))
-    return "AMAZING match! 🏆 I've logged the result — every point counts in your journey! Want me to find your next opponent? The court is calling! 🎾💪🔥";
-  if (lower.includes("cancel") || lower.includes("can't make"))
-    return "No worries at all! 🙌 Life happens, and there's ALWAYS another match around the corner! Let me know when you're ready to get back out there, champion! 🎾";
+    return "Nice — drop the final score here and I'll log it for you.";
+  if (lower.includes("cancel") || lower.includes("can't make") || lower.includes("cant make"))
+    return "No problem, these things happen. Let me know when you'd like to reschedule.";
   if (lower.includes("thanks") || lower.includes("thank you"))
-    return "That's what I'm HERE for! 🎾 Helping you find amazing matches is my FAVORITE thing! Keep that energy up, champion! 💪🔥";
-  // Generic fallback when Rally is mentioned but no keyword detected
-  return "LET'S GO, champion! 🎾🔥 I'm here if you need help setting up matches, finding courts, or anything else! Just say the word! 💪";
+    return "Anytime. Have a good match!";
+  return "Happy to help — ask me about scheduling, courts, or match logistics.";
 }
 
-// ---------- Legacy generators (still used for match-creation intro messages) ----------
-
-export function generateIntroMessage(player1: Player, player2: Player): string {
-  const sharedDays = player1.availability.filter((d) =>
-    player2.availability.includes(d),
-  );
-  const sharedTimes = player1.preferredTimes.filter((t) =>
-    player2.preferredTimes.includes(t),
-  );
-  const rating =
-    player1.ntrpRating === player2.ntrpRating
-      ? `${player1.ntrpRating} NTRP`
-      : `${player1.ntrpRating}/${player2.ntrpRating} NTRP`;
-
-  return `GAME ON! 🎾🔥 Hey ${player1.name.split(" ")[0]} and ${player2.name.split(" ")[0]}! I'm Rally, your match coach! You two are ${rating} players${
-    sharedDays.length
-      ? ` who both crush it on ${sharedDays.join("/")}`
-      : ""
-  }${
-    sharedTimes.length
-      ? ` ${sharedTimes.join(" & ").toLowerCase()}s`
-      : ""
-  }. This is gonna be AWESOME! Let's get a match set up this week! 💪`;
+/**
+ * Client-side reply used in mock mode. In a Firebase deploy the Cloud Function
+ * generates the reply server-side instead.
+ */
+export function getRallyFallbackResponse(msgs: Message[]): string | null {
+  const last = msgs[msgs.length - 1];
+  return last ? getStaticResponse(last.text) : null;
 }
 
-export function generateMatchSuggestion(
-  player1: Player,
-  player2: Player,
+// ---------- Match intro (calm voice) ----------
+export function buildMatchIntro(
+  name1: string,
+  name2: string,
+  details?: { sport?: string; matchType?: string; date?: string; time?: string; location?: string; score?: number }
 ): string {
-  const sharedDays = player1.availability.filter((d) =>
-    player2.availability.includes(d),
-  );
-  const sharedTimes = player1.preferredTimes.filter((t) =>
-    player2.preferredTimes.includes(t),
-  );
-  const day = sharedDays[0] || "this weekend";
-  const time = sharedTimes[0]?.toLowerCase() || "morning";
-  return `LET'S GO! 🏟️ Based on your schedules, ${day} ${time} looks PERFECT! Lifetime Activities Pleasanton has courts ready for you two champions! Call (925) 460-8600 to lock in your court! 🔒🎾`;
-}
-
-export function generateReminder(
-  playerName: string,
-  opponentName: string,
-  time: string,
-  date: string,
-): string {
-  return `⏰ MATCH DAY ALERT! ${playerName.split(" ")[0]}, your showdown with ${opponentName} is ${date} at ${time}! Bring your A-game, champion! You've GOT this! 🎾🔥💪`;
-}
-
-export function generatePostMatchFollowUp(
-  playerName: string,
-  opponentName: string,
-): string {
-  return `Hey ${playerName.split(" ")[0]}! 🎾 How was the match with ${opponentName}?! I bet it was ELECTRIC! Drop your score so I can update the stats! Win or lose, every match makes you BETTER! 💪🏆`;
-}
-
-/** @deprecated Use shouldRallyRespond + getRallyResponse instead */
-export function getAIResponse(lastMessage: string): string | null {
-  return getStaticResponse(lastMessage);
+  const first1 = name1.split(" ")[0];
+  const first2 = name2.split(" ")[0];
+  let line = `Hi ${first1} and ${first2}, I'm Rally, your match assistant.`;
+  if (details?.date && details?.time && details?.location) {
+    line += ` You're set for ${details.sport || "a match"} ${details.matchType || "singles"} on ${details.date} at ${details.time}, ${details.location}.`;
+    line += ` To reserve a court, call (925) 460-8600.`;
+  } else if (typeof details?.score === "number") {
+    line += ` You matched at ${details.score}% compatibility. When you're ready, pick a time and I can help with court details.`;
+  } else {
+    line += ` When you're ready, pick a time and I can help with court details — Lifetime Activities Pleasanton, (925) 460-8600.`;
+  }
+  return line;
 }

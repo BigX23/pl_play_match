@@ -2,10 +2,103 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // PRODUCTION: Lock down properly with auth rules
-    // DEV: Set to `if true` for seeding/testing, then revert
-    match /{document=**} {
-      allow read, write: if false;
+
+    // ---------- helpers ----------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isSelf(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+    function isParticipant(participants) {
+      return isSignedIn() && request.auth.uid in participants;
+    }
+
+    // ---------- users ----------
+    // Any signed-in user may read another user's public profile (needed for
+    // match suggestions), but only the owner may write their own doc.
+    // Private data (email, fcmToken) lives in the private subcollection below.
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSelf(userId);
+      allow delete: if isSelf(userId);
+
+      // Private per-user data — owner-only. Cloud Functions (admin) bypass rules.
+      match /private/{docId} {
+        allow read, write: if isSelf(userId);
+      }
+
+      // Contacts — owner-only.
+      match /contacts/{contactId} {
+        allow read, write: if isSelf(userId);
+      }
+    }
+
+    // ---------- matchRequests ----------
+    // Sender creates (must stamp their own uid as fromUserId); either party may
+    // read; recipient or sender may update (accept/decline/cancel).
+    match /matchRequests/{requestId} {
+      allow read: if isSignedIn() &&
+        (resource.data.fromUserId == request.auth.uid ||
+         resource.data.toUserId == request.auth.uid);
+      allow create: if isSignedIn() &&
+        request.resource.data.fromUserId == request.auth.uid;
+      allow update: if isSignedIn() &&
+        (resource.data.toUserId == request.auth.uid ||
+         resource.data.fromUserId == request.auth.uid);
+      allow delete: if isSignedIn() &&
+        resource.data.fromUserId == request.auth.uid;
+    }
+
+    // ---------- conversations ----------
+    // Readable/writable only by participants.
+    match /conversations/{conversationId} {
+      allow read: if isParticipant(resource.data.participants);
+      allow create: if isParticipant(request.resource.data.participants);
+      allow update, delete: if isParticipant(resource.data.participants);
+    }
+
+    // ---------- messages ----------
+    // A message is readable/writable only by participants of its parent
+    // conversation. The sender must stamp their own uid.
+    match /messages/{messageId} {
+      function convParticipants() {
+        return get(/databases/$(database)/documents/conversations/$(resource.data.conversationId)).data.participants;
+      }
+      function newConvParticipants() {
+        return get(/databases/$(database)/documents/conversations/$(request.resource.data.conversationId)).data.participants;
+      }
+      allow read: if isParticipant(convParticipants());
+      allow create: if isParticipant(newConvParticipants()) &&
+        request.resource.data.senderId == request.auth.uid;
+      allow update, delete: if isParticipant(convParticipants());
+    }
+
+    // ---------- matches ----------
+    // Open matches are readable by any signed-in user (community board).
+    match /matches/{matchId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() &&
+        request.resource.data.player1Id == request.auth.uid;
+      allow update: if isSignedIn() &&
+        (resource.data.player1Id == request.auth.uid ||
+         resource.data.player2Id == request.auth.uid ||
+         resource.data.createdBy == request.auth.uid ||
+         // allow a signed-in user to join an open match (become player2)
+         (resource.data.status == 'open' &&
+          request.resource.data.player2Id == request.auth.uid));
+      allow delete: if isSignedIn() &&
+        (resource.data.player1Id == request.auth.uid ||
+         resource.data.createdBy == request.auth.uid);
+    }
+
+    // ---------- notifications ----------
+    // Owner-only read/update; creation via Cloud Functions (admin) or a
+    // signed-in user addressing another user.
+    match /notifications/{notificationId} {
+      allow read, update, delete: if isSignedIn() &&
+        resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn();
     }
   }
 }

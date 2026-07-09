@@ -25,8 +25,14 @@ export default function ChatInput({ onSend, disabled }: Props) {
       <Input
         value={text}
         onChange={(e) => setText(e.target.value)}
-        placeholder="Type a message..."
-        onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
+        placeholder="Type a message…"
+        onKeyDown={(e) => {
+          // Don't send mid-IME-composition (breaks CJK input).
+          if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+            e.preventDefault();
+            handleSend();
+          }
+        }}
         disabled={disabled}
         className="flex-1"
       />

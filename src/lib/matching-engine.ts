@@ -74,71 +74,156 @@ export const WEIGHTS = {
 export const MIN_MATCH_SCORE = 50;
 export const OPEN_MATCH_MIN_SCORE = 40;
 
-function calcAvailabilityScore(a: DayAvailability[], b: DayAvailability[]): number {
-  let totalOverlapHours = 0;
-  let totalUserHours = 0;
-
-  for (const dayA of a) {
-    if (!dayA.enabled || dayA.slots.length === 0) continue;
-    for (const slotA of dayA.slots) {
-      totalUserHours += slotA.end - slotA.start;
+/** Merge overlapping/adjacent slots within a day so hours aren't double-counted. */
+function mergeSlots(slots: TimeSlot[]): TimeSlot[] {
+  const valid = slots.filter((s) => s.end > s.start).sort((x, y) => x.start - y.start);
+  const merged: TimeSlot[] = [];
+  for (const s of valid) {
+    const last = merged[merged.length - 1];
+    if (last && s.start <= last.end) {
+      last.end = Math.max(last.end, s.end);
+    } else {
+      merged.push({ ...s });
     }
-    const dayB = b.find((d) => d.day === dayA.day);
-    if (!dayB || !dayB.enabled || dayB.slots.length === 0) continue;
+  }
+  return merged;
+}
 
-    for (const slotA of dayA.slots) {
-      for (const slotB of dayB.slots) {
-        const overlapStart = Math.max(slotA.start, slotB.start);
-        const overlapEnd = Math.min(slotA.end, slotB.end);
-        if (overlapEnd > overlapStart) {
-          totalOverlapHours += overlapEnd - overlapStart;
-        }
+function enabledSlotsByDay(av: DayAvailability[]): Map<string, TimeSlot[]> {
+  const map = new Map<string, TimeSlot[]>();
+  for (const day of av) {
+    if (!day.enabled || day.slots.length === 0) continue;
+    map.set(day.day, mergeSlots(day.slots));
+  }
+  return map;
+}
+
+function totalHours(byDay: Map<string, TimeSlot[]>): number {
+  let sum = 0;
+  for (const slots of byDay.values()) for (const s of slots) sum += s.end - s.start;
+  return sum;
+}
+
+/**
+ * One-directional availability score: how much of `a`'s time overlaps with `b`,
+ * normalized by `a`'s own hours. Directional by design — combine with min() at
+ * the call site for a symmetric, fair score.
+ */
+function directionalAvailability(
+  aByDay: Map<string, TimeSlot[]>,
+  bByDay: Map<string, TimeSlot[]>
+): number {
+  const totalA = totalHours(aByDay);
+  if (totalA === 0) return 0;
+  let overlap = 0;
+  for (const [day, slotsA] of aByDay) {
+    const slotsB = bByDay.get(day);
+    if (!slotsB) continue;
+    for (const sa of slotsA) {
+      for (const sb of slotsB) {
+        const start = Math.max(sa.start, sb.start);
+        const end = Math.min(sa.end, sb.end);
+        if (end > start) overlap += end - start;
       }
     }
   }
-
-  if (totalUserHours === 0) return 0;
-  return Math.min(1, totalOverlapHours / Math.max(totalUserHours * 0.3, 1));
+  return Math.min(1, overlap / Math.max(totalA * 0.3, 1));
 }
 
-function calcSportScore(a: SportType[], b: SportType[]): number {
-  if (a.includes("both") || b.includes("both")) return 1;
-  const overlap = a.filter((s) => b.includes(s));
-  return overlap.length > 0 ? 1 : 0;
+function calcAvailabilityScore(a: DayAvailability[], b: DayAvailability[]): number {
+  const aByDay = enabledSlotsByDay(a);
+  const bByDay = enabledSlotsByDay(b);
+  // Symmetric: use the weaker of the two directional scores so the value shown
+  // to both parties is identical and fair.
+  return Math.min(directionalAvailability(aByDay, bByDay), directionalAvailability(bByDay, aByDay));
+}
+
+const NO_PREFS: PartnerPreferences = {
+  ageRange: "any",
+  ntrpMin: 0,
+  ntrpMax: 7,
+  gameTypes: [],
+  sports: [],
+  matchFormats: [],
+  genderPreference: "No Preference",
+};
+
+/** Always return a usable preferences object, guarding malformed docs. */
+function prefs(user: UserProfile): PartnerPreferences {
+  return user.partnerPreferences ?? NO_PREFS;
+}
+
+/**
+ * Sport score also respects each user's stated partner-sport preference: if A
+ * only wants pickleball partners, B must actually play pickleball.
+ */
+function calcSportScore(userA: UserProfile, userB: UserProfile): number {
+  const bothPlay = (a: SportType[], b: SportType[]) =>
+    a.includes("both") || b.includes("both") || a.some((s) => b.includes(s));
+  const prefOk = (pref: SportType[], plays: SportType[]) =>
+    !pref || pref.length === 0 || pref.includes("both") ||
+    plays.includes("both") || pref.some((s) => plays.includes(s));
+
+  if (!bothPlay(userA.sports, userB.sports)) return 0;
+  const aWantsB = prefOk(prefs(userA).sports, userB.sports);
+  const bWantsA = prefOk(prefs(userB).sports, userA.sports);
+  if (aWantsB && bWantsA) return 1;
+  if (aWantsB || bWantsA) return 0.5;
+  return 0;
 }
 
 function calcNtrpScore(userA: UserProfile, userB: UserProfile): number {
-  const aInBRange = userB.ntrpRating >= userA.partnerPreferences.ntrpMin &&
-    userB.ntrpRating <= userA.partnerPreferences.ntrpMax;
-  const bInARange = userA.ntrpRating >= userB.partnerPreferences.ntrpMin &&
-    userA.ntrpRating <= userB.partnerPreferences.ntrpMax;
+  const pa = prefs(userA);
+  const pb = prefs(userB);
+  const aInBRange = userB.ntrpRating >= pa.ntrpMin && userB.ntrpRating <= pa.ntrpMax;
+  const bInARange = userA.ntrpRating >= pb.ntrpMin && userA.ntrpRating <= pb.ntrpMax;
 
   if (aInBRange && bInARange) return 1;
   if (aInBRange || bInARange) return 0.5;
   return 0;
 }
 
+/** True only when neither player accepts the other's NTRP — a hard exclusion. */
+export function mutualNtrpReject(userA: UserProfile, userB: UserProfile): boolean {
+  return calcNtrpScore(userA, userB) === 0;
+}
+
 const GAME_TYPE_ORDER: GameType[] = ["recreational", "slightly-competitive", "hardcore-competitive"];
 
 function calcGameTypeScore(a: GameType, b: GameType): number {
-  if (a === b) return 1;
   const idxA = GAME_TYPE_ORDER.indexOf(a);
   const idxB = GAME_TYPE_ORDER.indexOf(b);
+  if (idxA < 0 || idxB < 0) return 0; // unknown/corrupt value
+  if (idxA === idxB) return 1;
   if (Math.abs(idxA - idxB) === 1) return 0.5;
   return 0;
 }
 
-function calcMatchFormatScore(a: MatchFormat[], b: MatchFormat[]): number {
-  if (a.includes("both") || b.includes("both")) return 1;
-  const overlap = a.filter((f) => b.includes(f));
-  return overlap.length > 0 ? 1 : 0;
+/**
+ * Format score respecting each user's stated partner-format preference in
+ * addition to whether they both play a common format.
+ */
+function calcMatchFormatScore(userA: UserProfile, userB: UserProfile): number {
+  const common = (a: MatchFormat[], b: MatchFormat[]) =>
+    a.includes("both") || b.includes("both") || a.some((f) => b.includes(f));
+  const prefOk = (pref: MatchFormat[], plays: MatchFormat[]) =>
+    !pref || pref.length === 0 || pref.includes("both") ||
+    plays.includes("both") || pref.some((f) => plays.includes(f));
+
+  if (!common(userA.matchFormats, userB.matchFormats)) return 0;
+  const aOk = prefOk(prefs(userA).matchFormats, userB.matchFormats);
+  const bOk = prefOk(prefs(userB).matchFormats, userA.matchFormats);
+  if (aOk && bOk) return 1;
+  if (aOk || bOk) return 0.5;
+  return 0;
 }
 
 function calcAgeScore(userA: UserProfile, userB: UserProfile): number {
   const checkAge = (user: UserProfile, other: UserProfile): boolean => {
-    const pref = user.partnerPreferences.ageRange;
+    const pref = prefs(user).ageRange;
     if (pref === "any") return true;
     const range = parseInt(pref);
+    if (Number.isNaN(range)) return true;
     return Math.abs(user.age - other.age) <= range;
   };
 
@@ -150,8 +235,8 @@ function calcAgeScore(userA: UserProfile, userB: UserProfile): number {
 }
 
 function calcGenderScore(userA: UserProfile, userB: UserProfile): number {
-  const aPref = userA.partnerPreferences?.genderPreference ?? "No Preference";
-  const bPref = userB.partnerPreferences?.genderPreference ?? "No Preference";
+  const aPref = prefs(userA).genderPreference ?? "No Preference";
+  const bPref = prefs(userB).genderPreference ?? "No Preference";
   const aOk = aPref === "No Preference" || aPref === userB.gender;
   const bOk = bPref === "No Preference" || bPref === userA.gender;
   if (aOk && bOk) return 1;
@@ -162,10 +247,10 @@ function calcGenderScore(userA: UserProfile, userB: UserProfile): number {
 export function calculateMatchScore(userA: UserProfile, userB: UserProfile): MatchResult {
   const breakdown = {
     availability: calcAvailabilityScore(userA.availability, userB.availability),
-    sport: calcSportScore(userA.sports, userB.sports),
+    sport: calcSportScore(userA, userB),
     ntrp: calcNtrpScore(userA, userB),
     gameType: calcGameTypeScore(userA.gameType, userB.gameType),
-    matchFormat: calcMatchFormatScore(userA.matchFormats, userB.matchFormats),
+    matchFormat: calcMatchFormatScore(userA, userB),
     age: calcAgeScore(userA, userB),
     gender: calcGenderScore(userA, userB),
   };
@@ -190,6 +275,8 @@ export function findMatches(
 ): MatchResult[] {
   return allUsers
     .filter((u) => u.id !== currentUser.id && u.profileComplete)
+    // Hard exclusion: if neither player accepts the other's NTRP band, never suggest.
+    .filter((u) => !mutualNtrpReject(currentUser, u))
     .map((u) => calculateMatchScore(currentUser, u))
     .filter((r) => r.score >= minScore)
     .sort((a, b) => b.score - a.score);

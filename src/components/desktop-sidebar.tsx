@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Home, Search, MessageSquare, Bell, User, Settings, LogOut, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
+import { useNavBadges } from "@/hooks/use-nav-badges";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 
@@ -19,13 +20,9 @@ const items = [
 
 export default function DesktopSidebar() {
   const pathname = usePathname();
-  const { logout, user } = useAuth();
+  const { logout } = useAuth();
   const router = useRouter();
-
-  const badges = {
-    messages: 0,
-    notifications: 0,
-  };
+  const badges = useNavBadges();
 
   return (
     <aside className="hidden md:flex md:flex-col md:w-64 md:border-r bg-card h-screen sticky top-0">

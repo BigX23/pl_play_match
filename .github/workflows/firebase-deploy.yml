@@ -46,6 +46,9 @@ jobs:
       - name: Type check
         run: npm run typecheck
 
+      - name: Test
+        run: npm run test:ci
+
       - name: Build
         run: npm run build
 
@@ -126,6 +129,9 @@ jobs:
 
       - name: Build Cloud Functions
         run: cd functions && npx tsc
+
+      - name: Deploy Firestore & Storage rules
+        run: npx firebase-tools deploy --only firestore:rules,firestore:indexes,storage --project pl-play-match --token "${{ secrets.FIREBASE_TOKEN }}" --non-interactive 2>&1 || echo "Rules deploy skipped (set FIREBASE_TOKEN secret to enable)"
 
       - name: Deploy Cloud Functions
         run: npx firebase-tools deploy --only functions --project pl-play-match --token "${{ secrets.FIREBASE_TOKEN }}" --non-interactive 2>&1 || echo "Functions deploy skipped (set FIREBASE_TOKEN secret to enable)"

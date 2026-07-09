@@ -16,23 +16,23 @@ export default function MessageBubble({ message, isOwn }: Props) {
       {!isOwn && (
         <div className={cn(
           "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white",
-          isRally ? "bg-orange-500" : "bg-gray-400"
+          isRally ? "bg-accent" : "bg-muted-foreground"
         )}>
-          {isRally ? "🎾" : message.senderName.charAt(0)}
+          {message.senderName.charAt(0).toUpperCase()}
         </div>
       )}
       <div className={cn("max-w-[75%]")}>
         {!isOwn && (
-          <p className={cn("text-xs mb-1 font-medium", isRally ? "text-orange-600" : "text-muted-foreground")}>
-            {isRally ? "Rally 🎾" : message.senderName}
+          <p className={cn("text-xs mb-1 font-medium", isRally ? "text-accent" : "text-muted-foreground")}>
+            {isRally ? "Rally" : message.senderName}
           </p>
         )}
         <div className={cn(
           "rounded-2xl px-4 py-2 text-sm",
           isOwn
-            ? "bg-green-600 text-white rounded-br-md"
+            ? "bg-primary text-primary-foreground rounded-br-md"
             : isRally
-              ? "bg-orange-100 dark:bg-orange-950 text-foreground border border-orange-200 dark:border-orange-800 rounded-bl-md"
+              ? "bg-accent/10 text-foreground border border-accent/20 rounded-bl-md"
               : "bg-muted rounded-bl-md"
         )}>
           {message.text}

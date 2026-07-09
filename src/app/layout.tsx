@@ -18,8 +18,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  themeColor: "#22c55e",
+  // No maximumScale — blocking pinch-zoom is a WCAG 1.4.4 violation.
+  themeColor: "#309957", // matches --primary (hsl 147 51% 38%)
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

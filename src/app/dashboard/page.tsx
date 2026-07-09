@@ -5,11 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Trophy, Calendar, TrendingUp, Users, Send, Check, X, MessageCircle } from "lucide-react";
+import { Trophy, Calendar, TrendingUp, Users, Send, Check, X, MessageCircle, Bell, Clock, CircleCheck, Target } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { getMatches, getPlayers, getMatchRequests, createMatchRequest, updateMatchRequest, createGroupConversation, addContact } from "@/lib/firestore";
 import { type Match, type Player, type MatchRequest, getPlayerById, playerToUserProfile } from "@/lib/mock-data";
 import { findMatches, type MatchResult } from "@/lib/matching-engine";
+import { buildMatchIntro } from "@/lib/ai-assistant";
 import Link from "next/link";
 
 function scoreColor(score: number) {
@@ -32,6 +33,7 @@ export default function DashboardPage() {
   const [requests, setRequests] = useState<MatchRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [sendingTo, setSendingTo] = useState<string | null>(null);
+  const [actingOn, setActingOn] = useState<string | null>(null);
 
   const displayUser = user;
 
@@ -67,17 +69,23 @@ export default function DashboardPage() {
 
   if (!displayUser) return null;
 
+  const matchesPlayed = displayUser.matchesPlayed ?? 0;
+  const wins = displayUser.wins ?? 0;
   const upcoming = userMatches.filter((m) => m.status === "scheduled" || m.status === "confirmed");
   const completed = userMatches.filter((m) => m.status === "completed");
-  const winRate = displayUser.matchesPlayed > 0 ? Math.round((displayUser.wins / displayUser.matchesPlayed) * 100) : 0;
+  const winRate = matchesPlayed > 0 ? Math.round((wins / matchesPlayed) * 100) : 0;
 
   const pendingSent = requests.filter((r) => r.fromUserId === displayUser.id && r.status === "pending");
   const pendingReceived = requests.filter((r) => r.toUserId === displayUser.id && r.status === "pending");
   const acceptedRequests = requests.filter((r) => r.status === "accepted");
 
-  const alreadyRequested = new Set([
-    ...requests.map((r) => r.fromUserId === displayUser.id ? r.toUserId : r.fromUserId),
-  ]);
+  // Only pending/accepted requests block re-requesting — a declined or expired
+  // request should let either party try again.
+  const alreadyRequested = new Set(
+    requests
+      .filter((r) => r.status === "pending" || r.status === "accepted")
+      .map((r) => (r.fromUserId === displayUser.id ? r.toUserId : r.fromUserId))
+  );
 
   const handleSendRequest = async (targetId: string, score: number) => {
     setSendingTo(targetId);
@@ -96,27 +104,38 @@ export default function DashboardPage() {
   };
 
   const handleAcceptRequest = async (req: MatchRequest) => {
-    const fromPlayer = allPlayers.find((p) => p.id === req.fromUserId) || getPlayerById(req.fromUserId);
-    const toPlayer = allPlayers.find((p) => p.id === req.toUserId) || getPlayerById(req.toUserId);
-    const fromName = fromPlayer?.firstName || fromPlayer?.name || "Champion";
-    const toName = toPlayer?.firstName || toPlayer?.name || "Champion";
-    const intro = `GAME ON! 🎾🔥 Hey ${fromName} and ${toName}! I'm Rally, your match coach! You two are matched with ${req.score}% compatibility — this is gonna be INCREDIBLE! 💪 Time to schedule your first game at Lifetime Activities Pleasanton! Call (925) 460-8600 to reserve a court and LET'S GO! 🏟️🏆`;
-    const groupName = `Match: ${fromName} vs ${toName}`;
-    const convId = await createGroupConversation([req.fromUserId, req.toUserId], "", groupName, intro);
-    // Auto-add contacts
-    if (fromPlayer) {
-      await addContact(req.toUserId, { id: req.fromUserId, name: fromName, email: fromPlayer.email, avatar: fromPlayer.avatar, addedAt: new Date().toISOString() }).catch(() => {});
+    if (actingOn) return; // guard double-click
+    setActingOn(req.id);
+    try {
+      const fromPlayer = allPlayers.find((p) => p.id === req.fromUserId) || getPlayerById(req.fromUserId);
+      const toPlayer = allPlayers.find((p) => p.id === req.toUserId) || getPlayerById(req.toUserId);
+      const fromName = fromPlayer?.firstName || fromPlayer?.name || "there";
+      const toName = toPlayer?.firstName || toPlayer?.name || "there";
+      const intro = buildMatchIntro(fromName, toName, { score: req.score });
+      const groupName = `Match: ${fromName} vs ${toName}`;
+      const convId = await createGroupConversation([req.fromUserId, req.toUserId], "", groupName, intro, displayUser.id);
+      if (fromPlayer) {
+        await addContact(req.toUserId, { id: req.fromUserId, name: fromName, email: fromPlayer.email, avatar: fromPlayer.avatar, addedAt: new Date().toISOString() }).catch(() => {});
+      }
+      if (toPlayer) {
+        await addContact(req.fromUserId, { id: req.toUserId, name: toName, email: toPlayer.email, avatar: toPlayer.avatar, addedAt: new Date().toISOString() }).catch(() => {});
+      }
+      await updateMatchRequest(req.id, { status: "accepted", conversationId: convId });
+      await loadData();
+    } finally {
+      setActingOn(null);
     }
-    if (toPlayer) {
-      await addContact(req.fromUserId, { id: req.toUserId, name: toName, email: toPlayer.email, avatar: toPlayer.avatar, addedAt: new Date().toISOString() }).catch(() => {});
-    }
-    await updateMatchRequest(req.id, { status: "accepted", conversationId: convId });
-    await loadData();
   };
 
   const handleDeclineRequest = async (req: MatchRequest) => {
-    await updateMatchRequest(req.id, { status: "declined" });
-    await loadData();
+    if (actingOn) return;
+    setActingOn(req.id);
+    try {
+      await updateMatchRequest(req.id, { status: "declined" });
+      await loadData();
+    } finally {
+      setActingOn(null);
+    }
   };
 
   const getOpponentFromPlayers = (match: Match) => {
@@ -131,17 +150,17 @@ export default function DashboardPage() {
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-5xl mx-auto">
       <div>
-        <h1 className="text-2xl md:text-3xl font-bold">Welcome back, {displayUser.firstName || displayUser.name.split(" ")[0]}! 🎾</h1>
+        <h1 className="text-2xl md:text-3xl font-bold">Welcome back, {displayUser.firstName || displayUser.name.split(" ")[0]}</h1>
         <p className="text-muted-foreground">Here&apos;s your tennis overview</p>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { icon: Trophy, label: "Matches", value: displayUser.matchesPlayed, color: "text-primary" },
+          { icon: Trophy, label: "Matches", value: matchesPlayed, color: "text-primary" },
           { icon: TrendingUp, label: "Win Rate", value: `${winRate}%`, color: "text-accent" },
           { icon: Calendar, label: "Upcoming", value: upcoming.length, color: "text-blue-500" },
-          { icon: Users, label: "NTRP", value: displayUser.ntrpRating.toFixed(1), color: "text-purple-500" },
+          { icon: Users, label: "NTRP", value: (displayUser.ntrpRating ?? 0).toFixed(1), color: "text-purple-500" },
         ].map((s) => (
           <Card key={s.label}>
             <CardContent className="p-4 flex items-center gap-3">
@@ -160,7 +179,7 @@ export default function DashboardPage() {
         <Card className="border-primary">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg flex items-center gap-2">
-              🔔 New Match Requests <Badge variant="destructive">{pendingReceived.length}</Badge>
+              <Bell className="h-5 w-5 text-primary" /> New Match Requests <Badge variant="destructive">{pendingReceived.length}</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -178,10 +197,10 @@ export default function DashboardPage() {
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <Button size="sm" variant="default" onClick={() => handleAcceptRequest(req)}>
-                      <Check className="h-4 w-4 mr-1" /> Accept
+                    <Button size="sm" variant="default" disabled={actingOn !== null} onClick={() => handleAcceptRequest(req)}>
+                      <Check className="h-4 w-4 mr-1" /> {actingOn === req.id ? "Accepting…" : "Accept"}
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => handleDeclineRequest(req)}>
+                    <Button size="sm" variant="outline" disabled={actingOn !== null} onClick={() => handleDeclineRequest(req)}>
                       <X className="h-4 w-4 mr-1" /> Decline
                     </Button>
                   </div>
@@ -196,7 +215,7 @@ export default function DashboardPage() {
       {pendingSent.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg">⏳ Pending Requests</CardTitle>
+            <CardTitle className="text-lg flex items-center gap-2"><Clock className="h-5 w-5 text-muted-foreground" /> Pending Requests</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {pendingSent.map((req) => {
@@ -222,7 +241,7 @@ export default function DashboardPage() {
       {acceptedRequests.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg">✅ Accepted Matches</CardTitle>
+            <CardTitle className="text-lg flex items-center gap-2"><CircleCheck className="h-5 w-5 text-green-600" /> Accepted Matches</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {acceptedRequests.map((req) => {
@@ -252,7 +271,7 @@ export default function DashboardPage() {
       {/* Top Matches (from matching engine) */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-lg">🎯 Your Top Matches</CardTitle>
+          <CardTitle className="text-lg flex items-center gap-2"><Target className="h-5 w-5 text-primary" /> Your Top Matches</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {matchResults.length === 0 ? (
@@ -334,6 +353,9 @@ export default function DashboardPage() {
       <Card>
         <CardHeader className="pb-2"><CardTitle className="text-lg">Recent Results</CardTitle></CardHeader>
         <CardContent className="space-y-3">
+          {completed.length === 0 && (
+            <p className="text-muted-foreground text-sm">No completed matches yet — your results will show up here.</p>
+          )}
           {completed.map((match) => {
             const opp = getOpponentFromPlayers(match);
             return (

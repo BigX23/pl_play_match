@@ -1,4 +1,5 @@
 import { isFirebaseConfigured, db } from "./firebase";
+import type { FieldValue } from "firebase/firestore";
 import {
   players,
   matches,
@@ -11,35 +12,113 @@ import {
   type Match,
   type MatchRequest,
   type Conversation,
-  type ConversationType,
   type Message,
   type Notification,
   type Contact,
 } from "./mock-data";
 
+/**
+ * Data-access layer. Every function works against Firestore when configured,
+ * and an in-memory mock otherwise. The mock exposes a tiny pub/sub so that
+ * `subscribe*` helpers deliver live updates in dev/test just like Firestore's
+ * `onSnapshot`.
+ */
+
+// ---------- helpers ----------
+
+/** Monotonic id generator — avoids Date.now() collisions in the same ms. */
+let idCounter = 0;
+function genId(prefix: string): string {
+  idCounter += 1;
+  return `${prefix}_${Date.now().toString(36)}_${idCounter}`;
+}
+
+/** Deterministic id for a direct conversation between two users. */
+export function directConversationId(a: string, b: string): string {
+  return `direct_${[a, b].sort().join("_")}`;
+}
+
+/** Normalize a Firestore Timestamp (or ISO string) to an ISO string. */
+function toIso(value: unknown): string {
+  if (!value) return new Date(0).toISOString();
+  if (typeof value === "string") return value;
+  const maybe = value as { toDate?: () => Date };
+  if (typeof maybe.toDate === "function") return maybe.toDate().toISOString();
+  return new Date(value as string | number).toISOString();
+}
+
+function normalizeMessage(id: string, data: Record<string, unknown>): Message {
+  return { ...(data as object), id, createdAt: toIso(data.createdAt) } as Message;
+}
+
+function normalizeConversation(id: string, data: Record<string, unknown>): Conversation {
+  return {
+    ...(data as object),
+    id,
+    lastMessageAt: toIso(data.lastMessageAt),
+    createdAt: toIso(data.createdAt),
+  } as Conversation;
+}
+
+// ---------- mock pub/sub ----------
+
+type Listener = () => void;
+const messageListeners = new Map<string, Set<Listener>>();
+const conversationListeners = new Map<string, Set<Listener>>();
+
+function notifyMock(map: Map<string, Set<Listener>>, key: string) {
+  map.get(key)?.forEach((l) => l());
+}
+
+function subscribeMock(map: Map<string, Set<Listener>>, key: string, l: Listener): () => void {
+  if (!map.has(key)) map.set(key, new Set());
+  map.get(key)!.add(l);
+  return () => map.get(key)?.delete(l);
+}
+
 // ---------- Users ----------
 export async function getUser(userId: string): Promise<Player | undefined> {
-  console.log("[getUser] called with userId:", userId);
   if (isFirebaseConfigured && db) {
     const { doc, getDoc } = await import("firebase/firestore");
     const snap = await getDoc(doc(db, "users", userId));
-    const exists = snap.exists();
-    console.log("[getUser] Firestore doc exists:", exists, "for userId:", userId);
-    return exists ? ({ id: snap.id, ...snap.data() } as Player) : undefined;
+    return snap.exists() ? ({ id: snap.id, ...snap.data() } as Player) : undefined;
   }
-  const result = players.find((p) => p.id === userId);
-  console.log("[getUser] mock result:", result ? result.name : "not found");
-  return result;
+  return players.find((p) => p.id === userId);
 }
 
 export async function updateUser(userId: string, data: Partial<Player>): Promise<void> {
   if (isFirebaseConfigured && db) {
     const { doc, setDoc } = await import("firebase/firestore");
-    await setDoc(doc(db, "users", userId), data as { [x: string]: any }, { merge: true });
+    await setDoc(doc(db, "users", userId), data as Record<string, unknown>, { merge: true });
     return;
   }
   const idx = players.findIndex((p) => p.id === userId);
   if (idx >= 0) Object.assign(players[idx], data);
+}
+
+/**
+ * Store a value on the user's private subcollection (email, fcmToken, …) so it
+ * is never delivered to other clients by `getPlayers()`.
+ */
+export async function setUserPrivate(userId: string, data: Record<string, unknown>): Promise<void> {
+  if (isFirebaseConfigured && db) {
+    const { doc, setDoc } = await import("firebase/firestore");
+    await setDoc(doc(db, "users", userId, "private", "profile"), data, { merge: true });
+    return;
+  }
+  // Mock: keep it off the public player object.
+  mockPrivate[userId] = { ...(mockPrivate[userId] || {}), ...data };
+}
+
+const mockPrivate: Record<string, Record<string, unknown>> = {};
+
+export async function getUserPrivate(userId: string): Promise<Record<string, unknown> | undefined> {
+  if (isFirebaseConfigured && db) {
+    const { doc, getDoc } = await import("firebase/firestore");
+    const snap = await getDoc(doc(db, "users", userId, "private", "profile"));
+    return snap.exists() ? snap.data() : undefined;
+  }
+  return mockPrivate[userId];
 }
 
 // ---------- Players ----------
@@ -80,7 +159,7 @@ export async function createMatch(data: Omit<Match, "id">): Promise<string> {
     const ref = await addDoc(collection(db, "matches"), enriched);
     return ref.id;
   }
-  const id = `m${matches.length + 1}`;
+  const id = genId("m");
   matches.push({ ...enriched, id } as Match);
   return id;
 }
@@ -88,11 +167,50 @@ export async function createMatch(data: Omit<Match, "id">): Promise<string> {
 export async function updateMatch(matchId: string, data: Partial<Match>): Promise<void> {
   if (isFirebaseConfigured && db) {
     const { doc, updateDoc } = await import("firebase/firestore");
-    await updateDoc(doc(db, "matches", matchId), { ...data, updatedAt: new Date().toISOString() } as { [x: string]: any });
+    await updateDoc(doc(db, "matches", matchId), { ...data, updatedAt: new Date().toISOString() });
     return;
   }
   const idx = matches.findIndex((m) => m.id === matchId);
   if (idx >= 0) Object.assign(matches[idx], data);
+}
+
+/**
+ * Atomically join an open match. Verifies the match is still open and unclaimed
+ * before writing, so two simultaneous joiners can't clobber each other.
+ * Returns true if the join succeeded, false if the match was already taken.
+ */
+export async function joinOpenMatch(matchId: string, userId: string): Promise<boolean> {
+  if (isFirebaseConfigured && db) {
+    const { doc, runTransaction } = await import("firebase/firestore");
+    try {
+      return await runTransaction(db, async (tx) => {
+        const ref = doc(db!, "matches", matchId);
+        const snap = await tx.get(ref);
+        if (!snap.exists()) return false;
+        const m = snap.data() as Match;
+        if (m.status !== "open" || m.player2Id) return false;
+        tx.update(ref, {
+          player2Id: userId,
+          acceptedBy: userId,
+          status: "pending",
+          participants: [m.player1Id, userId],
+          updatedAt: new Date().toISOString(),
+        });
+        return true;
+      });
+    } catch {
+      return false;
+    }
+  }
+  const m = matches.find((x) => x.id === matchId);
+  if (!m || m.status !== "open" || m.player2Id) return false;
+  Object.assign(m, {
+    player2Id: userId,
+    acceptedBy: userId,
+    status: "pending" as const,
+    participants: [m.player1Id, userId],
+  });
+  return true;
 }
 
 export async function deleteMatch(matchId: string): Promise<void> {
@@ -107,8 +225,6 @@ export async function deleteMatch(matchId: string): Promise<void> {
 
 // ---------- Conversations ----------
 export async function getConversations(userId: string): Promise<Conversation[]> {
-  console.log("[getConversations] called with userId:", userId);
-  console.log("[getConversations] isFirebaseConfigured:", isFirebaseConfigured, "db:", !!db);
   if (isFirebaseConfigured && db) {
     const { collection, getDocs, query, where, orderBy } = await import("firebase/firestore");
     const q = query(
@@ -117,42 +233,50 @@ export async function getConversations(userId: string): Promise<Conversation[]> 
       orderBy("lastMessageAt", "desc")
     );
     const snap = await getDocs(q);
-    const result = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Conversation));
-    console.log("[getConversations] Firestore returned", result.length, "conversations:", result.map(c => ({ id: c.id, type: c.type, participants: c.participants })));
-    return result;
+    return snap.docs.map((d) => normalizeConversation(d.id, d.data()));
   }
-  const result = conversations
+  return conversations
     .filter((c) => c.participants.includes(userId))
     .sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
-  console.log("[getConversations] mock returned", result.length, "conversations");
-  return result;
+}
+
+/** Live subscription to a user's conversation list. Returns an unsubscribe fn. */
+export function subscribeConversations(
+  userId: string,
+  cb: (convs: Conversation[]) => void
+): () => void {
+  if (isFirebaseConfigured && db) {
+    let unsub = () => {};
+    (async () => {
+      const { collection, query, where, orderBy, onSnapshot } = await import("firebase/firestore");
+      const q = query(
+        collection(db!, "conversations"),
+        where("participants", "array-contains", userId),
+        orderBy("lastMessageAt", "desc")
+      );
+      unsub = onSnapshot(q, (snap) => {
+        cb(snap.docs.map((d) => normalizeConversation(d.id, d.data())));
+      });
+    })();
+    return () => unsub();
+  }
+  const emit = () => { getConversations(userId).then(cb); };
+  emit();
+  return subscribeMock(conversationListeners, userId, emit);
 }
 
 export async function getConversation(conversationId: string): Promise<Conversation | undefined> {
-  console.log("[getConversation] called with conversationId:", conversationId);
-  console.log("[getConversation] isFirebaseConfigured:", isFirebaseConfigured, "db:", !!db);
   if (isFirebaseConfigured && db) {
     const { doc, getDoc } = await import("firebase/firestore");
     const snap = await getDoc(doc(db, "conversations", conversationId));
-    const exists = snap.exists();
-    console.log("[getConversation] Firestore doc exists:", exists);
-    if (exists) {
-      const data = { id: snap.id, ...snap.data() } as Conversation;
-      console.log("[getConversation] Firestore data:", { id: data.id, type: data.type, participants: data.participants, name: data.name });
-      return data;
-    }
-    return undefined;
+    return snap.exists() ? normalizeConversation(snap.id, snap.data()) : undefined;
   }
-  const result = conversations.find((c) => c.id === conversationId);
-  console.log("[getConversation] mock result:", result ? { id: result.id } : "not found");
-  return result;
+  return conversations.find((c) => c.id === conversationId);
 }
 
 export async function deleteConversation(conversationId: string): Promise<void> {
-  console.log("[deleteConversation] called with conversationId:", conversationId);
   if (isFirebaseConfigured && db) {
-    const { doc, deleteDoc, collection, getDocs, query, where, writeBatch } = await import("firebase/firestore");
-    // Delete all messages in the conversation
+    const { doc, collection, getDocs, query, where, writeBatch } = await import("firebase/firestore");
     const msgQ = query(collection(db, "messages"), where("conversationId", "==", conversationId));
     const msgSnap = await getDocs(msgQ);
     const batch = writeBatch(db);
@@ -161,41 +285,32 @@ export async function deleteConversation(conversationId: string): Promise<void> 
     await batch.commit();
     return;
   }
-  // Mock: remove conversation and its messages
   const idx = conversations.findIndex((c) => c.id === conversationId);
+  const participants = idx >= 0 ? conversations[idx].participants : [];
   if (idx >= 0) conversations.splice(idx, 1);
   for (let i = messages.length - 1; i >= 0; i--) {
     if (messages[i].conversationId === conversationId) messages.splice(i, 1);
   }
+  notifyMock(messageListeners, conversationId);
+  participants.forEach((p) => notifyMock(conversationListeners, p));
 }
 
-/** Find an existing direct conversation between two users */
+/** Find an existing direct conversation between two users. */
 export async function findDirectConversation(userId1: string, userId2: string): Promise<Conversation | undefined> {
-  if (isFirebaseConfigured && db) {
-    const { collection, getDocs, query, where } = await import("firebase/firestore");
-    const q = query(
-      collection(db, "conversations"),
-      where("participants", "array-contains", userId1),
-      where("type", "==", "direct")
-    );
-    const snap = await getDocs(q);
-    return snap.docs
-      .map((d) => ({ id: d.id, ...d.data() } as Conversation))
-      .find((c) => c.participants.includes(userId2) && c.participants.length === 2);
-  }
-  return conversations.find(
-    (c) => c.type === "direct" && c.participants.includes(userId1) && c.participants.includes(userId2) && c.participants.length === 2
-  );
+  return getConversation(directConversationId(userId1, userId2));
 }
 
-/** Create a 1-on-1 direct conversation (no Rally) */
-export async function createDirectConversation(userId1: string, userId2: string, user1Name: string, user2Name: string): Promise<string> {
-  console.log("[createDirectConversation] called:", { userId1, userId2, user1Name, user2Name });
-  // Check if one already exists
-  const existing = await findDirectConversation(userId1, userId2);
+/** Create (or return existing) a 1-on-1 direct conversation. Idempotent by id. */
+export async function createDirectConversation(
+  userId1: string,
+  userId2: string,
+  _user1Name: string,
+  _user2Name: string
+): Promise<string> {
+  const convId = directConversationId(userId1, userId2);
+  const existing = await getConversation(convId);
   if (existing) return existing.id;
 
-  const convId = `conv_${Date.now()}`;
   const now = new Date().toISOString();
   const conv: Conversation = {
     id: convId,
@@ -203,43 +318,75 @@ export async function createDirectConversation(userId1: string, userId2: string,
     type: "direct",
     lastMessage: "",
     lastMessageAt: now,
-    unreadCount: 0,
+    unread: { [userId1]: 0, [userId2]: 0 },
     createdAt: now,
   };
 
   if (isFirebaseConfigured && db) {
-    const { doc, setDoc } = await import("firebase/firestore");
-    await setDoc(doc(db, "conversations", convId), conv);
+    const { doc, setDoc, serverTimestamp } = await import("firebase/firestore");
+    await setDoc(doc(db, "conversations", convId), { ...conv, lastMessageAt: serverTimestamp(), createdAt: serverTimestamp() });
   } else {
     conversations.push(conv);
+    [userId1, userId2].forEach((p) => notifyMock(conversationListeners, p));
   }
   return convId;
 }
 
-/** Create a group conversation for a match (includes Rally) */
+/** Create a group conversation for a match (includes Rally). */
 export async function createGroupConversation(
   participantIds: string[],
   matchId: string,
   groupName: string,
   rallyIntro: string,
+  createdBy: string = participantIds[0] || ""
 ): Promise<string> {
-  console.log("[createGroupConversation] called:", { participantIds, matchId, groupName });
-  const convId = `conv_${Date.now()}`;
   const now = new Date().toISOString();
   const allParticipants = [...participantIds, RALLY_USER.id];
+  // Everyone except Rally starts with one unread (the intro), except the actor.
+  const unread: Record<string, number> = {};
+  participantIds.forEach((p) => { unread[p] = p === createdBy ? 0 : 1; });
+
+  if (isFirebaseConfigured && db) {
+    const { doc, setDoc, collection, addDoc, serverTimestamp } = await import("firebase/firestore");
+    const convId = genId("conv");
+    await setDoc(doc(db, "conversations", convId), {
+      participants: allParticipants,
+      type: "group",
+      name: groupName,
+      matchId,
+      createdBy,
+      lastMessage: rallyIntro,
+      lastMessageAt: serverTimestamp(),
+      unread,
+      createdAt: serverTimestamp(),
+    });
+    await addDoc(collection(db, "messages"), {
+      conversationId: convId,
+      senderId: RALLY_USER.id,
+      senderName: RALLY_USER.name,
+      text: rallyIntro,
+      createdAt: serverTimestamp(),
+      readBy: [RALLY_USER.id],
+      isAI: true,
+    });
+    return convId;
+  }
+
+  const convId = genId("conv");
   const conv: Conversation = {
     id: convId,
     participants: allParticipants,
     type: "group",
     name: groupName,
     matchId,
+    createdBy,
     lastMessage: rallyIntro,
     lastMessageAt: now,
-    unreadCount: 1,
+    unread,
     createdAt: now,
   };
   const msg: Message = {
-    id: `msg_${Date.now()}`,
+    id: genId("msg"),
     conversationId: convId,
     senderId: RALLY_USER.id,
     senderName: RALLY_USER.name,
@@ -248,22 +395,15 @@ export async function createGroupConversation(
     readBy: [RALLY_USER.id],
     isAI: true,
   };
-
-  if (isFirebaseConfigured && db) {
-    const { doc, setDoc, collection, addDoc } = await import("firebase/firestore");
-    await setDoc(doc(db, "conversations", convId), conv);
-    await addDoc(collection(db, "messages"), msg);
-  } else {
-    conversations.push(conv);
-    messages.push(msg);
-  }
+  conversations.push(conv);
+  messages.push(msg);
+  allParticipants.forEach((p) => notifyMock(conversationListeners, p));
+  notifyMock(messageListeners, convId);
   return convId;
 }
 
 // ---------- Messages ----------
 export async function getMessages(conversationId: string): Promise<Message[]> {
-  console.log("[getMessages] called with conversationId:", conversationId);
-  console.log("[getMessages] isFirebaseConfigured:", isFirebaseConfigured, "db:", !!db);
   if (isFirebaseConfigured && db) {
     const { collection, getDocs, query, where, orderBy } = await import("firebase/firestore");
     const q = query(
@@ -271,62 +411,120 @@ export async function getMessages(conversationId: string): Promise<Message[]> {
       where("conversationId", "==", conversationId),
       orderBy("createdAt", "asc")
     );
-    try {
-      const snap = await getDocs(q);
-      const result = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Message));
-      console.log("[getMessages] Firestore returned", result.length, "messages");
-      return result;
-    } catch (err) {
-      console.error("[getMessages] Firestore error:", err);
-      return [];
-    }
+    const snap = await getDocs(q);
+    return snap.docs.map((d) => normalizeMessage(d.id, d.data()));
   }
-  const result = messages
+  return messages
     .filter((m) => m.conversationId === conversationId)
     .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-  console.log("[getMessages] mock returned", result.length, "messages");
-  return result;
+}
+
+/** Live subscription to a conversation's messages. Returns an unsubscribe fn. */
+export function subscribeMessages(
+  conversationId: string,
+  cb: (msgs: Message[]) => void
+): () => void {
+  if (isFirebaseConfigured && db) {
+    let unsub = () => {};
+    (async () => {
+      const { collection, query, where, orderBy, onSnapshot } = await import("firebase/firestore");
+      const q = query(
+        collection(db!, "messages"),
+        where("conversationId", "==", conversationId),
+        orderBy("createdAt", "asc")
+      );
+      unsub = onSnapshot(q, (snap) => {
+        cb(snap.docs.map((d) => normalizeMessage(d.id, d.data())));
+      });
+    })();
+    return () => unsub();
+  }
+  const emit = () => { getMessages(conversationId).then(cb); };
+  emit();
+  return subscribeMock(messageListeners, conversationId, emit);
 }
 
 export async function sendMessage(
   conversationId: string,
   text: string,
   senderId: string = "",
-  senderName: string = ""
+  senderName: string = "",
+  isAI: boolean = false
 ): Promise<Message> {
-  console.log("[sendMessage] called:", { conversationId, text: text.substring(0, 50), senderId, senderName });
+  const now = new Date().toISOString();
+
+  if (isFirebaseConfigured && db) {
+    const { collection, addDoc, doc, updateDoc, getDoc, serverTimestamp, increment } =
+      await import("firebase/firestore");
+    const ref = await addDoc(collection(db, "messages"), {
+      conversationId,
+      senderId,
+      senderName,
+      text,
+      createdAt: serverTimestamp(),
+      readBy: [senderId],
+      ...(isAI ? { isAI: true } : {}),
+    });
+    // Increment unread for every participant except the sender.
+    const convRef = doc(db, "conversations", conversationId);
+    const convSnap = await getDoc(convRef);
+    const parts: string[] = convSnap.exists() ? convSnap.data()?.participants || [] : [];
+    const unreadUpdate: Record<string, string | FieldValue> = { lastMessage: text, lastMessageAt: serverTimestamp() };
+    parts.forEach((p) => { if (p !== senderId && p !== RALLY_USER.id) unreadUpdate[`unread.${p}`] = increment(1); });
+    await updateDoc(convRef, unreadUpdate);
+    return { id: ref.id, conversationId, senderId, senderName, text, createdAt: now, readBy: [senderId], ...(isAI ? { isAI: true } : {}) };
+  }
+
   const msg: Message = {
-    id: `msg${Date.now()}`,
+    id: genId("msg"),
     conversationId,
     senderId,
     senderName,
     text,
-    createdAt: new Date().toISOString(),
+    createdAt: now,
     readBy: [senderId],
+    ...(isAI ? { isAI: true } : {}),
   };
-
-  if (isFirebaseConfigured && db) {
-    const { collection, addDoc, doc, updateDoc } = await import("firebase/firestore");
-    const ref = await addDoc(collection(db, "messages"), msg);
-    msg.id = ref.id;
-    await updateDoc(doc(db, "conversations", conversationId), {
-      lastMessage: text,
-      lastMessageAt: msg.createdAt,
+  messages.push(msg);
+  const conv = conversations.find((c) => c.id === conversationId);
+  if (conv) {
+    conv.lastMessage = text;
+    conv.lastMessageAt = now;
+    conv.unread = conv.unread || {};
+    conv.participants.forEach((p) => {
+      if (p !== senderId && p !== RALLY_USER.id) conv.unread[p] = (conv.unread[p] || 0) + 1;
     });
-  } else {
-    messages.push(msg);
-    const conv = conversations.find((c) => c.id === conversationId);
-    if (conv) {
-      conv.lastMessage = text;
-      conv.lastMessageAt = msg.createdAt;
-    }
+    conv.participants.forEach((p) => notifyMock(conversationListeners, p));
   }
-
+  notifyMock(messageListeners, conversationId);
   return msg;
 }
 
+/** Mark a conversation read for a user — zeroes their unread counter. */
+export async function markConversationRead(conversationId: string, userId: string): Promise<void> {
+  if (isFirebaseConfigured && db) {
+    const { doc, updateDoc } = await import("firebase/firestore");
+    await updateDoc(doc(db, "conversations", conversationId), { [`unread.${userId}`]: 0 });
+    return;
+  }
+  const conv = conversations.find((c) => c.id === conversationId);
+  if (conv) {
+    conv.unread = conv.unread || {};
+    if (conv.unread[userId]) {
+      conv.unread[userId] = 0;
+      conv.participants.forEach((p) => notifyMock(conversationListeners, p));
+    }
+  }
+}
+
+/** Total unread across all of a user's conversations (for the nav badge). */
+export async function getTotalUnread(userId: string): Promise<number> {
+  const convs = await getConversations(userId);
+  return convs.reduce((sum, c) => sum + (c.unread?.[userId] || 0), 0);
+}
+
 // ---------- Contacts ----------
-const mockContacts: Contact[] = [];
+const mockContacts: Record<string, Contact[]> = {};
 
 export async function getContacts(userId: string): Promise<Contact[]> {
   if (isFirebaseConfigured && db) {
@@ -334,7 +532,7 @@ export async function getContacts(userId: string): Promise<Contact[]> {
     const snap = await getDocs(collection(db, "users", userId, "contacts"));
     return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Contact));
   }
-  return mockContacts;
+  return mockContacts[userId] || [];
 }
 
 export async function addContact(userId: string, contact: Contact): Promise<void> {
@@ -343,7 +541,8 @@ export async function addContact(userId: string, contact: Contact): Promise<void
     await setDoc(doc(db, "users", userId, "contacts", contact.id), contact);
     return;
   }
-  if (!mockContacts.find((c) => c.id === contact.id)) mockContacts.push(contact);
+  mockContacts[userId] = mockContacts[userId] || [];
+  if (!mockContacts[userId].find((c) => c.id === contact.id)) mockContacts[userId].push(contact);
 }
 
 export async function removeContact(userId: string, contactId: string): Promise<void> {
@@ -352,8 +551,10 @@ export async function removeContact(userId: string, contactId: string): Promise<
     await deleteDoc(doc(db, "users", userId, "contacts", contactId));
     return;
   }
-  const idx = mockContacts.findIndex((c) => c.id === contactId);
-  if (idx >= 0) mockContacts.splice(idx, 1);
+  const list = mockContacts[userId];
+  if (!list) return;
+  const idx = list.findIndex((c) => c.id === contactId);
+  if (idx >= 0) list.splice(idx, 1);
 }
 
 // ---------- Notifications ----------
@@ -391,8 +592,7 @@ export async function getMatchRequests(userId: string): Promise<MatchRequest[]> 
       getDocs(query(collection(db, "matchRequests"), where("fromUserId", "==", userId))),
       getDocs(query(collection(db, "matchRequests"), where("toUserId", "==", userId))),
     ]);
-    const all = [...sentSnap.docs, ...receivedSnap.docs].map((d) => ({ id: d.id, ...d.data() } as MatchRequest));
-    return all;
+    return [...sentSnap.docs, ...receivedSnap.docs].map((d) => ({ id: d.id, ...d.data() } as MatchRequest));
   }
   return matchRequests.filter((r) => r.fromUserId === userId || r.toUserId === userId);
 }
@@ -401,14 +601,21 @@ export async function createMatchRequest(data: Omit<MatchRequest, "id">): Promis
   if (isFirebaseConfigured && db) {
     const { collection, addDoc } = await import("firebase/firestore");
     const ref = await addDoc(collection(db, "matchRequests"), data);
+    await createNotification({
+      userId: data.toUserId,
+      type: "match_request",
+      title: "New Match Request!",
+      body: `Someone wants to match with you! (${data.score}% compatible)`,
+      read: false,
+      createdAt: new Date().toISOString(),
+      link: "/dashboard",
+    });
     return ref.id;
   }
-  const id = `mr${matchRequests.length + 1}_${Date.now()}`;
+  const id = genId("mr");
   matchRequests.push({ ...data, id } as MatchRequest);
-
-  // Create notification for recipient
   notifications.push({
-    id: `n${Date.now()}`,
+    id: genId("n"),
     userId: data.toUserId,
     type: "match_request",
     title: "New Match Request!",
@@ -417,31 +624,37 @@ export async function createMatchRequest(data: Omit<MatchRequest, "id">): Promis
     createdAt: new Date().toISOString(),
     link: "/dashboard",
   });
-
   return id;
 }
 
 export async function updateMatchRequest(requestId: string, data: Partial<MatchRequest>): Promise<void> {
   if (isFirebaseConfigured && db) {
     const { doc, updateDoc } = await import("firebase/firestore");
-    await updateDoc(doc(db, "matchRequests", requestId), data as { [x: string]: any });
+    await updateDoc(doc(db, "matchRequests", requestId), data);
     return;
   }
   const idx = matchRequests.findIndex((r) => r.id === requestId);
   if (idx >= 0) Object.assign(matchRequests[idx], data);
 }
 
-// ---------- Create Conversation (legacy — prefer createGroupConversation or createDirectConversation) ----------
+// ---------- Legacy helpers ----------
 export async function createConversation(participants: string[], aiIntro: string): Promise<string> {
-  return createGroupConversation(participants, "", `Match Chat`, aiIntro);
+  return createGroupConversation(participants, "", "Match Chat", aiIntro);
 }
 
-// ---------- Create Notification ----------
 export async function createNotification(data: Omit<Notification, "id">): Promise<void> {
   if (isFirebaseConfigured && db) {
     const { collection, addDoc } = await import("firebase/firestore");
     await addDoc(collection(db, "notifications"), data);
     return;
   }
-  notifications.push({ ...data, id: `n${Date.now()}` });
+  notifications.push({ ...data, id: genId("n") });
+}
+
+/** Test-only: reset mock listeners and private store. */
+export function __resetMockState(): void {
+  messageListeners.clear();
+  conversationListeners.clear();
+  for (const k of Object.keys(mockContacts)) delete mockContacts[k];
+  for (const k of Object.keys(mockPrivate)) delete mockPrivate[k];
 }

@@ -18,6 +18,24 @@ export const isFirebaseConfigured = Boolean(
   firebaseConfig.apiKey && firebaseConfig.projectId
 );
 
+// Loud failure in production: a prod build missing Firebase config would
+// silently fall back to mock localStorage auth that accepts any password.
+// Surface it instead of shipping a fake-auth app.
+if (
+  !isFirebaseConfigured &&
+  process.env.NODE_ENV === "production" &&
+  process.env.NEXT_PUBLIC_ALLOW_MOCK !== "true"
+) {
+  const msg =
+    "[PlayMatch] Firebase is not configured in a production build. Set NEXT_PUBLIC_FIREBASE_* env vars, or set NEXT_PUBLIC_ALLOW_MOCK=true to intentionally run in mock mode.";
+  if (typeof window === "undefined") {
+    // Fail the build/server render so a misconfiguration can't ship unnoticed.
+    throw new Error(msg);
+  } else {
+    console.error(msg);
+  }
+}
+
 let app: FirebaseApp | null = null;
 let auth: Auth | null = null;
 let db: Firestore | null = null;
@@ -30,11 +48,15 @@ if (isFirebaseConfigured) {
   db = getFirestore(app);
   storage = getStorage(app);
 
-  // Analytics only on client side
+  // Analytics only on client side, and only where actually supported.
   if (typeof window !== "undefined" && firebaseConfig.measurementId) {
-    import("firebase/analytics").then(({ getAnalytics }) => {
-      analytics = getAnalytics(app!);
-    });
+    import("firebase/analytics")
+      .then(({ getAnalytics, isSupported }) =>
+        isSupported().then((ok) => {
+          if (ok) analytics = getAnalytics(app!);
+        })
+      )
+      .catch((err) => console.warn("[PlayMatch] Analytics unavailable:", err));
   }
 } else {
   if (typeof window !== "undefined") {

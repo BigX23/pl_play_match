@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,7 @@ import {
   CalendarCheck,
   Play,
   Trophy,
+  MapPin,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -38,11 +40,15 @@ import {
   createMatch,
   updateMatch,
   deleteMatch,
+  joinOpenMatch,
   createGroupConversation,
   addContact,
   getUser,
+  updateUser,
 } from "@/lib/firestore";
 import { type Match, type MatchStatus, type Player, type Contact, getPlayerById } from "@/lib/mock-data";
+import { buildMatchIntro } from "@/lib/ai-assistant";
+import { useToast } from "@/hooks/use-toast";
 
 /* ──────────────────── status helpers ──────────────────── */
 const STATUS_CONFIG: Record<
@@ -60,6 +66,7 @@ const STATUS_CONFIG: Record<
 
 export default function OpenMatchesPage() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const displayUser = user;
   const userId = displayUser?.id || "";
 
@@ -83,6 +90,7 @@ export default function OpenMatchesPage() {
   // Score dialog
   const [scoreDialog, setScoreDialog] = useState<Match | null>(null);
   const [scoreInput, setScoreInput] = useState("");
+  const [winnerId, setWinnerId] = useState("");
 
   async function load() {
     try {
@@ -192,12 +200,14 @@ export default function OpenMatchesPage() {
 
   const handleRequestJoin = (match: Match) =>
     withLoading(match.id, async () => {
-      await updateMatch(match.id, {
-        player2Id: userId,
-        acceptedBy: userId,
-        status: "pending" as MatchStatus,
-        participants: [match.player1Id, userId],
-      });
+      const joined = await joinOpenMatch(match.id, userId);
+      if (!joined) {
+        toast({
+          title: "Match no longer available",
+          description: "Someone else just joined this match. Try another one.",
+          variant: "destructive",
+        });
+      }
     });
 
   const handleAcceptPartner = (match: Match) =>
@@ -206,12 +216,18 @@ export default function OpenMatchesPage() {
       const partnerId = match.acceptedBy || match.player2Id;
       const creator = findPlayer(creatorId);
       const partner = findPlayer(partnerId);
-      const cName = creator?.firstName || creator?.name || "Champion";
-      const pName = partner?.firstName || partner?.name || "Champion";
-      const intro = `GAME ON! 🎾🔥 Hey ${cName} and ${pName}! I'm Rally, your match coach! You're set to play ${match.sport} ${match.matchType || "singles"} on ${match.date} at ${match.time} at ${match.location}. Time to reserve a court — call (925) 460-8600 and LET'S GO! 🏟️💪`;
+      const cName = creator?.firstName || creator?.name || "there";
+      const pName = partner?.firstName || partner?.name || "there";
+      const intro = buildMatchIntro(cName, pName, {
+        sport: match.sport,
+        matchType: match.matchType,
+        date: match.date,
+        time: match.time,
+        location: match.location,
+      });
       const participantIds = [creatorId, partnerId].filter(Boolean);
       const groupName = `Match: ${cName} vs ${pName}`;
-      const convId = await createGroupConversation(participantIds, match.id, groupName, intro);
+      const convId = await createGroupConversation(participantIds, match.id, groupName, intro, userId);
 
       // Auto-add each other as contacts
       if (creator) {
@@ -236,6 +252,7 @@ export default function OpenMatchesPage() {
         acceptedBy: "",
         status: "open" as MatchStatus,
         participants: [match.createdBy || match.player1Id],
+        conversationId: "",
       });
     });
 
@@ -246,6 +263,7 @@ export default function OpenMatchesPage() {
         acceptedBy: "",
         status: "open" as MatchStatus,
         participants: [match.createdBy || match.player1Id],
+        conversationId: "",
       });
     });
 
@@ -267,12 +285,28 @@ export default function OpenMatchesPage() {
       await updateMatch(match.id, { status: "in_progress" as MatchStatus });
     });
 
+  /** Increment matchesPlayed for both players, and wins/losses per the winner. */
+  const recordStats = async (match: Match, winner: string) => {
+    const ids = [match.player1Id, match.player2Id].filter(Boolean);
+    for (const id of ids) {
+      const p = await getUser(id);
+      if (!p) continue;
+      const played = (p.matchesPlayed ?? 0) + 1;
+      const wins = (p.wins ?? 0) + (winner === id ? 1 : 0);
+      const losses = (p.losses ?? 0) + (winner && winner !== "tie" && winner !== id ? 1 : 0);
+      await updateUser(id, { matchesPlayed: played, wins, losses });
+    }
+  };
+
   const handleReportScore = () => {
     if (!scoreDialog || !scoreInput.trim()) return;
-    withLoading(scoreDialog.id, async () => {
-      await updateMatch(scoreDialog.id, { status: "completed" as MatchStatus, score: scoreInput.trim() });
+    const match = scoreDialog;
+    withLoading(match.id, async () => {
+      await updateMatch(match.id, { status: "completed" as MatchStatus, score: scoreInput.trim() });
+      await recordStats(match, winnerId);
       setScoreDialog(null);
       setScoreInput("");
+      setWinnerId("");
     });
   };
 
@@ -327,7 +361,7 @@ export default function OpenMatchesPage() {
           <p className="text-xs text-center text-green-700 dark:text-green-400 font-medium">Partner confirmed! Reserve a court, then mark scheduled.</p>
           <div className="flex gap-2">
             <Button size="sm" className="flex-1" disabled={busy} onClick={() => handleMarkScheduled(match)}><CalendarCheck className="h-3.5 w-3.5 mr-1" /> Mark Scheduled</Button>
-            {match.conversationId && <a href={`/dashboard/messages/${match.conversationId}`}><Button size="sm" variant="outline"><MessageCircle className="h-3.5 w-3.5 mr-1" /> Chat</Button></a>}
+            {match.conversationId && <Link href={`/dashboard/messages/`}><Button size="sm" variant="outline"><MessageCircle className="h-3.5 w-3.5 mr-1" /> Chat</Button></Link>}
           </div>
           <Button variant="ghost" size="sm" className="w-full text-destructive" disabled={busy} onClick={() => handleCancelMatch(match)}>Cancel Match</Button>
         </div>
@@ -339,7 +373,7 @@ export default function OpenMatchesPage() {
         <div className="space-y-2">
           <p className="text-xs text-center text-green-700 dark:text-green-400 font-medium">You&apos;re confirmed! Waiting for court reservation.</p>
           <div className="flex gap-2">
-            {match.conversationId && <a href={`/dashboard/messages/${match.conversationId}`} className="flex-1"><Button size="sm" variant="outline" className="w-full"><MessageCircle className="h-3.5 w-3.5 mr-1" /> Chat</Button></a>}
+            {match.conversationId && <Link href={`/dashboard/messages/`} className="flex-1"><Button size="sm" variant="outline" className="w-full"><MessageCircle className="h-3.5 w-3.5 mr-1" /> Chat</Button></Link>}
             <Button variant="outline" size="sm" className="flex-1 text-destructive border-destructive/30" disabled={busy} onClick={() => handleWithdraw(match)}><Ban className="h-3.5 w-3.5 mr-1" /> Withdraw</Button>
           </div>
         </div>
@@ -352,7 +386,7 @@ export default function OpenMatchesPage() {
           <p className="text-xs text-center text-purple-700 dark:text-purple-400 font-medium">Court reserved — ready to play!</p>
           <div className="flex gap-2">
             <Button size="sm" className="flex-1" disabled={busy} onClick={() => handleStartMatch(match)}><Play className="h-3.5 w-3.5 mr-1" /> Start Match</Button>
-            {match.conversationId && <a href={`/dashboard/messages/${match.conversationId}`}><Button size="sm" variant="outline"><MessageCircle className="h-3.5 w-3.5 mr-1" /> Chat</Button></a>}
+            {match.conversationId && <Link href={`/dashboard/messages/`}><Button size="sm" variant="outline"><MessageCircle className="h-3.5 w-3.5 mr-1" /> Chat</Button></Link>}
           </div>
           <Button variant="ghost" size="sm" className="w-full text-destructive" disabled={busy} onClick={() => handleCancelMatch(match)}>Cancel Match</Button>
         </div>
@@ -364,7 +398,7 @@ export default function OpenMatchesPage() {
         <div className="space-y-2">
           <p className="text-xs text-center text-purple-700 dark:text-purple-400 font-medium">Scheduled — see you on the court!</p>
           <div className="flex gap-2">
-            {match.conversationId && <a href={`/dashboard/messages/${match.conversationId}`} className="flex-1"><Button size="sm" variant="outline" className="w-full"><MessageCircle className="h-3.5 w-3.5 mr-1" /> Chat</Button></a>}
+            {match.conversationId && <Link href={`/dashboard/messages/`} className="flex-1"><Button size="sm" variant="outline" className="w-full"><MessageCircle className="h-3.5 w-3.5 mr-1" /> Chat</Button></Link>}
             <Button variant="outline" size="sm" className="flex-1 text-destructive border-destructive/30" disabled={busy} onClick={() => handleWithdraw(match)}><Ban className="h-3.5 w-3.5 mr-1" /> Withdraw</Button>
           </div>
         </div>
@@ -374,7 +408,7 @@ export default function OpenMatchesPage() {
     if (s === "in_progress" && (cr || pt)) {
       return (
         <div className="space-y-2">
-          <p className="text-xs text-center text-orange-700 dark:text-orange-400 font-medium">Match in progress — good luck! 🎾</p>
+          <p className="text-xs text-center text-orange-700 dark:text-orange-400 font-medium">Match in progress — good luck!</p>
           <Button size="sm" className="w-full" disabled={busy} onClick={() => { setScoreDialog(match); setScoreInput(""); }}><Trophy className="h-3.5 w-3.5 mr-1" /> Report Score</Button>
         </div>
       );
@@ -397,7 +431,7 @@ export default function OpenMatchesPage() {
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2 flex-wrap">
-              <Badge className="capitalize">{match.sport === "tennis" ? "🎾 Tennis" : "🏓 Pickleball"}</Badge>
+              <Badge className="capitalize">{match.sport}</Badge>
               {match.matchType && <Badge variant="outline" className="capitalize">{match.matchType}</Badge>}
             </div>
             <Badge variant={sc.variant} className={`${sc.color} border`}>{sc.icon} {sc.label}</Badge>
@@ -435,7 +469,7 @@ export default function OpenMatchesPage() {
           </div>
           <div className="space-y-1 text-sm text-muted-foreground">
             <div className="flex items-center gap-2"><Clock className="h-3.5 w-3.5" />{match.date} · {match.time}</div>
-            <div className="flex items-center gap-2">📍 {match.location}</div>
+            <div className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5" /> {match.location}</div>
           </div>
           {match.notes && <p className="text-xs text-muted-foreground italic">&ldquo;{match.notes}&rdquo;</p>}
           {match.status === "completed" && match.score && (
@@ -490,8 +524,8 @@ export default function OpenMatchesPage() {
                 <Select value={newSport} onValueChange={(v) => setNewSport(v as "tennis" | "pickleball")}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="tennis">🎾 Tennis</SelectItem>
-                    <SelectItem value="pickleball">🏓 Pickleball</SelectItem>
+                    <SelectItem value="tennis">Tennis</SelectItem>
+                    <SelectItem value="pickleball">Pickleball</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -578,6 +612,19 @@ export default function OpenMatchesPage() {
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">Enter the final score (e.g. &ldquo;6-4, 3-6, 7-5&rdquo;)</p>
             <Input placeholder="6-4, 6-3" value={scoreInput} onChange={(e) => setScoreInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") handleReportScore(); }} />
+            {scoreDialog && (
+              <div>
+                <Label>Winner</Label>
+                <Select value={winnerId} onValueChange={setWinnerId}>
+                  <SelectTrigger><SelectValue placeholder="Who won?" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={scoreDialog.player1Id}>{findPlayer(scoreDialog.player1Id)?.name || "Player 1"}</SelectItem>
+                    {scoreDialog.player2Id && <SelectItem value={scoreDialog.player2Id}>{findPlayer(scoreDialog.player2Id)?.name || "Player 2"}</SelectItem>}
+                    <SelectItem value="tie">Tie / no result</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setScoreDialog(null)}>Cancel</Button>

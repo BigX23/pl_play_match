@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
-import { getConversations, getContacts, addContact, removeContact, createDirectConversation, deleteConversation, getUser } from "@/lib/firestore";
+import { subscribeConversations, getContacts, addContact, removeContact, createDirectConversation, deleteConversation } from "@/lib/firestore";
 import { type Conversation, type Contact, getPlayerById, RALLY_USER } from "@/lib/mock-data";
 import ConversationCard from "@/components/conversation-card";
 import { MessageSquare, Users, Plus, UserPlus, Trash2, MessageCircle } from "lucide-react";
@@ -23,17 +23,13 @@ export default function MessagesPage() {
   const [addContactOpen, setAddContactOpen] = useState(false);
   const [addContactError, setAddContactError] = useState("");
 
-  const loadData = useCallback(async () => {
-    if (!user) { console.log("[MessagesPage] loadData: no user, skipping"); return; }
-    console.log("[MessagesPage] loadData: fetching for user", user.id);
-    const [c, ct] = await Promise.all([getConversations(user.id), getContacts(user.id)]);
-    console.log("[MessagesPage] loadData: got", c.length, "convos,", ct.length, "contacts");
-    console.log("[MessagesPage] conversations:", c.map(conv => ({ id: conv.id, type: conv.type, participants: conv.participants, lastMessage: conv.lastMessage?.substring(0, 30) })));
-    setConvos(c);
-    setContacts(ct);
+  // Live subscription so unread badges and last messages update in real time.
+  useEffect(() => {
+    if (!user) return;
+    const unsub = subscribeConversations(user.id, setConvos);
+    getContacts(user.id).then(setContacts);
+    return unsub;
   }, [user]);
-
-  useEffect(() => { loadData(); }, [loadData]);
 
   const filtered = convos.filter((c) => {
     if (filter === "all") return true;
@@ -42,16 +38,13 @@ export default function MessagesPage() {
   });
 
   const handleDelete = async (convId: string) => {
-    console.log("[MessagesPage] handleDelete:", convId);
     await deleteConversation(convId);
     setConvos((prev) => prev.filter((c) => c.id !== convId));
   };
 
   const handleStartChat = async (contactId: string, contactName: string) => {
     if (!user) return;
-    console.log("[MessagesPage] handleStartChat:", { contactId, contactName });
     const convId = await createDirectConversation(user.id, contactId, user.firstName || user.name, contactName);
-    console.log("[MessagesPage] navigating to conversation:", convId);
     router.push(`/dashboard/messages/${convId}/`);
   };
 
@@ -110,14 +103,17 @@ export default function MessagesPage() {
           {/* Filter pills */}
           <div className="flex gap-2 px-4 py-2 border-b">
             {([["all", "All"], ["direct", "Direct"], ["group", "Groups"]] as const).map(([key, label]) => (
-              <Badge
+              <button
                 key={key}
-                variant={filter === key ? "default" : "outline"}
-                className="cursor-pointer"
+                type="button"
+                aria-pressed={filter === key}
                 onClick={() => setFilter(key)}
+                className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
-                {label}
-              </Badge>
+                <Badge variant={filter === key ? "default" : "outline"} className="cursor-pointer">
+                  {label}
+                </Badge>
+              </button>
             ))}
           </div>
 

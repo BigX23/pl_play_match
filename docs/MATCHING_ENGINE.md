@@ -9,7 +9,7 @@
 
 The matching engine is a **pure-function, client-side scoring algorithm**. When the dashboard loads, it fetches all player profiles from Firestore, converts them into a canonical `UserProfile` shape, and ranks every other player against the current user using a weighted multi-factor score (0–100). No cloud function or server-side computation is involved — the math happens entirely in the browser.
 
-The engine deliberately does **not** filter on gender preference inside `findMatches`. Instead, `genderPreference` is stored in `PartnerPreferences` and is available to be added to the scoring weights in a future iteration (see [Extending the Engine](#extending-the-engine)).
+The engine scores gender preference (weight 0.10) and applies a **hard exclusion**: if neither player accepts the other's NTRP band (`mutualNtrpReject`), the pair is dropped from `findMatches` entirely regardless of other factors. Partner sport/format preferences also refine the sport and match-format sub-scores. Availability is scored **symmetrically** — the value shown to both players is `min(score(A→B), score(B→A))`, and overlapping time slots within a day are merged before intersecting.
 
 ---
 
@@ -113,9 +113,9 @@ The engine operates on `UserProfile` objects built by `playerToUserProfile()` in
 | `partnerPreferences.ageRange` | `PartnerPreferences.ageRange` | Age score |
 | `partnerPreferences.ntrpMin` | `PartnerPreferences.ntrpMin` | NTRP score |
 | `partnerPreferences.ntrpMax` | `PartnerPreferences.ntrpMax` | NTRP score |
-| `partnerPreferences.gameTypes` | `PartnerPreferences.gameTypes` | (stored, not yet scored) |
-| `partnerPreferences.sports` | `PartnerPreferences.sports` | (stored, not yet scored) |
-| `partnerPreferences.matchFormats` | `PartnerPreferences.matchFormats` | (stored, not yet scored) |
+| `partnerPreferences.gameTypes` | `PartnerPreferences.gameTypes` | (stored; reserved for future weighting) |
+| `partnerPreferences.sports` | `PartnerPreferences.sports` | Refines sport score |
+| `partnerPreferences.matchFormats` | `PartnerPreferences.matchFormats` | Refines match-format score |
 | `partnerPreferences.genderPreference` | `PartnerPreferences.genderPreference` | Gender score |
 | `profileComplete` | `UserProfile.profileComplete` | Guard: `false` → excluded from pool |
 
@@ -177,7 +177,7 @@ score = round(
 
 Each sub-score function returns a value in `[0, 1]` (or `[0, 0.5, 1]` for step functions).
 
-#### 1. Availability — `calcAvailabilityScore(a, b)` — weight 0.30
+#### 1. Availability — `calcAvailabilityScore(a, b)` — weight 0.25 (symmetric)
 
 Computes the **total hour overlap** between both players' `weeklyAvailability` by iterating every enabled day and every time slot pair, then finding the intersection.
 
@@ -214,7 +214,7 @@ one  → 0.5
 none → 0
 ```
 
-#### 4. Game Type — `calcGameTypeScore(a, b)` — weight 0.15
+#### 4. Game Type — `calcGameTypeScore(a, b)` — weight 0.10
 
 Ordered ladder: `recreational < slightly-competitive < hardcore-competitive`.
 

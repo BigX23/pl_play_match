@@ -8,7 +8,10 @@ import Link from "next/link";
 const icons: Record<string, typeof MessageSquare> = {
   new_message: MessageSquare,
   match_invitation: UserPlus,
+  match_request: UserPlus,
   match_confirmed: CheckCircle,
+  match_accepted: CheckCircle,
+  match_declined: Clock,
   match_reminder: Clock,
   ai_suggestion: Bot,
 };
@@ -16,9 +19,12 @@ const icons: Record<string, typeof MessageSquare> = {
 const colors: Record<string, string> = {
   new_message: "text-blue-500",
   match_invitation: "text-purple-500",
+  match_request: "text-purple-500",
   match_confirmed: "text-green-500",
+  match_accepted: "text-green-500",
+  match_declined: "text-muted-foreground",
   match_reminder: "text-yellow-600",
-  ai_suggestion: "text-orange-500",
+  ai_suggestion: "text-accent",
 };
 
 interface Props {
@@ -41,11 +47,20 @@ export default function NotificationCard({ notification, onMarkRead }: Props) {
 
   const content = (
     <div
+      role={notification.link ? undefined : "button"}
+      tabIndex={notification.link ? undefined : 0}
       className={cn(
         "flex items-start gap-3 p-4 hover:bg-muted/50 transition-colors border-b cursor-pointer",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
         !notification.read && "bg-primary/5"
       )}
       onClick={() => onMarkRead?.(notification.id)}
+      onKeyDown={(e) => {
+        if (!notification.link && (e.key === "Enter" || e.key === " ")) {
+          e.preventDefault();
+          onMarkRead?.(notification.id);
+        }
+      }}
     >
       <div className={cn("flex-shrink-0 mt-0.5", color)}>
         <Icon className="h-5 w-5" />

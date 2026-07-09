@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, Search, MessageSquare, Bell, User } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/lib/auth-context";
+import { useNavBadges } from "@/hooks/use-nav-badges";
 
 const items = [
   { href: "/dashboard", icon: Home, label: "Home" },
@@ -16,12 +16,7 @@ const items = [
 
 export default function BottomNav() {
   const pathname = usePathname();
-  const { user } = useAuth();
-
-  const badges = {
-    messages: 0,
-    notifications: 0,
-  };
+  const badges = useNavBadges();
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background md:hidden">

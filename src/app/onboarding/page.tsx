@@ -136,7 +136,7 @@ export default function OnboardingPage() {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-lg space-y-6">
         <div className="text-center">
-          <h1 className="text-2xl font-bold">Set Up Your Profile 🎾</h1>
+          <h1 className="text-2xl font-bold">Set Up Your Profile</h1>
           <p className="text-muted-foreground text-sm mt-1">Step {step} of 4</p>
         </div>
 
@@ -183,8 +183,9 @@ export default function OnboardingPage() {
                       key={emoji}
                       type="button"
                       onClick={() => setAvatar(emoji)}
-                      className={`text-2xl p-1 rounded-lg border-2 transition-all hover:scale-110 ${
-                        avatar === emoji ? "border-primary bg-primary/10 scale-110" : "border-transparent"
+                      aria-pressed={avatar === emoji}
+                      className={`text-2xl p-1 rounded-lg border-2 transition-colors ${
+                        avatar === emoji ? "border-primary bg-primary/10" : "border-transparent"
                       }`}
                     >
                       {emoji}
@@ -235,14 +236,19 @@ export default function OnboardingPage() {
                 <Label>Sport *</Label>
                 <div className="flex gap-2 mt-1">
                   {(["tennis", "pickleball", "both"] as SportType[]).map((s) => (
-                    <Badge
+                    <button
                       key={s}
-                      variant={sports.includes(s) ? "default" : "outline"}
-                      className="cursor-pointer capitalize text-sm px-3 py-1"
+                      type="button"
+                      aria-pressed={sports.includes(s)}
                       onClick={() => toggleMulti(sports, s, setSports)}
                     >
-                      {s === "both" ? "Both" : s === "tennis" ? "🎾 Tennis" : "🏓 Pickleball"}
-                    </Badge>
+                      <Badge
+                        variant={sports.includes(s) ? "default" : "outline"}
+                        className="cursor-pointer capitalize text-sm px-3 py-1"
+                      >
+                        {s === "both" ? "Both" : s === "tennis" ? "Tennis" : "Pickleball"}
+                      </Badge>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -250,14 +256,19 @@ export default function OnboardingPage() {
                 <Label>Match Format *</Label>
                 <div className="flex gap-2 mt-1">
                   {(["singles", "doubles", "both"] as MatchFormat[]).map((f) => (
-                    <Badge
+                    <button
                       key={f}
-                      variant={matchFormats.includes(f) ? "default" : "outline"}
-                      className="cursor-pointer capitalize text-sm px-3 py-1"
+                      type="button"
+                      aria-pressed={matchFormats.includes(f)}
                       onClick={() => toggleMulti(matchFormats, f, setMatchFormats)}
                     >
-                      {f}
-                    </Badge>
+                      <Badge
+                        variant={matchFormats.includes(f) ? "default" : "outline"}
+                        className="cursor-pointer capitalize text-sm px-3 py-1"
+                      >
+                        {f}
+                      </Badge>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -265,14 +276,20 @@ export default function OnboardingPage() {
                 <Label>Game Type *</Label>
                 <div className="flex flex-col gap-2 mt-1">
                   {(["recreational", "slightly-competitive", "hardcore-competitive"] as GameType[]).map((g) => (
-                    <Badge
+                    <button
                       key={g}
-                      variant={gameType === g ? "default" : "outline"}
-                      className="cursor-pointer capitalize text-sm px-3 py-2 justify-start"
+                      type="button"
+                      aria-pressed={gameType === g}
+                      className="text-left"
                       onClick={() => setGameType(g)}
                     >
-                      {g === "recreational" ? "🎉 Recreational" : g === "slightly-competitive" ? "💪 Slightly Competitive" : "🔥 Hardcore Competitive"}
-                    </Badge>
+                      <Badge
+                        variant={gameType === g ? "default" : "outline"}
+                        className="cursor-pointer capitalize text-sm px-3 py-2 justify-start w-full"
+                      >
+                        {g === "recreational" ? "Recreational" : g === "slightly-competitive" ? "Slightly Competitive" : "Hardcore Competitive"}
+                      </Badge>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -319,7 +336,9 @@ export default function OnboardingPage() {
                               <button
                                 type="button"
                                 onClick={() => toggleSlot(day, periodIdx)}
-                                className={`w-full h-11 rounded-lg border-2 transition-all text-sm ${
+                                aria-pressed={selected}
+                                aria-label={`${day} ${period.label}`}
+                                className={`w-full h-11 rounded-lg border-2 transition-colors text-sm ${
                                   selected
                                     ? "border-primary bg-primary text-primary-foreground font-bold"
                                     : "border-muted hover:border-primary/50 hover:bg-primary/5 text-transparent"
@@ -347,14 +366,19 @@ export default function OnboardingPage() {
                 <Label>Partner Gender *</Label>
                 <div className="flex gap-2 mt-1">
                   {(["Male", "Female", "No Preference"] as const).map((g) => (
-                    <Badge
+                    <button
                       key={g}
-                      variant={partnerGender === g ? "default" : "outline"}
-                      className="cursor-pointer text-sm px-3 py-1"
+                      type="button"
+                      aria-pressed={partnerGender === g}
                       onClick={() => setPartnerGender(g)}
                     >
-                      {g === "Male" ? "👨 Male" : g === "Female" ? "👩 Female" : "🤝 No Preference"}
-                    </Badge>
+                      <Badge
+                        variant={partnerGender === g ? "default" : "outline"}
+                        className="cursor-pointer text-sm px-3 py-1"
+                      >
+                        {g}
+                      </Badge>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -392,14 +416,20 @@ export default function OnboardingPage() {
                 <Label>Partner Game Type *</Label>
                 <div className="flex flex-col gap-2 mt-1">
                   {(["recreational", "slightly-competitive", "hardcore-competitive"] as GameType[]).map((g) => (
-                    <Badge
+                    <button
                       key={g}
-                      variant={partnerGameTypes.includes(g) ? "default" : "outline"}
-                      className="cursor-pointer capitalize text-sm px-3 py-2 justify-start"
+                      type="button"
+                      aria-pressed={partnerGameTypes.includes(g)}
+                      className="text-left"
                       onClick={() => toggleMulti(partnerGameTypes, g, setPartnerGameTypes)}
                     >
-                      {g === "recreational" ? "🎉 Recreational" : g === "slightly-competitive" ? "💪 Slightly Competitive" : "🔥 Hardcore Competitive"}
-                    </Badge>
+                      <Badge
+                        variant={partnerGameTypes.includes(g) ? "default" : "outline"}
+                        className="cursor-pointer capitalize text-sm px-3 py-2 justify-start w-full"
+                      >
+                        {g === "recreational" ? "Recreational" : g === "slightly-competitive" ? "Slightly Competitive" : "Hardcore Competitive"}
+                      </Badge>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -407,14 +437,19 @@ export default function OnboardingPage() {
                 <Label>Partner Sport *</Label>
                 <div className="flex gap-2 mt-1">
                   {(["tennis", "pickleball", "both"] as SportType[]).map((s) => (
-                    <Badge
+                    <button
                       key={s}
-                      variant={partnerSports.includes(s) ? "default" : "outline"}
-                      className="cursor-pointer capitalize text-sm px-3 py-1"
+                      type="button"
+                      aria-pressed={partnerSports.includes(s)}
                       onClick={() => toggleMulti(partnerSports, s, setPartnerSports)}
                     >
-                      {s === "both" ? "Both" : s === "tennis" ? "🎾 Tennis" : "🏓 Pickleball"}
-                    </Badge>
+                      <Badge
+                        variant={partnerSports.includes(s) ? "default" : "outline"}
+                        className="cursor-pointer capitalize text-sm px-3 py-1"
+                      >
+                        {s === "both" ? "Both" : s === "tennis" ? "Tennis" : "Pickleball"}
+                      </Badge>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -422,14 +457,19 @@ export default function OnboardingPage() {
                 <Label>Partner Match Format *</Label>
                 <div className="flex gap-2 mt-1">
                   {(["singles", "doubles", "both"] as MatchFormat[]).map((f) => (
-                    <Badge
+                    <button
                       key={f}
-                      variant={partnerFormats.includes(f) ? "default" : "outline"}
-                      className="cursor-pointer capitalize text-sm px-3 py-1"
+                      type="button"
+                      aria-pressed={partnerFormats.includes(f)}
                       onClick={() => toggleMulti(partnerFormats, f, setPartnerFormats)}
                     >
-                      {f}
-                    </Badge>
+                      <Badge
+                        variant={partnerFormats.includes(f) ? "default" : "outline"}
+                        className="cursor-pointer capitalize text-sm px-3 py-1"
+                      >
+                        {f}
+                      </Badge>
+                    </button>
                   ))}
                 </div>
               </div>

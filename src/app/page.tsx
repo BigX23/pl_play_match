@@ -2,11 +2,29 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Trophy, Users, Zap, MapPin } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Trophy, Target, Send, MapPin, CalendarClock } from "lucide-react";
+
+const mockMatches = [
+  {
+    name: "Maya Okonkwo",
+    initial: "M",
+    ntrp: "4.0",
+    meta: "Age 31 · Tennis · singles",
+    score: 92,
+  },
+  {
+    name: "Sam Tan",
+    initial: "S",
+    ntrp: "3.5",
+    meta: "Age 27 · Pickleball · doubles",
+    score: 78,
+  },
+];
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-background">
       {/* Header */}
       <header className="flex items-center justify-between px-6 py-4 border-b bg-background">
         <div className="flex items-center gap-2">
@@ -18,53 +36,104 @@ export default function LandingPage() {
             <Button variant="outline" size="sm">Login</Button>
           </Link>
           <Link href="/register">
-            <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90">Register</Button>
+            <Button size="sm">Register</Button>
           </Link>
         </div>
       </header>
 
       {/* Hero */}
-      <main className="flex-1 flex flex-col items-center justify-center px-6 py-16 text-center bg-gradient-to-br from-green-50 to-orange-50 dark:from-green-950/20 dark:to-orange-950/20">
-        <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary mb-6">
-          <Zap className="h-4 w-4" />
-          AI-Powered Matchmaking
-        </div>
-        <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight mb-4">
-          Find Your Perfect<br />
-          <span className="text-primary">Tennis</span> &amp; <span className="text-accent">Pickleball</span><br />
-          Partner
-        </h1>
-        <p className="text-lg text-muted-foreground max-w-lg mb-8">
-          Pleasanton PlayMatch connects you with compatible players based on skill level, availability, and play style.
-        </p>
-        <div className="flex gap-3">
-          <Link href="/register">
-            <Button size="lg" className="bg-primary hover:bg-primary/90 text-lg px-8">Get Started</Button>
-          </Link>
-          <Link href="/login">
-            <Button size="lg" variant="outline" className="text-lg px-8">Sign In</Button>
-          </Link>
-        </div>
+      <main className="flex-1">
+        <section className="px-6 py-16 md:py-24">
+          <div className="mx-auto max-w-5xl grid gap-12 lg:grid-cols-2 lg:items-center">
+            {/* Left copy column — off-center, left-aligned */}
+            <div className="max-w-xl text-left">
+              <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
+                Find a tennis and pickleball partner in{" "}
+                <span className="text-primary">Pleasanton</span>
+              </h1>
+              <p className="mt-5 text-lg text-muted-foreground">
+                PlayMatch pairs you with nearby players who fit your skill
+                level, schedule, and the way you like to play. See who lines up,
+                send a request, and get on court.
+              </p>
+              <div className="mt-8 flex flex-col sm:flex-row gap-3">
+                <Link href="/register" className="sm:w-auto w-full">
+                  <Button size="lg" className="w-full sm:w-auto px-8">
+                    Get Started
+                  </Button>
+                </Link>
+                <Link href="/login" className="sm:w-auto w-full">
+                  <Button size="lg" variant="outline" className="w-full sm:w-auto px-8">
+                    Sign In
+                  </Button>
+                </Link>
+              </div>
 
-        {/* Features */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-16 max-w-4xl w-full">
-          {[
-            { icon: Users, title: "Smart Matching", desc: "AI matches you with players at your skill level with compatible schedules." },
-            { icon: MapPin, title: "Local Courts", desc: "Find partners right here in Pleasanton and play matches in your own neighborhood." },
-            { icon: Zap, title: "Instant Matches", desc: "Ready to play right now? Post an instant match and connect with someone who's free today." },
-          ].map((f) => (
-            <div key={f.title} className="rounded-xl border bg-card p-6 text-left hover:shadow-md transition-shadow">
-              <f.icon className="h-8 w-8 text-primary mb-3" />
-              <h3 className="font-semibold mb-1">{f.title}</h3>
-              <p className="text-sm text-muted-foreground">{f.desc}</p>
+              <ul className="mt-8 space-y-2 text-sm text-muted-foreground">
+                <li className="flex items-center gap-2">
+                  <Target className="h-4 w-4 text-primary shrink-0" />
+                  Compatibility scored by skill, sport, and availability
+                </li>
+                <li className="flex items-center gap-2">
+                  <MapPin className="h-4 w-4 text-primary shrink-0" />
+                  Players and courts right here in Pleasanton
+                </li>
+                <li className="flex items-center gap-2">
+                  <CalendarClock className="h-4 w-4 text-primary shrink-0" />
+                  Post an open match when you want to play today
+                </li>
+              </ul>
             </div>
-          ))}
-        </div>
+
+            {/* Right visual anchor — static mock of the real match card */}
+            <div className="lg:justify-self-end w-full max-w-sm">
+              <div className="rounded-xl border bg-card p-4 shadow-sm">
+                <div className="flex items-center gap-2 mb-3">
+                  <Target className="h-5 w-5 text-primary" />
+                  <span className="font-semibold">Your Top Matches</span>
+                </div>
+                <div className="space-y-3" aria-hidden="true">
+                  {mockMatches.map((m) => (
+                    <div
+                      key={m.name}
+                      className="flex items-center justify-between gap-3 p-3 rounded-lg border bg-secondary/30"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
+                          {m.initial}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-medium truncate">
+                            {m.name}{" "}
+                            <span className="text-xs text-muted-foreground">
+                              NTRP {m.ntrp}
+                            </span>
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {m.meta}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="font-bold text-primary">{m.score}%</p>
+                        <Progress value={m.score} className="h-1.5 w-14" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3 flex items-center justify-center gap-1.5 rounded-lg border border-dashed py-2 text-xs text-muted-foreground">
+                  <Send className="h-3 w-3" />
+                  Send a match request to start a chat
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
       </main>
 
       {/* Footer */}
       <footer className="py-6 text-center text-sm text-muted-foreground border-t">
-        © 2026 Pleasanton PlayMatch. All rights reserved.
+        © 2026 Pleasanton PlayMatch
       </footer>
     </div>
   );

@@ -1,11 +1,20 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
-import { getMessages, sendMessage, getUser, getConversation, addContact, deleteConversation } from "@/lib/firestore";
+import {
+  subscribeMessages,
+  sendMessage,
+  getUser,
+  getConversation,
+  addContact,
+  deleteConversation,
+  markConversationRead,
+} from "@/lib/firestore";
+import { isFirebaseConfigured } from "@/lib/firebase";
 import { type Message, type Conversation, getPlayerById, RALLY_USER } from "@/lib/mock-data";
-import { shouldRallyRespond, getRallyResponse, AI_SENDER_ID, AI_SENDER_NAME } from "@/lib/ai-assistant";
+import { shouldRallyRespond, getRallyFallbackResponse, AI_SENDER_ID, AI_SENDER_NAME } from "@/lib/ai-assistant";
 import MessageBubble from "@/components/message-bubble";
 import ChatInput from "@/components/chat-input";
 import { ArrowLeft, Users, User, Trash2, UserPlus, MoreVertical } from "lucide-react";
@@ -17,90 +26,91 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+/** Group messages by calendar day for date separators. */
+function dayLabel(iso: string): string {
+  const d = new Date(iso);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
+  if (sameDay(d, today)) return "Today";
+  if (sameDay(d, yesterday)) return "Yesterday";
+  return d.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
+}
 
 export default function ChatPage() {
   const pathname = usePathname();
-  // Extract conversation ID from URL pathname instead of useParams
-  // (useParams returns "placeholder" on static-export full-page loads)
+  // Extract conversation ID from the URL (useParams returns "placeholder" on
+  // static-export full-page loads; trailing slash is stripped for trailingSlash:true).
   const segments = pathname.replace(/\/+$/, "").split("/");
   const conversationId = segments[segments.length - 1] || "";
   const { user } = useAuth();
   const router = useRouter();
   const [msgs, setMsgs] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [participantNames, setParticipantNames] = useState<Record<string, string>>({});
 
-  console.log("[ChatPage] render — conversationId:", conversationId, "user:", user?.id, "loading:", loading, "conversation:", conversation?.id);
-
-  // Load conversation
+  // Load conversation metadata
   useEffect(() => {
-    console.log("[ChatPage] useEffect[loadConversation] — conversationId:", conversationId);
-    if (!conversationId || conversationId === "placeholder") {
-      console.log("[ChatPage] skipping load — placeholder or missing id");
-      return;
-    }
+    if (!conversationId || conversationId === "placeholder") return;
     setLoading(true);
-    getConversation(conversationId).then((conv) => {
-      console.log("[ChatPage] getConversation result:", conv ? { id: conv.id, type: conv.type, participants: conv.participants, name: conv.name } : "NOT FOUND");
-      if (conv) setConversation(conv);
-      setLoading(false);
-    }).catch((err) => {
-      console.error("[ChatPage] getConversation error:", err);
-      setLoading(false);
-    });
+    getConversation(conversationId)
+      .then((conv) => { if (conv) setConversation(conv); })
+      .finally(() => setLoading(false));
   }, [conversationId]);
 
   // Load participant names
   useEffect(() => {
-    if (!conversation || !user) {
-      console.log("[ChatPage] useEffect[loadNames] — skipping, conversation:", !!conversation, "user:", !!user);
-      return;
-    }
+    if (!conversation || !user) return;
     let cancelled = false;
     const otherIds = conversation.participants.filter((id) => id !== user.id);
-    console.log("[ChatPage] useEffect[loadNames] — loading names for:", otherIds);
 
     async function loadNames() {
-      const names: Record<string, string> = {};
-      // Always include Rally
-      names[RALLY_USER.id] = RALLY_USER.name;
+      const names: Record<string, string> = { [RALLY_USER.id]: RALLY_USER.name };
       for (const id of otherIds) {
-        if (id === RALLY_USER.id || id === "ai") {
-          names[id] = RALLY_USER.name;
-          continue;
-        }
+        if (id === RALLY_USER.id || id === "ai") { names[id] = RALLY_USER.name; continue; }
         const firestoreUser = await getUser(id);
         if (firestoreUser) {
           names[id] = firestoreUser.firstName
             ? `${firestoreUser.firstName} ${firestoreUser.lastName || ""}`.trim()
             : firestoreUser.name;
         } else {
-          const mockPlayer = getPlayerById(id);
-          if (mockPlayer) names[id] = mockPlayer.name;
-          else names[id] = "Unknown";
+          names[id] = getPlayerById(id)?.name || "Unknown";
         }
       }
       if (!cancelled) setParticipantNames(names);
-      console.log("[ChatPage] participant names loaded:", names);
     }
     loadNames();
     return () => { cancelled = true; };
   }, [conversation, user]);
 
-  // Load messages
+  // Live-subscribe to messages
   useEffect(() => {
-    console.log("[ChatPage] useEffect[loadMessages] — conversationId:", conversationId);
     if (!conversationId || conversationId === "placeholder") return;
-    getMessages(conversationId).then((m) => {
-      console.log("[ChatPage] getMessages result:", m.length, "messages");
-      setMsgs(m);
-    }).catch((err) => {
-      console.error("[ChatPage] getMessages error:", err);
-    });
+    const unsub = subscribeMessages(conversationId, setMsgs);
+    return unsub;
   }, [conversationId]);
+
+  // Mark read whenever this conversation is open and new messages arrive
+  useEffect(() => {
+    if (!user || !conversationId || conversationId === "placeholder") return;
+    markConversationRead(conversationId, user.id);
+  }, [user, conversationId, msgs.length]);
 
   // Auto-scroll
   useEffect(() => {
@@ -111,32 +121,20 @@ export default function ChatPage() {
   const hasRally = conversation?.participants?.includes(RALLY_USER.id) || conversation?.participants?.includes("ai");
   const otherHumanIds = conversation?.participants?.filter((id) => id !== user?.id && id !== RALLY_USER.id && id !== "ai") ?? [];
 
-  // Build display title
   const title = conversation?.name
     || (otherHumanIds.length > 0
-      ? otherHumanIds.map((id) => participantNames[id] || "...").join(", ")
+      ? otherHumanIds.map((id) => participantNames[id] || "…").join(", ")
       : "Chat");
 
   const handleSend = async (text: string) => {
     if (!user || !conversationId) return;
-    console.log("[ChatPage] handleSend:", { text: text.substring(0, 50), userId: user.id, conversationId });
-    const msg = await sendMessage(conversationId, text, user.id, user.firstName || user.name);
-    console.log("[ChatPage] message sent:", msg.id);
-    const updatedMsgs = [...msgs, msg];
-    setMsgs(updatedMsgs);
-
-    // If Rally is in the conversation and the user mentioned "Rally", get a Gemini-powered reply
-    if (hasRally && shouldRallyRespond(text)) {
-      try {
-        const aiReply = await getRallyResponse(updatedMsgs, participantNames);
-        if (aiReply) {
-          const aiMsg = await sendMessage(conversationId, aiReply, AI_SENDER_ID, AI_SENDER_NAME);
-          aiMsg.isAI = true;
-          setMsgs((prev) => [...prev, aiMsg]);
-        }
-      } catch (err) {
-        console.error("[ChatPage] Rally AI error:", err);
-      }
+    await sendMessage(conversationId, text, user.id, user.firstName || user.name);
+    // The live subscription updates `msgs`. In mock mode (no Cloud Function),
+    // generate Rally's reply locally when addressed.
+    if (!isFirebaseConfigured && hasRally && shouldRallyRespond(text)) {
+      // Read the freshest history from the current message list plus the just-sent text.
+      const reply = getRallyFallbackResponse([...msgs, { id: "tmp", conversationId, senderId: user.id, senderName: user.name, text, createdAt: new Date().toISOString(), readBy: [] }]);
+      if (reply) await sendMessage(conversationId, reply, AI_SENDER_ID, AI_SENDER_NAME, true);
     }
   };
 
@@ -165,7 +163,7 @@ export default function ChatPage() {
     return (
       <div className="flex flex-col h-[calc(100vh-5rem)] md:h-screen max-w-2xl mx-auto items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-        <p className="text-sm text-muted-foreground mt-2">Loading conversation...</p>
+        <p className="text-sm text-muted-foreground mt-2">Loading conversation…</p>
       </div>
     );
   }
@@ -190,7 +188,7 @@ export default function ChatPage() {
         </Button>
 
         <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold relative flex-shrink-0"
-          style={{ backgroundColor: isGroup ? "#f97316" : "#9ca3af" }}
+          style={{ backgroundColor: isGroup ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))" }}
         >
           {isGroup ? <Users className="h-5 w-5" /> : (participantNames[otherHumanIds[0]]?.charAt(0) || <User className="h-5 w-5" />)}
         </div>
@@ -199,7 +197,7 @@ export default function ChatPage() {
           <p className="font-medium text-sm truncate">{title}</p>
           <div className="flex items-center gap-1.5">
             {isGroup && <Badge variant="secondary" className="text-[10px] h-4 px-1">Group</Badge>}
-            {hasRally && <Badge variant="outline" className="text-[10px] h-4 px-1 border-orange-300 text-orange-600">🎾 Rally</Badge>}
+            {hasRally && <Badge variant="outline" className="text-[10px] h-4 px-1 border-primary/40 text-primary">Rally</Badge>}
             {!isGroup && <span className="text-xs text-muted-foreground">Direct Message</span>}
           </div>
         </div>
@@ -214,7 +212,7 @@ export default function ChatPage() {
                 <UserPlus className="h-4 w-4 mr-2" />Add {participantNames[id] || "user"} to contacts
               </DropdownMenuItem>
             ))}
-            <DropdownMenuItem className="text-red-600" onClick={handleDelete}>
+            <DropdownMenuItem className="text-red-600" onClick={() => setConfirmDelete(true)}>
               <Trash2 className="h-4 w-4 mr-2" />Delete conversation
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -228,18 +226,43 @@ export default function ChatPage() {
             <p className="text-sm">No messages yet. Say hello! 👋</p>
           </div>
         )}
-        {msgs.map((msg) => (
-          <MessageBubble
-            key={msg.id}
-            message={msg}
-            isOwn={msg.senderId === user?.id}
-          />
-        ))}
+        {msgs.map((msg, i) => {
+          const showDate = i === 0 || dayLabel(msgs[i - 1].createdAt) !== dayLabel(msg.createdAt);
+          return (
+            <div key={msg.id}>
+              {showDate && (
+                <div className="flex justify-center my-3">
+                  <span className="text-[11px] text-muted-foreground bg-muted rounded-full px-3 py-0.5">
+                    {dayLabel(msg.createdAt)}
+                  </span>
+                </div>
+              )}
+              <MessageBubble message={msg} isOwn={msg.senderId === user?.id} />
+            </div>
+          );
+        })}
         <div ref={scrollRef} />
       </div>
 
       {/* Input */}
       <ChatInput onSend={handleSend} />
+
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this conversation?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently removes the conversation and all its messages for everyone in it. This can&apos;t be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

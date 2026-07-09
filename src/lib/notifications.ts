@@ -1,5 +1,29 @@
 import { isFirebaseConfigured } from "./firebase";
 
+// Guard so foreground FCM listener is registered at most once per session
+// (revisiting Settings must not stack duplicate Notification popups).
+let foregroundListenerRegistered = false;
+
+type ForegroundPayload = { notification?: { title?: string; body?: string } };
+
+function registerForegroundListener<M>(
+  messaging: M,
+  onMessage: (m: M, cb: (payload: ForegroundPayload) => void) => unknown
+): void {
+  if (foregroundListenerRegistered) return;
+  foregroundListenerRegistered = true;
+  onMessage(messaging, (payload: ForegroundPayload) => {
+    const { title, body } = payload.notification || {};
+    if (title && typeof Notification !== "undefined" && Notification.permission === "granted") {
+      new Notification(title, {
+        body: body || "",
+        icon: "/icons/icon-192.png",
+        badge: "/icons/icon-72.png",
+      });
+    }
+  });
+}
+
 export async function initFCM(): Promise<string | null> {
   if (!isFirebaseConfigured) {
     console.warn("[PlayMatch] FCM not available in mock mode");
@@ -58,23 +82,14 @@ export async function enablePushNotifications(userId: string): Promise<string | 
 
     if (!token) return null;
 
-    // Save token to Firestore user document
-    const { updateUser } = await import("./firestore");
-    await updateUser(userId, { fcmToken: token } as Record<string, string>);
+    // Save token to the user's PRIVATE subcollection so it is never delivered
+    // to other clients via getPlayers().
+    const { setUserPrivate } = await import("./firestore");
+    await setUserPrivate(userId, { fcmToken: token });
 
-    // Listen for foreground messages
-    onMessage(messaging, (payload) => {
-      const { title, body } = payload.notification || {};
-      if (title && Notification.permission === "granted") {
-        new Notification(title, {
-          body: body || "",
-          icon: "/icons/icon-192.png",
-          badge: "/icons/icon-72.png",
-        });
-      }
-    });
+    // Listen for foreground messages (registered at most once per session).
+    registerForegroundListener(messaging, onMessage);
 
-    console.log("[PlayMatch] Push notifications enabled, token saved");
     return token;
   } catch (err) {
     console.error("[PlayMatch] Failed to enable push notifications:", err);

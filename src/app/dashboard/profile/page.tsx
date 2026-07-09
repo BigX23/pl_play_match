@@ -17,6 +17,7 @@ import { getMatches, getPlayers, updateUser } from "@/lib/firestore";
 import { storage, isFirebaseConfigured } from "@/lib/firebase";
 import { type Match, type Player, getPlayerById } from "@/lib/mock-data";
 import type { GameType, SportType, MatchFormat, AgeRange, DayAvailability } from "@/lib/matching-engine";
+import { useToast } from "@/hooks/use-toast";
 
 const NTRP_OPTIONS = ["2.0", "2.5", "3.0", "3.5", "4.0", "4.5", "5.0", "5.5"];
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -39,6 +40,7 @@ function fmt(h: number) {
 
 export default function ProfilePage() {
   const { user, updateUserProfile } = useAuth();
+  const { toast } = useToast();
   const displayUser = user;
 
   const [userMatches, setUserMatches] = useState<Match[]>([]);
@@ -69,8 +71,22 @@ export default function ProfilePage() {
 
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    // Allow re-selecting the same file later
+    e.target.value = "";
     if (!file) return;
-    // Show local preview immediately
+
+    // Validate type (image only) and size (max 5 MB)
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Invalid file", description: "Please choose an image file.", variant: "destructive" });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Please choose an image under 5 MB.", variant: "destructive" });
+      return;
+    }
+
+    // Show local preview immediately, remembering the previous one so we can revert
+    const previousPreview = photoPreview;
     const objectURL = URL.createObjectURL(file);
     setPhotoPreview(objectURL);
     if (!isFirebaseConfigured || !storage) return;
@@ -82,15 +98,48 @@ export default function ProfilePage() {
       const url = await getDownloadURL(storageRef);
       setPhotoURL(url);
       setPhotoPreview(url);
+    } catch (err) {
+      // Revert to the previous preview on failure
+      setPhotoPreview(previousPreview);
+      toast({
+        title: "Upload failed",
+        description: err instanceof Error ? err.message : "Could not upload photo. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setUploading(false);
+      // Release the temporary object URL to avoid leaks
+      URL.revokeObjectURL(objectURL);
     }
   };
 
   const saveBasic = async () => {
-    const data = { firstName, lastName, name: `${firstName} ${lastName}`, age: parseInt(age), gender, avatar, aboutMe, bio: aboutMe, ...(photoURL ? { photoURL } : {}) };
+    const parsedAge = parseInt(age, 10);
+    const data = {
+      firstName,
+      lastName,
+      name: `${firstName} ${lastName}`,
+      gender,
+      avatar,
+      aboutMe,
+      bio: aboutMe,
+      ...(Number.isNaN(parsedAge) ? {} : { age: parsedAge }),
+      ...(photoURL ? { photoURL } : {}),
+    };
     await updateUser(displayUser!.id, data);
     updateUserProfile(data);
+    setEditingBasic(false);
+  };
+
+  const resetBasic = () => {
+    setFirstName(displayUser?.firstName || "");
+    setLastName(displayUser?.lastName || "");
+    setAge(displayUser?.age?.toString() || "");
+    setGender(displayUser?.gender || "");
+    setAvatar(displayUser?.avatar || "");
+    setAboutMe(displayUser?.aboutMe || displayUser?.bio || "");
+    setPhotoURL(displayUser?.photoURL || "");
+    setPhotoPreview(displayUser?.photoURL || "");
     setEditingBasic(false);
   };
 
@@ -108,9 +157,17 @@ export default function ProfilePage() {
     setEditingPlay(false);
   };
 
+  const resetPlay = () => {
+    setNtrp(displayUser?.ntrpRating?.toString() || "3.5");
+    setSports(displayUser?.sports || []);
+    setMatchFormats(displayUser?.matchFormats || []);
+    setGameType(displayUser?.gameType || "slightly-competitive");
+    setEditingPlay(false);
+  };
+
   // ── Availability ───────────────────────────────────────────────────────────
   const [editingAvail, setEditingAvail] = useState(false);
-  const [selectedSlots, setSelectedSlots] = useState<Set<string>>(() => {
+  const buildSlots = () => {
     const set = new Set<string>();
     (displayUser?.weeklyAvailability || []).forEach((day: DayAvailability) => {
       if (day.enabled) {
@@ -122,7 +179,8 @@ export default function ProfilePage() {
       }
     });
     return set;
-  });
+  };
+  const [selectedSlots, setSelectedSlots] = useState<Set<string>>(buildSlots);
 
   const toggleSlot = (day: string, periodIdx: number) => {
     const key = `${day}-${periodIdx}`;
@@ -136,6 +194,11 @@ export default function ProfilePage() {
     });
     await updateUser(displayUser!.id, { weeklyAvailability });
     updateUserProfile({ weeklyAvailability });
+    setEditingAvail(false);
+  };
+
+  const resetAvail = () => {
+    setSelectedSlots(buildSlots());
     setEditingAvail(false);
   };
 
@@ -153,6 +216,17 @@ export default function ProfilePage() {
     const partnerPreferences = { ageRange, ntrpMin: parseFloat(partnerNtrpMin), ntrpMax: parseFloat(partnerNtrpMax), gameTypes: partnerGameTypes, sports: partnerSports, matchFormats: partnerFormats, genderPreference: partnerGender };
     await updateUser(displayUser!.id, { partnerPreferences });
     updateUserProfile({ partnerPreferences });
+    setEditingPartner(false);
+  };
+
+  const resetPartner = () => {
+    setAgeRange(displayUser?.partnerPreferences?.ageRange || "10");
+    setPartnerNtrpMin(displayUser?.partnerPreferences?.ntrpMin?.toString() || "2.0");
+    setPartnerNtrpMax(displayUser?.partnerPreferences?.ntrpMax?.toString() || "5.5");
+    setPartnerGameTypes(displayUser?.partnerPreferences?.gameTypes || []);
+    setPartnerSports(displayUser?.partnerPreferences?.sports || []);
+    setPartnerFormats(displayUser?.partnerPreferences?.matchFormats || []);
+    setPartnerGender(displayUser?.partnerPreferences?.genderPreference || "No Preference");
     setEditingPartner(false);
   };
 
@@ -213,7 +287,7 @@ export default function ProfilePage() {
               {editingBasic
                 ? <div className="flex gap-2">
                     <Button size="sm" onClick={saveBasic}><Save className="h-4 w-4 mr-1" />Save</Button>
-                    <Button size="sm" variant="outline" onClick={() => setEditingBasic(false)}><X className="h-4 w-4" /></Button>
+                    <Button size="sm" variant="outline" onClick={resetBasic}><X className="h-4 w-4" /></Button>
                   </div>
                 : <Button size="sm" variant="outline" onClick={() => setEditingBasic(true)}><Edit2 className="h-4 w-4 mr-1" />Edit</Button>
               }
@@ -277,7 +351,8 @@ export default function ProfilePage() {
                     <div className="grid grid-cols-10 gap-1 mt-1">
                       {EMOJI_AVATARS.map((emoji) => (
                         <button key={emoji} type="button" onClick={() => setAvatar(emoji)}
-                          className={`text-2xl p-1 rounded-lg border-2 transition-all hover:scale-110 ${avatar === emoji ? "border-primary bg-primary/10 scale-110" : "border-transparent"}`}>
+                          aria-pressed={avatar === emoji}
+                          className={`text-2xl p-1 rounded-lg border-2 transition-colors ${avatar === emoji ? "border-primary bg-primary/10" : "border-transparent"}`}>
                           {emoji}
                         </button>
                       ))}
@@ -308,7 +383,7 @@ export default function ProfilePage() {
               {editingPlay
                 ? <div className="flex gap-2">
                     <Button size="sm" onClick={savePlay}><Save className="h-4 w-4 mr-1" />Save</Button>
-                    <Button size="sm" variant="outline" onClick={() => setEditingPlay(false)}><X className="h-4 w-4" /></Button>
+                    <Button size="sm" variant="outline" onClick={resetPlay}><X className="h-4 w-4" /></Button>
                   </div>
                 : <Button size="sm" variant="outline" onClick={() => setEditingPlay(true)}><Edit2 className="h-4 w-4 mr-1" />Edit</Button>
               }
@@ -327,11 +402,13 @@ export default function ProfilePage() {
                     <Label>Sport</Label>
                     <div className="flex gap-2 mt-1">
                       {(["tennis", "pickleball", "both"] as SportType[]).map((s) => (
-                        <Badge key={s} variant={sports.includes(s) ? "default" : "outline"}
-                          className="cursor-pointer capitalize text-sm px-3 py-1"
+                        <button key={s} type="button" aria-pressed={sports.includes(s)}
                           onClick={() => setSports(toggleMulti(sports, s))}>
-                          {s === "tennis" ? "🎾 Tennis" : s === "pickleball" ? "🏓 Pickleball" : "Both"}
-                        </Badge>
+                          <Badge variant={sports.includes(s) ? "default" : "outline"}
+                            className="cursor-pointer capitalize text-sm px-3 py-1">
+                            {s === "tennis" ? "Tennis" : s === "pickleball" ? "Pickleball" : "Both"}
+                          </Badge>
+                        </button>
                       ))}
                     </div>
                   </div>
@@ -339,11 +416,13 @@ export default function ProfilePage() {
                     <Label>Match Format</Label>
                     <div className="flex gap-2 mt-1">
                       {(["singles", "doubles", "both"] as MatchFormat[]).map((f) => (
-                        <Badge key={f} variant={matchFormats.includes(f) ? "default" : "outline"}
-                          className="cursor-pointer capitalize text-sm px-3 py-1"
+                        <button key={f} type="button" aria-pressed={matchFormats.includes(f)}
                           onClick={() => setMatchFormats(toggleMulti(matchFormats, f))}>
-                          {f}
-                        </Badge>
+                          <Badge variant={matchFormats.includes(f) ? "default" : "outline"}
+                            className="cursor-pointer capitalize text-sm px-3 py-1">
+                            {f}
+                          </Badge>
+                        </button>
                       ))}
                     </div>
                   </div>
@@ -351,11 +430,13 @@ export default function ProfilePage() {
                     <Label>Game Type</Label>
                     <div className="flex flex-col gap-2 mt-1">
                       {(["recreational", "slightly-competitive", "hardcore-competitive"] as GameType[]).map((g) => (
-                        <Badge key={g} variant={gameType === g ? "default" : "outline"}
-                          className="cursor-pointer text-sm px-3 py-2 justify-start"
+                        <button key={g} type="button" aria-pressed={gameType === g} className="text-left"
                           onClick={() => setGameType(g)}>
-                          {g === "recreational" ? "🎉 Recreational" : g === "slightly-competitive" ? "💪 Slightly Competitive" : "🔥 Hardcore Competitive"}
-                        </Badge>
+                          <Badge variant={gameType === g ? "default" : "outline"}
+                            className="cursor-pointer text-sm px-3 py-2 justify-start w-full">
+                            {g === "recreational" ? "Recreational" : g === "slightly-competitive" ? "Slightly Competitive" : "Hardcore Competitive"}
+                          </Badge>
+                        </button>
                       ))}
                     </div>
                   </div>
@@ -380,7 +461,7 @@ export default function ProfilePage() {
               {editingAvail
                 ? <div className="flex gap-2">
                     <Button size="sm" onClick={saveAvail} disabled={selectedSlots.size < 3}><Save className="h-4 w-4 mr-1" />Save</Button>
-                    <Button size="sm" variant="outline" onClick={() => setEditingAvail(false)}><X className="h-4 w-4" /></Button>
+                    <Button size="sm" variant="outline" onClick={resetAvail}><X className="h-4 w-4" /></Button>
                   </div>
                 : <Button size="sm" variant="outline" onClick={() => setEditingAvail(true)}><Edit2 className="h-4 w-4 mr-1" />Edit</Button>
               }
@@ -410,7 +491,8 @@ export default function ProfilePage() {
                               return (
                                 <td key={day} className="py-0.5">
                                   <button type="button" onClick={() => toggleSlot(day, periodIdx)}
-                                    className={`w-full h-11 rounded-lg border-2 transition-all text-sm ${selected ? "border-primary bg-primary text-primary-foreground font-bold" : "border-muted hover:border-primary/50 hover:bg-primary/5 text-transparent"}`}>✓</button>
+                                    aria-pressed={selected} aria-label={`${day} ${period.label}`}
+                                    className={`w-full h-11 rounded-lg border-2 transition-colors text-sm ${selected ? "border-primary bg-primary text-primary-foreground font-bold" : "border-muted hover:border-primary/50 hover:bg-primary/5 text-transparent"}`}>✓</button>
                                 </td>
                               );
                             })}
@@ -448,7 +530,7 @@ export default function ProfilePage() {
               {editingPartner
                 ? <div className="flex gap-2">
                     <Button size="sm" onClick={savePartner}><Save className="h-4 w-4 mr-1" />Save</Button>
-                    <Button size="sm" variant="outline" onClick={() => setEditingPartner(false)}><X className="h-4 w-4" /></Button>
+                    <Button size="sm" variant="outline" onClick={resetPartner}><X className="h-4 w-4" /></Button>
                   </div>
                 : <Button size="sm" variant="outline" onClick={() => setEditingPartner(true)}><Edit2 className="h-4 w-4 mr-1" />Edit</Button>
               }
@@ -460,14 +542,19 @@ export default function ProfilePage() {
                     <Label>Partner Gender</Label>
                     <div className="flex gap-2 mt-1">
                       {(["Male", "Female", "No Preference"] as const).map((g) => (
-                        <Badge
+                        <button
                           key={g}
-                          variant={partnerGender === g ? "default" : "outline"}
-                          className="cursor-pointer text-sm px-3 py-1"
+                          type="button"
+                          aria-pressed={partnerGender === g}
                           onClick={() => setPartnerGender(g)}
                         >
-                          {g === "Male" ? "👨 Male" : g === "Female" ? "👩 Female" : "🤝 No Preference"}
-                        </Badge>
+                          <Badge
+                            variant={partnerGender === g ? "default" : "outline"}
+                            className="cursor-pointer text-sm px-3 py-1"
+                          >
+                            {g}
+                          </Badge>
+                        </button>
                       ))}
                     </div>
                   </div>
@@ -501,11 +588,13 @@ export default function ProfilePage() {
                     <Label>Partner Game Type</Label>
                     <div className="flex flex-col gap-2 mt-1">
                       {(["recreational", "slightly-competitive", "hardcore-competitive"] as GameType[]).map((g) => (
-                        <Badge key={g} variant={partnerGameTypes.includes(g) ? "default" : "outline"}
-                          className="cursor-pointer text-sm px-3 py-2 justify-start"
+                        <button key={g} type="button" aria-pressed={partnerGameTypes.includes(g)} className="text-left"
                           onClick={() => setPartnerGameTypes(toggleMulti(partnerGameTypes, g))}>
-                          {g === "recreational" ? "🎉 Recreational" : g === "slightly-competitive" ? "💪 Slightly Competitive" : "🔥 Hardcore Competitive"}
-                        </Badge>
+                          <Badge variant={partnerGameTypes.includes(g) ? "default" : "outline"}
+                            className="cursor-pointer text-sm px-3 py-2 justify-start w-full">
+                            {g === "recreational" ? "Recreational" : g === "slightly-competitive" ? "Slightly Competitive" : "Hardcore Competitive"}
+                          </Badge>
+                        </button>
                       ))}
                     </div>
                   </div>
@@ -513,11 +602,13 @@ export default function ProfilePage() {
                     <Label>Partner Sport</Label>
                     <div className="flex gap-2 mt-1">
                       {(["tennis", "pickleball", "both"] as SportType[]).map((s) => (
-                        <Badge key={s} variant={partnerSports.includes(s) ? "default" : "outline"}
-                          className="cursor-pointer capitalize text-sm px-3 py-1"
+                        <button key={s} type="button" aria-pressed={partnerSports.includes(s)}
                           onClick={() => setPartnerSports(toggleMulti(partnerSports, s))}>
-                          {s === "tennis" ? "🎾 Tennis" : s === "pickleball" ? "🏓 Pickleball" : "Both"}
-                        </Badge>
+                          <Badge variant={partnerSports.includes(s) ? "default" : "outline"}
+                            className="cursor-pointer capitalize text-sm px-3 py-1">
+                            {s === "tennis" ? "Tennis" : s === "pickleball" ? "Pickleball" : "Both"}
+                          </Badge>
+                        </button>
                       ))}
                     </div>
                   </div>
@@ -525,11 +616,13 @@ export default function ProfilePage() {
                     <Label>Partner Match Format</Label>
                     <div className="flex gap-2 mt-1">
                       {(["singles", "doubles", "both"] as MatchFormat[]).map((f) => (
-                        <Badge key={f} variant={partnerFormats.includes(f) ? "default" : "outline"}
-                          className="cursor-pointer capitalize text-sm px-3 py-1"
+                        <button key={f} type="button" aria-pressed={partnerFormats.includes(f)}
                           onClick={() => setPartnerFormats(toggleMulti(partnerFormats, f))}>
-                          {f}
-                        </Badge>
+                          <Badge variant={partnerFormats.includes(f) ? "default" : "outline"}
+                            className="cursor-pointer capitalize text-sm px-3 py-1">
+                            {f}
+                          </Badge>
+                        </button>
                       ))}
                     </div>
                   </div>

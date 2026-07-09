@@ -4,30 +4,31 @@
 @tailwind utilities;
 
 body {
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
 }
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 147 51.4% 41.2%; /* Vibrant green */
+    /* Off-white paper tinted slightly toward the brand green, not pure #fff. */
+    --background: 140 20% 99%;
+    --foreground: 150 12% 12%;
+    --card: 140 20% 99%;
+    --card-foreground: 150 12% 12%;
+    --popover: 140 20% 99%;
+    --popover-foreground: 150 12% 12%;
+    --primary: 147 51.4% 38%; /* Brand green — the single boss accent */
     --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 22 100% 49%; /* Bright orange */
+    --secondary: 140 16% 95%;
+    --secondary-foreground: 150 10% 18%;
+    --muted: 140 14% 95%;
+    --muted-foreground: 150 6% 42%;
+    --accent: 22 90% 48%; /* Orange — sport/Rally tag only, not primary actions */
     --accent-foreground: 0 0% 98%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
+    --border: 150 12% 89%;
+    --input: 150 12% 89%;
+    --ring: 147 51.4% 38%; /* focus ring in brand green, not near-black */
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
     --chart-3: 197 37% 24%;
@@ -45,25 +46,25 @@ body {
     --background-light-gray: 0 0% 96.1%; /* Light gray */
   }
   .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 147 51.4% 41.2%; /* Vibrant green */
+    --background: 150 10% 7%;
+    --foreground: 140 8% 96%;
+    --card: 150 10% 9%;
+    --card-foreground: 140 8% 96%;
+    --popover: 150 10% 9%;
+    --popover-foreground: 140 8% 96%;
+    --primary: 147 48% 46%; /* Brand green */
     --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 22 100% 49%; /* Bright orange */
+    --secondary: 150 6% 16%;
+    --secondary-foreground: 140 8% 96%;
+    --muted: 150 6% 16%;
+    --muted-foreground: 150 5% 64%;
+    --accent: 22 85% 52%; /* Orange — sport/Rally tag only */
     --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
+    --destructive: 0 62.8% 40%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
+    --border: 150 6% 18%;
+    --input: 150 6% 18%;
+    --ring: 147 48% 46%;
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
