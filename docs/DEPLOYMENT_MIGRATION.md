@@ -36,12 +36,22 @@ not a bill or a service we run).
 2. **Domain:** **aiplaymatch.com** (registered at Porkbun). Caddyfile site block and
    Google OAuth redirect URI use it:
    `https://aiplaymatch.com/api/auth/callback/google`
-3. **VPS / provider:** **OVH vps2-2027** — 4 vCore x86, 8 GB RAM, US, $10/mo.
-   (Hetzner ARM had no availability; Hetzner's 4 GB CX23 fails the ~8 GB floor that
-   Gemma 3 4B + Postgres + app require; Hostinger was pricier with half the cores.)
-   The two management planes become **OVH + Porkbun**. x86 is fine — every image in
-   the stack is multi-arch. Use OVH's snapshot/backup add-on (same account) for the
-   durability layer instead of Hetzner's.
+3. **VPS / provider:** **OVH vps2-2027** — 4 vCore x86, 8 GB RAM, 75 GB NVMe, US,
+   $10/mo. (Hetzner ARM had no availability; Hetzner's 4 GB CX23 fails the ~8 GB
+   floor that Gemma 3 4B + Postgres + app require; Hostinger was pricier with half
+   the cores.) The two management planes become **OVH + Porkbun**. x86 is fine —
+   every image in the stack is multi-arch. Use OVH's snapshot/backup add-on (same
+   account) for the durability layer instead of Hetzner's.
+   - **Storage check:** 75 GB is ample — steady state is ~15–20 GB (Gemma 3 4B Q4
+     ~3.3 GB, Ollama image ~2–3 GB, OS + Docker ~5–8 GB, app image ~2–4 GB, DB and
+     dumps trivial). Phase 1 hardening includes log rotation + periodic
+     `docker system prune` so disk never creeps.
+
+## Status
+
+- **2026-07-11 — Phase 0 in progress.** OVH vps2-2027 purchased (Debian 13),
+  provisioning. Remaining Phase 0 items: Porkbun A record → VPS IP, Google OAuth
+  client, OVH backup add-on, SSH key access.
 
 ---
 
