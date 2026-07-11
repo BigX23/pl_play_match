@@ -27,7 +27,7 @@ not a bill or a service we run).
 | Push | **Web Push (VAPID)** via the `web-push` library | Drops FCM/Firebase entirely; standard, self-hosted. |
 | Proxy/TLS | **Caddy** | Automatic Let's Encrypt certs, trivial config. |
 | Packaging | **docker-compose** | Whole stack reproducible from one file. |
-| OS / VPS | **Debian 12 (or Ubuntu LTS)** on **OVH vps2-2027** (4 vCore x86, 8 GB, US) $10/mo | 8 GB fits Gemma 4B + Postgres + app; 4 cores for CPU inference; US location matches the Pleasanton user base. |
+| OS / VPS | **Debian 13** on **OVH vps2-2027** (4 vCore x86, 8 GB, US) $10/mo | 8 GB fits Gemma 4B + Postgres + app; 4 cores for CPU inference; US location matches the Pleasanton user base. |
 
 ## Open questions — RESOLVED (2026-07-10)
 
@@ -261,7 +261,7 @@ OLLAMA_MODEL=gemma3:4b
 
 Each phase is independently verifiable so we never do a big-bang cutover.
 
-**Phase 0 — Provision (you).** VPS up (Debian 12, OVH vps2-2027); domain at Porkbun with
+**Phase 0 — Provision (you).** VPS up (Debian 13, OVH vps2-2027); domain at Porkbun with
 an A record to the VPS IP; Google OAuth client created (redirect
 `https://<domain>/api/auth/callback/google`); OVH backups enabled; SSH key
 access for me. *Deliverable: I can `ssh` in and the domain resolves.*
