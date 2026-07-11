@@ -29,14 +29,15 @@ not a bill or a service we run).
 | Packaging | **docker-compose** | Whole stack reproducible from one file. |
 | OS / VPS | **Debian 12 (or Ubuntu LTS)** on **Hetzner CAX21** (4 vCPU ARM, 8 GB) ~€8/mo | 8 GB fits Gemma 4B + Postgres + app; ARM runs Ollama fine. |
 
-## Open questions I need answered
+## Open questions — RESOLVED (2026-07-10)
 
-1. **Is there production data to preserve?** The site is down — if there are real
-   accounts/messages in Firestore we care about, we add a one-time export→import
-   step. If it's effectively a clean start, we skip it. (Assumed clean start below.)
-2. **Domain name** — what did you register at Porkbun? Needed for the Caddyfile and
-   the Google OAuth redirect URI.
-3. **VPS arch** — ARM (CAX, cheaper) OK, or do you want x86 (CPX)? ARM assumed.
+1. **Production data:** none to preserve — clean start. No Firestore export/import
+   step; Phase 8 is just DNS + decommission.
+2. **Domain:** **aiplaymatch.com** (registered at Porkbun). Caddyfile site block and
+   Google OAuth redirect URI use it:
+   `https://aiplaymatch.com/api/auth/callback/google`
+3. **VPS arch:** **ARM — Hetzner CAX21** (4 vCPU / 8 GB, ~€7/mo). Everything in the
+   stack ships arm64 images; upgrade path to CAX31 if Rally inference feels slow.
 
 ---
 
@@ -213,7 +214,7 @@ volumes: { caddy_data: {}, pg_data: {}, ollama_models: {} }
 `Caddyfile`:
 
 ```
-playmatch.example.com {
+aiplaymatch.com {
     reverse_proxy app:3000
 }
 ```
@@ -242,7 +243,7 @@ DATABASE_URL=postgres://…
 AUTH_SECRET=…                 # openssl rand -base64 32
 AUTH_GOOGLE_ID=…              # from Google Cloud Console OAuth client
 AUTH_GOOGLE_SECRET=…
-NEXTAUTH_URL=https://playmatch.example.com
+NEXTAUTH_URL=https://aiplaymatch.com
 VAPID_PUBLIC_KEY=…            # web-push generate-vapid-keys
 VAPID_PRIVATE_KEY=…
 OLLAMA_URL=http://ollama:11434
