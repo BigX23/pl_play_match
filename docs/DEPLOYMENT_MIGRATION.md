@@ -1,12 +1,12 @@
-# PlayMatch — Migration Plan: Firebase → Self-Hosted (Hetzner + Porkbun)
+# PlayMatch — Migration Plan: Firebase → Self-Hosted (OVH + Porkbun)
 
 Moving PlayMatch off Firebase to a single VPS you own. The driver is **management
 simplicity** — collapse ~5 vendor relationships down to two, with no per-call AI
 billing.
 
 **End state — two throats to choke:**
-- **Hetzner** — one VPS running everything (app, Postgres, Ollama, Caddy), plus
-  Hetzner snapshots + a Storage Box for DB dumps (same account/bill).
+- **OVH** — one VPS running everything (app, Postgres, Ollama, Caddy), plus
+  OVH's snapshot/automated-backup add-on (same account/bill).
 - **Porkbun** — domain + DNS.
 
 Google is used only as an OAuth identity provider (a free credential in the env,
@@ -27,7 +27,7 @@ not a bill or a service we run).
 | Push | **Web Push (VAPID)** via the `web-push` library | Drops FCM/Firebase entirely; standard, self-hosted. |
 | Proxy/TLS | **Caddy** | Automatic Let's Encrypt certs, trivial config. |
 | Packaging | **docker-compose** | Whole stack reproducible from one file. |
-| OS / VPS | **Debian 12 (or Ubuntu LTS)** on **Hetzner CAX21** (4 vCPU ARM, 8 GB) ~€8/mo | 8 GB fits Gemma 4B + Postgres + app; ARM runs Ollama fine. |
+| OS / VPS | **Debian 12 (or Ubuntu LTS)** on **OVH vps2-2027** (4 vCore x86, 8 GB, US) $10/mo | 8 GB fits Gemma 4B + Postgres + app; 4 cores for CPU inference; US location matches the Pleasanton user base. |
 
 ## Open questions — RESOLVED (2026-07-10)
 
@@ -36,8 +36,12 @@ not a bill or a service we run).
 2. **Domain:** **aiplaymatch.com** (registered at Porkbun). Caddyfile site block and
    Google OAuth redirect URI use it:
    `https://aiplaymatch.com/api/auth/callback/google`
-3. **VPS arch:** **ARM — Hetzner CAX21** (4 vCPU / 8 GB, ~€7/mo). Everything in the
-   stack ships arm64 images; upgrade path to CAX31 if Rally inference feels slow.
+3. **VPS / provider:** **OVH vps2-2027** — 4 vCore x86, 8 GB RAM, US, $10/mo.
+   (Hetzner ARM had no availability; Hetzner's 4 GB CX23 fails the ~8 GB floor that
+   Gemma 3 4B + Postgres + app require; Hostinger was pricier with half the cores.)
+   The two management planes become **OVH + Porkbun**. x86 is fine — every image in
+   the stack is multi-arch. Use OVH's snapshot/backup add-on (same account) for the
+   durability layer instead of Hetzner's.
 
 ---
 
@@ -45,14 +49,14 @@ not a bill or a service we run).
 
 | Concern | Today | After |
 |---|---|---|
-| Hosting | Firebase Hosting | Hetzner VPS (Caddy) |
+| Hosting | Firebase Hosting | OVH VPS (Caddy) |
 | Auth | Firebase Auth | Auth.js + Google OAuth (Google = free credential) |
 | Database | Firestore | Postgres on the VPS |
 | Realtime | Firestore `onSnapshot` | SSE + Postgres `LISTEN/NOTIFY` |
 | AI | Gemini API (metered) | Ollama + Gemma 3 4B on the VPS |
 | Push | FCM | Web Push (VAPID) |
 | DNS / domain | (various) | Porkbun |
-| **Bills to manage** | **~5** | **2 (Hetzner, Porkbun)** |
+| **Bills to manage** | **~5** | **2 (OVH, Porkbun)** |
 
 ---
 
@@ -226,10 +230,11 @@ only.
 
 ---
 
-## Backups & durability (non-negotiable, stays in the Hetzner plane)
+## Backups & durability (non-negotiable, stays in the OVH plane)
 
-- **Hetzner automated snapshots/backups** on the VPS (~20% of server cost).
-- **Nightly `pg_dump`** cron → **Hetzner Storage Box** (SFTP), 30-day retention.
+- **OVH automated backup / snapshot add-on** on the VPS (same account/bill).
+- **Nightly `pg_dump`** cron kept on-box + shipped into the OVH backup add-on
+  (or OVH Object Storage if we want offsite copies), 30-day retention.
 - Ollama model + Docker images are reproducible, so backups only need Postgres +
   `.env` + the compose/Caddy files (keep those in the repo).
 - Document a **restore drill** and actually test it once.
@@ -256,9 +261,9 @@ OLLAMA_MODEL=gemma3:4b
 
 Each phase is independently verifiable so we never do a big-bang cutover.
 
-**Phase 0 — Provision (you).** VPS up (Debian 12, CAX21); domain at Porkbun with
+**Phase 0 — Provision (you).** VPS up (Debian 12, OVH vps2-2027); domain at Porkbun with
 an A record to the VPS IP; Google OAuth client created (redirect
-`https://<domain>/api/auth/callback/google`); Hetzner backups enabled; SSH key
+`https://<domain>/api/auth/callback/google`); OVH backups enabled; SSH key
 access for me. *Deliverable: I can `ssh` in and the domain resolves.*
 
 **Phase 1 — Box + skeleton.** Harden the OS; install Docker; commit
@@ -328,7 +333,7 @@ project** and the Vercel/other accounts. *Deliverable: two vendors remain.*
 
 1. Answers to the three open questions (data-to-preserve?, domain, ARM/x86).
 2. Phase 0 done: VPS reachable, domain A-record set, Google OAuth client created,
-   Hetzner backups on, my SSH key added.
+   OVH backups on, my SSH key added.
 3. The Google OAuth **client ID + secret** and the chosen **domain** (I'll place
    them in `.env` on the box; they never go in the repo).
 
