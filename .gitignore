@@ -57,3 +57,6 @@ functions/node_modules/
 logs_*/
 *.web.app-*.log
 /screenshots/
+
+# VPS credentials (never commit)
+ovh.env
