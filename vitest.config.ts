@@ -16,7 +16,7 @@ export default defineConfig({
       // components. shadcn UI primitives, thin layout/provider shells, and
       // metadata-only route files are excluded (integration-tested via page
       // render tests instead).
-      include: ["src/lib/**", "src/components/**", "src/hooks/**", "src/app/**"],
+      include: ["src/lib/**", "src/components/**", "src/hooks/**", "src/app/**", "src/server/**"],
       exclude: [
         "src/components/ui/**", // vendored shadcn primitives
         "src/**/*.test.{ts,tsx}",

@@ -188,9 +188,30 @@ export async function updateMatch(
     if (MATCH_PATCHABLE.has(k)) update[k] = v;
   }
 
+  // Roster fields may only be CLEARED via PATCH (withdraw/decline flows) —
+  // adding players goes through the transactional join endpoint.
+  if (data.player2Id !== undefined && data.player2Id !== "") {
+    throw new AuthzError("player2Id can only be cleared; use the join endpoint");
+  }
+  if (data.acceptedBy !== undefined && data.acceptedBy !== "") {
+    throw new AuthzError("acceptedBy can only be cleared");
+  }
+  if (data.participants !== undefined) {
+    const next = Array.isArray(data.participants) ? data.participants.map(String) : [];
+    const current = m.participants ?? [];
+    if (!next.every((p) => current.includes(p))) {
+      throw new AuthzError("participants can only be reduced, not extended");
+    }
+  }
+
   // Completing a match with a winner updates both players' stats server-side.
-  const winnerId = typeof data.winnerId === "string" ? data.winnerId : null;
+  // The winner must actually be one of the match's players (or a tie).
+  const winnerId = typeof data.winnerId === "string" && data.winnerId ? data.winnerId : null;
   const completing = data.status === "completed" && m.status !== "completed";
+  if (completing && winnerId && winnerId !== "tie" &&
+      winnerId !== m.player1Id && winnerId !== m.player2Id) {
+    throw new AuthzError("winner must be one of the match players");
+  }
 
   const [row] = await db.update(matches).set(update).where(eq(matches.id, matchId)).returning();
 
