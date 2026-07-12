@@ -22,12 +22,12 @@ not a bill or a service we run).
 | ORM | **Drizzle** | Typescript-native, thin, first-class Auth.js adapter, easy raw SQL when needed. |
 | Auth | **Auth.js (NextAuth) v5**, Google provider only | Google login with no passwords, no email infra. |
 | Realtime | **SSE + Postgres `LISTEN/NOTIFY`** | One-directional server→client push (new messages, unread) is all we need; SSE runs through Caddy, auto-reconnects, no separate WS server. |
-| AI | **Ollama + Gemma 3 4B (Q4)** | Zero API cost, no key to leak; ~10–20s async replies on CPU are fine for a background coach. |
+| AI |  **Ollama + Gemma 4 E4B (Q4)** | Zero API cost, no key to leak; Apache 2.0; ~20–35s async CPU replies acceptable for a background coach; fall back to E2B if too slow. |
 | Rally job | **pg-boss** (job queue *inside* Postgres) | Retries if generation crashes; adds no vendor. |
 | Push | **Web Push (VAPID)** via the `web-push` library | Drops FCM/Firebase entirely; standard, self-hosted. |
 | Proxy/TLS | **Caddy** | Automatic Let's Encrypt certs, trivial config. |
 | Packaging | **docker-compose** | Whole stack reproducible from one file. |
-| OS / VPS | **Debian 13** on **OVH vps2-2027** (4 vCore x86, 8 GB, US) $10/mo | 8 GB fits Gemma 4B + Postgres + app; 4 cores for CPU inference; US location matches the Pleasanton user base. |
+| OS / VPS | **Debian 13** on **OVH vps2-2027** (4 vCore x86, 8 GB, US) $10/mo | 8 GB fits a ~4B-class Q4 model + Postgres + app; 4 cores for CPU inference; US location matches the Pleasanton user base. |
 
 ## Open questions — RESOLVED (2026-07-10)
 
@@ -38,12 +38,12 @@ not a bill or a service we run).
    `https://aiplaymatch.com/api/auth/callback/google`
 3. **VPS / provider:** **OVH vps2-2027** — 4 vCore x86, 8 GB RAM, 75 GB NVMe, US,
    $10/mo. (Hetzner ARM had no availability; Hetzner's 4 GB CX23 fails the ~8 GB
-   floor that Gemma 3 4B + Postgres + app require; Hostinger was pricier with half
+   floor that a ~4B-class Q4 model + Postgres + app require; Hostinger was pricier with half
    the cores.) The two management planes become **OVH + Porkbun**. x86 is fine —
    every image in the stack is multi-arch. Use OVH's snapshot/backup add-on (same
    account) for the durability layer instead of Hetzner's.
-   - **Storage check:** 75 GB is ample — steady state is ~15–20 GB (Gemma 3 4B Q4
-     ~3.3 GB, Ollama image ~2–3 GB, OS + Docker ~5–8 GB, app image ~2–4 GB, DB and
+   - **Storage check:** 75 GB is ample — steady state is ~15–20 GB (Gemma 4 E4B Q4
+     ~3 GB, Ollama image ~2–3 GB, OS + Docker ~5–8 GB, app image ~2–4 GB, DB and
      dumps trivial). Phase 1 hardening includes log rotation + periodic
      `docker system prune` so disk never creeps.
 
@@ -83,7 +83,7 @@ not a bill or a service we run).
 | Auth | Firebase Auth | Auth.js + Google OAuth (Google = free credential) |
 | Database | Firestore | Postgres on the VPS |
 | Realtime | Firestore `onSnapshot` | SSE + Postgres `LISTEN/NOTIFY` |
-| AI | Gemini API (metered) | Ollama + Gemma 3 4B on the VPS |
+| AI | Gemini API (metered) | Ollama + Gemma 4 E4B on the VPS |
 | Push | FCM | Web Push (VAPID) |
 | DNS / domain | (various) | Porkbun |
 | **Bills to manage** | **~5** | **2 (OVH, Porkbun)** |
@@ -167,7 +167,7 @@ Rally stays a reserved system user (`id = 'rally'`), seeded once.
 | Session / `useAuth` | AuthProvider over Firebase | Auth.js `auth()` (server) + `useSession()` (client); thin `useAuth` shim keeps call sites stable |
 | Read/write data | Browser → Firestore (rules) | Browser → **API routes** → Drizzle → Postgres; **authz in the route** (the old rule logic) |
 | Live chat / unread | `onSnapshot` | `EventSource` → `/api/.../stream`; server `LISTEN/NOTIFY` fans out inserts |
-| Rally reply | Gemini in a Cloud Function | On message insert: if `shouldRallyRespond`, enqueue pg-boss job → Ollama (Gemma 3 4B) → insert reply → NOTIFY |
+| Rally reply | Gemini in a Cloud Function | On message insert: if `shouldRallyRespond`, enqueue pg-boss job → Ollama (Gemma 4 E4B) → insert reply → NOTIFY |
 | Push notifications | FCM | Web Push (VAPID); send from the same server events |
 | Match request / accept notifications | Cloud Functions | Same server-side write path emits notification + web-push |
 
@@ -218,7 +218,7 @@ Docker network.
                 internal net    │         │   internal net
                      ┌──────────▼──┐   ┌──▼───────────┐
                      │  postgres   │   │   ollama     │
-                     │ (+ pg-boss) │   │ gemma3:4b    │
+                     │ (+ pg-boss) │   │ gemma4:e4b   │
                      └─────────────┘   └──────────────┘
 ```
 
@@ -241,7 +241,7 @@ services:
   ollama:
     image: ollama/ollama
     volumes: [ollama_models:/root/.ollama]
-    # one-time: `ollama pull gemma3:4b`
+    # one-time: pull the Q4-quantized gemma4:e4b tag (pin exact tag in Phase 5)
 volumes: { caddy_data: {}, pg_data: {}, ollama_models: {} }
 ```
 
@@ -282,7 +282,7 @@ NEXTAUTH_URL=https://aiplaymatch.com
 VAPID_PUBLIC_KEY=…            # web-push generate-vapid-keys
 VAPID_PRIVATE_KEY=…
 OLLAMA_URL=http://ollama:11434
-OLLAMA_MODEL=gemma3:4b
+OLLAMA_MODEL=gemma4:e4b   # pin the Q4 variant in Phase 5; e2b is the speed fallback
 ```
 
 ---
@@ -316,7 +316,7 @@ conversation-list/unread; Postgres `LISTEN/NOTIFY` on insert; swap
 `subscribeMessages`/`subscribeConversations` to `EventSource`. *Verify: two
 browsers, a message appears live; unread badges update.*
 
-**Phase 5 — Rally AI.** Ollama + `gemma3:4b`; pg-boss job on `@rally` mention
+**Phase 5 — Rally AI.** Ollama + Gemma 4 E4B (Q4 tag, pinned after measuring RAM/tok-s on the box; `e2b` fallback if slow); pg-boss job on `@rally` mention
 calling Ollama with the existing prompt builder; insert reply → NOTIFY delivers
 it. *Verify: `@rally where do we play?` gets a sensible reply in ~10–20s.*
 
