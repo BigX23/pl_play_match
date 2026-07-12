@@ -9,8 +9,9 @@ import type { NextConfig } from 'next';
 const nextConfig: NextConfig = {
   // ─── Server build for self-hosted VPS (Docker standalone) ───────────────────
   output: 'standalone',
-  // Kept from the static-export era so existing trailing-slash links keep working.
-  trailingSlash: true,
+  // trailingSlash removed with the static export: it 308-redirects API routes,
+  // which breaks the exact-match OAuth callback URL. Old trailing-slash links
+  // still resolve via Next's built-in redirect.
 
   // ─── Existing options ───────────────────────────────────────────────────────
   typescript: {
