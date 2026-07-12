@@ -15,6 +15,13 @@ export async function register() {
   const client = postgres(process.env.DATABASE_URL, { max: 1 });
   try {
     await migrate(drizzle(client), { migrationsFolder: "./drizzle" });
+    // Seed the Rally system user (sender of AI messages) idempotently.
+    await client`
+      INSERT INTO users (id, name, email, first_name, avatar, profile_complete, bio)
+      VALUES ('rally', 'Rally', 'rally@playmatch.app', 'Rally', 'R', true,
+              'Rally, the PlayMatch assistant')
+      ON CONFLICT (id) DO NOTHING
+    `;
     console.log("[PlayMatch] Database migrations applied");
   } finally {
     await client.end();

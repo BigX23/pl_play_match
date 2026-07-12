@@ -51,13 +51,10 @@ export default function MessagesPage() {
   const handleAddContact = async () => {
     if (!user || !addContactEmail.trim()) return;
     setAddContactError("");
-    // Look up user by email in known players (mock) or Firestore
-    const { getPlayers } = await import("@/lib/firestore");
-    const allPlayers = await getPlayers();
-    const found = allPlayers.find(
-      (p) => p.email?.toLowerCase() === addContactEmail.trim().toLowerCase() && p.id !== user.id && p.id !== RALLY_USER.id
-    );
-    if (!found) {
+    // Exact-email lookup server-side (player emails are not in the public list).
+    const { findPlayerByEmail } = await import("@/lib/firestore");
+    const found = await findPlayerByEmail(addContactEmail.trim());
+    if (!found || found.id === user.id || found.id === RALLY_USER.id) {
       setAddContactError("No user found with that email");
       return;
     }

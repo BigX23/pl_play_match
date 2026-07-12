@@ -285,25 +285,16 @@ export default function OpenMatchesPage() {
       await updateMatch(match.id, { status: "in_progress" as MatchStatus });
     });
 
-  /** Increment matchesPlayed for both players, and wins/losses per the winner. */
-  const recordStats = async (match: Match, winner: string) => {
-    const ids = [match.player1Id, match.player2Id].filter(Boolean);
-    for (const id of ids) {
-      const p = await getUser(id);
-      if (!p) continue;
-      const played = (p.matchesPlayed ?? 0) + 1;
-      const wins = (p.wins ?? 0) + (winner === id ? 1 : 0);
-      const losses = (p.losses ?? 0) + (winner && winner !== "tie" && winner !== id ? 1 : 0);
-      await updateUser(id, { matchesPlayed: played, wins, losses });
-    }
-  };
-
   const handleReportScore = () => {
     if (!scoreDialog || !scoreInput.trim()) return;
     const match = scoreDialog;
     withLoading(match.id, async () => {
-      await updateMatch(match.id, { status: "completed" as MatchStatus, score: scoreInput.trim() });
-      await recordStats(match, winnerId);
+      // The server updates both players' stats when a match completes with a winner.
+      await updateMatch(match.id, {
+        status: "completed" as MatchStatus,
+        score: scoreInput.trim(),
+        winnerId,
+      });
       setScoreDialog(null);
       setScoreInput("");
       setWinnerId("");

@@ -8,6 +8,13 @@
       "when": 1783837712618,
       "tag": "0000_auth-and-profile",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1783867587081,
+      "tag": "0001_domain-tables",
+      "breakpoints": true
     }
   ]
 }

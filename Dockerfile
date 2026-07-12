@@ -8,9 +8,6 @@ FROM node:24-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-# Phase 1 skeleton runs in mock mode until the Postgres/Auth.js phases land.
-ARG NEXT_PUBLIC_ALLOW_MOCK=true
-ENV NEXT_PUBLIC_ALLOW_MOCK=$NEXT_PUBLIC_ALLOW_MOCK
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
@@ -27,6 +24,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 # Drizzle SQL migrations — applied at boot by src/instrumentation.ts
 COPY --from=builder --chown=nextjs:nodejs /app/drizzle ./drizzle
+# Profile-photo uploads land here (a volume is mounted over it in compose)
+RUN mkdir -p /app/uploads && chown nextjs:nodejs /app/uploads
 
 USER nextjs
 EXPOSE 3000

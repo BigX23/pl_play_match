@@ -12,9 +12,7 @@ import {
   deleteConversation,
   markConversationRead,
 } from "@/lib/firestore";
-import { isFirebaseConfigured } from "@/lib/firebase";
 import { type Message, type Conversation, getPlayerById, RALLY_USER } from "@/lib/mock-data";
-import { shouldRallyRespond, getRallyFallbackResponse, AI_SENDER_ID, AI_SENDER_NAME } from "@/lib/ai-assistant";
 import MessageBubble from "@/components/message-bubble";
 import ChatInput from "@/components/chat-input";
 import { ArrowLeft, Users, User, Trash2, UserPlus, MoreVertical } from "lucide-react";
@@ -128,14 +126,10 @@ export default function ChatPage() {
 
   const handleSend = async (text: string) => {
     if (!user || !conversationId) return;
-    await sendMessage(conversationId, text, user.id, user.firstName || user.name);
-    // The live subscription updates `msgs`. In mock mode (no Cloud Function),
-    // generate Rally's reply locally when addressed.
-    if (!isFirebaseConfigured && hasRally && shouldRallyRespond(text)) {
-      // Read the freshest history from the current message list plus the just-sent text.
-      const reply = getRallyFallbackResponse([...msgs, { id: "tmp", conversationId, senderId: user.id, senderName: user.name, text, createdAt: new Date().toISOString(), readBy: [] }]);
-      if (reply) await sendMessage(conversationId, reply, AI_SENDER_ID, AI_SENDER_NAME, true);
-    }
+    const sent = await sendMessage(conversationId, text);
+    // Show immediately; the poll/stream refresh keeps it consistent.
+    setMsgs((prev) => (prev.some((m) => m.id === sent.id) ? prev : [...prev, sent]));
+    // Rally's AI replies are generated server-side (Phase 5).
   };
 
   const handleDelete = async () => {

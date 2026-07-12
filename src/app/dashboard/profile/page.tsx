@@ -14,7 +14,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { getMatches, getPlayers, updateUser } from "@/lib/firestore";
-import { storage, isFirebaseConfigured } from "@/lib/firebase";
 import { type Match, type Player, getPlayerById } from "@/lib/mock-data";
 import type { GameType, SportType, MatchFormat, AgeRange, DayAvailability } from "@/lib/matching-engine";
 import { useToast } from "@/hooks/use-toast";
@@ -89,13 +88,13 @@ export default function ProfilePage() {
     const previousPreview = photoPreview;
     const objectURL = URL.createObjectURL(file);
     setPhotoPreview(objectURL);
-    if (!isFirebaseConfigured || !storage) return;
     setUploading(true);
     try {
-      const { ref, uploadBytes, getDownloadURL } = await import("firebase/storage");
-      const storageRef = ref(storage, `profile-photos/${displayUser!.id}`);
-      await uploadBytes(storageRef, file);
-      const url = await getDownloadURL(storageRef);
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/me/photo", { method: "POST", body: form });
+      if (!res.ok) throw new Error((await res.json().catch(() => null))?.error || "Upload failed");
+      const { photoURL: url } = await res.json();
       setPhotoURL(url);
       setPhotoPreview(url);
     } catch (err) {
