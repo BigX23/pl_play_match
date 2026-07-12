@@ -371,6 +371,81 @@ describe("polling subscriptions", () => {
   });
 });
 
+describe("SSE subscriptions (EventSource available)", () => {
+  class FakeEventSource {
+    static instances: FakeEventSource[] = [];
+    static readonly CLOSED = 2;
+    readonly CLOSED = 2;
+    url: string;
+    readyState = 0;
+    closed = false;
+    onerror: (() => void) | null = null;
+    private listeners: Record<string, Array<() => void>> = {};
+    constructor(url: string) {
+      this.url = url;
+      FakeEventSource.instances.push(this);
+    }
+    addEventListener(type: string, cb: () => void) {
+      (this.listeners[type] ||= []).push(cb);
+    }
+    emit(type: string) {
+      (this.listeners[type] || []).forEach((cb) => cb());
+    }
+    close() { this.closed = true; }
+  }
+
+  beforeEach(() => {
+    FakeEventSource.instances = [];
+    vi.stubGlobal("EventSource", FakeEventSource as unknown as typeof EventSource);
+  });
+
+  it("subscribeMessages opens the message stream and refetches on ping/change", async () => {
+    const cb = vi.fn();
+    fetchMock.mockResolvedValue(okResponse([{ id: "m1" }]));
+    const unsub = subscribeMessages("c1", cb);
+
+    const es = FakeEventSource.instances[0];
+    expect(es.url).toBe("/api/conversations/c1/messages/stream");
+
+    const flush = () => new Promise((r) => setTimeout(r, 0));
+    es.emit("ping");
+    await flush();
+    expect(fetchMock).toHaveBeenCalledWith("/api/conversations/c1/messages", { cache: "no-store" });
+    expect(cb).toHaveBeenCalledWith([{ id: "m1" }]);
+
+    fetchMock.mockClear();
+    es.emit("change");
+    await flush();
+    expect(fetchMock).toHaveBeenCalledOnce();
+
+    unsub();
+    expect(es.closed).toBe(true);
+  });
+
+  it("subscribeConversations opens the conversations stream", () => {
+    subscribeConversations("me", vi.fn());
+    expect(FakeEventSource.instances[0].url).toBe("/api/conversations/stream");
+  });
+
+  it("falls back to polling when the stream closes", async () => {
+    vi.useFakeTimers();
+    const cb = vi.fn();
+    fetchMock.mockResolvedValue(okResponse([{ id: "c1" }]));
+    const unsub = subscribeConversations("me", cb);
+
+    const es = FakeEventSource.instances[0];
+    es.readyState = FakeEventSource.CLOSED;
+    es.onerror?.(); // stream gave up → poll fallback kicks in
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fetchMock).toHaveBeenCalledWith("/api/conversations", { cache: "no-store" });
+
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(2);
+    unsub();
+    vi.useRealTimers();
+  });
+});
+
 describe("contacts", () => {
   it("getContacts GETs /api/contacts", async () => {
     fetchMock.mockResolvedValueOnce(okResponse([]));

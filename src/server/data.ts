@@ -24,6 +24,8 @@ import {
  * NotFoundError for missing rows (404).
  */
 
+import { notifyChange } from "./realtime";
+
 export class AuthzError extends Error {}
 export class NotFoundError extends Error {}
 
@@ -385,6 +387,7 @@ export async function createDirectConversation(db: Db, me: string, otherUserId: 
       { conversationId: id, userId: otherUserId },
     ]);
   });
+  await notifyChange(db, { conversationId: id, participants: [me, otherUserId] });
   return getConversation(db, me, id);
 }
 
@@ -427,13 +430,15 @@ export async function createGroupConversation(
     });
     return c.id;
   });
+  await notifyChange(db, { conversationId: convId, participants: humanIds });
   return getConversation(db, me, convId);
 }
 
 export async function deleteConversation(db: Db, me: string, conversationId: string) {
-  await assertParticipant(db, me, conversationId);
+  const parts = await assertParticipant(db, me, conversationId);
   // messages + participants cascade via FK
   await db.delete(conversations).where(eq(conversations.id, conversationId));
+  await notifyChange(db, { conversationId, participants: parts.map((p) => p.userId) });
 }
 
 export async function markConversationRead(db: Db, me: string, conversationId: string) {
@@ -446,6 +451,8 @@ export async function markConversationRead(db: Db, me: string, conversationId: s
         eq(conversationParticipants.userId, me)
       )
     );
+  // Only my own unread badge changed — wake my other tabs.
+  await notifyChange(db, { conversationId, participants: [me] });
 }
 
 // ---------- messages ----------
@@ -488,6 +495,10 @@ export async function sendMessage(db: Db, me: string, conversationId: string, te
       }
     }
     return m;
+  });
+  await notifyChange(db, {
+    conversationId,
+    participants: parts.map((p) => p.userId).filter((u) => u !== RALLY_ID),
   });
   return toMessage(msg);
 }

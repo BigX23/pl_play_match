@@ -1,4 +1,10 @@
 aiplaymatch.com {
+	# Don't gzip SSE — buffering would delay events. Stream them unbuffered.
+	@sse path /api/conversations/stream /api/conversations/*/messages/stream
+	reverse_proxy @sse app:3000 {
+		flush_interval -1
+	}
+
 	encode zstd gzip
 	reverse_proxy app:3000
 }

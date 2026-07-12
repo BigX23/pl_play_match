@@ -45,6 +45,42 @@ function poll<T>(fetcher: () => Promise<T>, cb: (data: T) => void): () => void {
   return () => { stopped = true; clearInterval(interval); };
 }
 
+/**
+ * Live subscription via Server-Sent Events: the server pushes a "change" event
+ * (and an initial "ping"), and we re-fetch through the normal authorized API.
+ * Falls back to polling if EventSource is unavailable or the stream closes.
+ */
+function subscribeSSE<T>(
+  streamUrl: string,
+  fetcher: () => Promise<T>,
+  cb: (data: T) => void
+): () => void {
+  if (typeof window === "undefined" || typeof EventSource === "undefined") {
+    return poll(fetcher, cb);
+  }
+  let stopped = false;
+  let pollStop: (() => void) | null = null;
+  const refresh = () => {
+    fetcher().then((d) => { if (!stopped) cb(d); }).catch(() => {});
+  };
+
+  const es = new EventSource(streamUrl);
+  es.addEventListener("ping", refresh);   // initial connect + auto-reconnect
+  es.addEventListener("change", refresh); // a relevant write happened
+  es.onerror = () => {
+    // EventSource retries network blips itself; only fall back once it gives up.
+    if (es.readyState === EventSource.CLOSED && !pollStop && !stopped) {
+      pollStop = poll(fetcher, cb);
+    }
+  };
+
+  return () => {
+    stopped = true;
+    es.close();
+    if (pollStop) pollStop();
+  };
+}
+
 // ---------- Users / players ----------
 
 export async function getUser(userId: string): Promise<Player | undefined> {
@@ -138,7 +174,7 @@ export function subscribeConversations(
   _userId: string,
   cb: (convs: Conversation[]) => void
 ): () => void {
-  return poll(() => get<Conversation[]>("/api/conversations"), cb);
+  return subscribeSSE("/api/conversations/stream", () => get<Conversation[]>("/api/conversations"), cb);
 }
 
 export async function getConversation(conversationId: string): Promise<Conversation | undefined> {
@@ -209,8 +245,10 @@ export function subscribeMessages(
   conversationId: string,
   cb: (msgs: Message[]) => void
 ): () => void {
-  return poll(
-    () => get<Message[]>(`/api/conversations/${encodeURIComponent(conversationId)}/messages`),
+  const enc = encodeURIComponent(conversationId);
+  return subscribeSSE(
+    `/api/conversations/${enc}/messages/stream`,
+    () => get<Message[]>(`/api/conversations/${enc}/messages`),
     cb
   );
 }
