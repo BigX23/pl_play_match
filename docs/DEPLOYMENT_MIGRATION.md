@@ -49,9 +49,24 @@ not a bill or a service we run).
 
 ## Status
 
-- **2026-07-11 — Phase 0 in progress.** OVH vps2-2027 purchased (Debian 13),
-  provisioning. Remaining Phase 0 items: Porkbun A record → VPS IP, Google OAuth
-  client, OVH backup add-on, SSH key access.
+- **2026-07-11 — Phase 1 complete on the box; waiting on DNS.**
+  - VPS live: `vps-17f0b082.vps.ovh.us` / 15.204.114.63 (Debian 13.4, x86_64).
+  - Hardened: SSH key-only (password auth + root login disabled), ufw deny-all
+    except 22/80/443, fail2ban (systemd backend, sshd jail — already banning
+    brute-forcers), unattended security upgrades, Docker Engine + compose with
+    log rotation (20 MB × 3).
+  - Deployed: repo cloned at `~/app` (branch `self-host-migration`); `deploy/`
+    stack (Caddy + app) built and running; app serves the UI internally; port 80
+    reachable from the internet (308 → HTTPS).
+  - Caddy is auto-retrying Let's Encrypt issuance; it will succeed as soon as
+    DNS points here — no action needed on the box.
+  - **Blocked on (user):**
+    1. Porkbun DNS: delete the parking A records; add `A @ → 15.204.114.63`,
+       `A www → 15.204.114.63` (optionally `AAAA @ → 2604:2dc0:222::143`).
+    2. Google OAuth client (redirect `https://aiplaymatch.com/api/auth/callback/google`) — needed for Phase 2.
+    3. OVH backup add-on — enable in the OVH panel.
+- **2026-07-11 — Phase 0 done.** OVH vps2-2027 purchased (Debian 13); SSH key
+  access established.
 
 ---
 
