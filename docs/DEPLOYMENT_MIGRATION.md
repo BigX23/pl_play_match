@@ -49,6 +49,24 @@ not a bill or a service we run).
 
 ## Status
 
+- **2026-07-12 — Phase 4 complete and verified in production.**
+  - Realtime is now SSE over Postgres LISTEN/NOTIFY, replacing the 5s polling.
+    One shared LISTEN connection fans NOTIFY payloads out via a process-local
+    EventEmitter, so many SSE clients share a single DB connection. Mutations
+    emit a tiny `{conversationId, participants}` signal (ids only — no content
+    over NOTIFY); the client re-fetches through the normal authorized API.
+  - Routes: `/api/conversations/stream` (wakes on the user's conversations) and
+    `/api/conversations/[id]/messages/stream` (participant-gated). Session-gated,
+    heartbeat, full teardown on disconnect. Caddy streams them unbuffered
+    (`flush_interval -1`, no gzip).
+  - Client `subscribe*` use EventSource with an automatic polling fallback
+    (SSR / no EventSource / stream closed).
+  - Verified end-to-end in the browser against the live stack: opening a stream
+    yielded `ping`, a DB write (create conversation / send message) fired
+    pg_notify → LISTEN → SSE `change` in the browser through Caddy. Both the
+    conversation-list and per-conversation message streams confirmed; test data
+    cleaned up (DB back to 0 conversations / 0 messages).
+  - Tests: realtime/sse/EventSource-client suites added; 348 green; coverage gate passing.
 - **2026-07-12 — Phase 3 complete and verified in production.**
   - Entire data layer runs on Postgres behind 20 session-authorized API routes
     (matches, requests, conversations + per-user unread, messages, contacts,
