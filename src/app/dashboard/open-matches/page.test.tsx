@@ -1,14 +1,8 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import {
-  matches,
-  players,
-  conversations,
-  messages,
-  type Match,
-  type Player,
-} from "@/lib/mock-data";
-import * as fs from "@/lib/firestore";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { Match, Player } from "@/lib/mock-data";
+import { makePlayer, makeAuth } from "../../test-fixtures";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
@@ -17,63 +11,49 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
-const COMPLETE_USER = {
-  id: "me",
-  firstName: "Me",
-  lastName: "User",
-  name: "Me User",
-  email: "me@example.com",
-  ntrpRating: 3.5,
-  avatar: "🎾",
-  sport: "tennis" as const,
-  matchesPlayed: 0,
-  wins: 0,
-  losses: 0,
-};
+const me = makePlayer({ id: "me", name: "Me User", firstName: "Me", lastName: "User", email: "me@example.com" });
+vi.mock("@/lib/auth-context", () => ({ useAuth: () => makeAuth(me) }));
 
-vi.mock("@/lib/auth-context", () => ({
-  useAuth: () => ({
-    user: COMPLETE_USER,
-    firebaseUser: null,
-    isAuthenticated: true,
-    profileComplete: true,
-    loading: false,
-    login: vi.fn(),
-    loginWithGoogle: vi.fn(),
-    register: vi.fn(),
-    logout: vi.fn(),
-    resetPassword: vi.fn(),
-    deleteAccount: vi.fn(),
-    setProfileComplete: vi.fn(),
-    updateUserProfile: vi.fn(),
-  }),
+const toastMock = vi.fn();
+vi.mock("@/hooks/use-toast", () => ({ useToast: () => ({ toast: toastMock }) }));
+
+vi.mock("@/lib/firestore", () => ({
+  getMatches: vi.fn(),
+  getPlayers: vi.fn(),
+  createMatch: vi.fn(),
+  updateMatch: vi.fn(),
+  deleteMatch: vi.fn(),
+  joinOpenMatch: vi.fn(),
+  createGroupConversation: vi.fn(),
+  addContact: vi.fn(),
+  getUser: vi.fn(),
+  updateUser: vi.fn(),
 }));
 
+import {
+  getMatches,
+  getPlayers,
+  createMatch,
+  updateMatch,
+  deleteMatch,
+  joinOpenMatch,
+  createGroupConversation,
+  addContact,
+  getUser,
+} from "@/lib/firestore";
 import OpenMatchesPage from "./page";
 
+/* ── mutable fixtures the mocked data layer serves ── */
+let matchesData: Match[];
+let playersData: Player[];
+
 function seedPlayer(id: string, name: string, extra: Partial<Player> = {}) {
-  players.push({
-    id,
-    name,
-    email: `${id}@example.com`,
-    ntrpRating: 4.0,
-    avatar: "👤",
-    location: "",
-    availability: [],
-    preferredTimes: [],
-    sport: "tennis",
-    matchesPlayed: 0,
-    wins: 0,
-    losses: 0,
-    bio: "",
-    joinedDate: "2024-01-01",
-    ...extra,
-  });
+  playersData.push(makePlayer({ id, name, firstName: undefined, lastName: undefined, ntrpRating: 4.0, avatar: "👤", ...extra }));
 }
 
 function seedMatch(overrides: Partial<Match>): Match {
   const m: Match = {
-    id: `m_${matches.length}`,
+    id: `m_${matchesData.length}`,
     player1Id: "other",
     player2Id: "",
     date: "2026-08-01",
@@ -88,18 +68,41 @@ function seedMatch(overrides: Partial<Match>): Match {
     participants: ["other"],
     ...overrides,
   };
-  matches.push(m);
+  matchesData.push(m);
   return m;
 }
 
 beforeEach(() => {
-  matches.length = 0;
-  players.length = 0;
-  conversations.length = 0;
-  messages.length = 0;
-  fs.__resetMockState();
+  vi.clearAllMocks();
+  matchesData = [];
+  playersData = [];
   // The current user is a player too.
   seedPlayer("me", "Me User", { firstName: "Me" });
+
+  vi.mocked(getMatches).mockImplementation(async () => matchesData.map((m) => ({ ...m })));
+  vi.mocked(getPlayers).mockImplementation(async () => [...playersData]);
+  vi.mocked(getUser).mockResolvedValue(undefined);
+  // Mirror the server's behavior so reloads after actions see fresh state.
+  vi.mocked(createMatch).mockImplementation(async (data) => {
+    const id = `new_${matchesData.length}`;
+    matchesData.push({ id, ...data } as Match);
+    return id;
+  });
+  vi.mocked(updateMatch).mockImplementation(async (id, data) => {
+    const m = matchesData.find((x) => x.id === id);
+    if (m) Object.assign(m, data);
+  });
+  vi.mocked(deleteMatch).mockImplementation(async (id) => {
+    matchesData = matchesData.filter((m) => m.id !== id);
+  });
+  vi.mocked(joinOpenMatch).mockImplementation(async (id, userId) => {
+    const m = matchesData.find((x) => x.id === id);
+    if (!m || m.player2Id) return false;
+    Object.assign(m, { player2Id: userId, acceptedBy: userId, status: "pending" });
+    return true;
+  });
+  vi.mocked(createGroupConversation).mockResolvedValue("conv_new");
+  vi.mocked(addContact).mockResolvedValue(undefined);
 });
 
 describe("OpenMatchesPage", () => {
@@ -132,7 +135,16 @@ describe("OpenMatchesPage", () => {
     await user.click(screen.getByRole("button", { name: /Post Open Match/i }));
 
     await waitFor(() => {
-      expect(matches.some((m) => m.createdBy === "me" && m.date === "2026-09-15")).toBe(true);
+      expect(createMatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          createdBy: "me",
+          player1Id: "me",
+          date: "2026-09-15",
+          time: "14:30",
+          status: "open",
+          notes: "friendly hit",
+        })
+      );
     });
   });
 
@@ -143,6 +155,7 @@ describe("OpenMatchesPage", () => {
     await user.click(screen.getByRole("button", { name: /Create Match/i }));
     const post = await screen.findByRole("button", { name: /Post Open Match/i });
     expect(post).toBeDisabled();
+    expect(createMatch).not.toHaveBeenCalled();
   });
 
   it("lets a non-owner request to join an open match", async () => {
@@ -156,32 +169,30 @@ describe("OpenMatchesPage", () => {
     await user.click(joinBtn);
 
     await waitFor(() => {
-      const m = matches.find((x) => x.id === "open1");
+      expect(joinOpenMatch).toHaveBeenCalledWith("open1", "me");
+      const m = matchesData.find((x) => x.id === "open1");
       expect(m?.status).toBe("pending");
       expect(m?.player2Id).toBe("me");
     });
+    expect(toastMock).not.toHaveBeenCalled();
   });
 
   it("shows a toast when joining a match that is already taken", async () => {
     seedPlayer("other", "Other Owner");
-    // Already has a player2 so joinOpenMatch returns false
-    seedMatch({ id: "taken1", player1Id: "other", createdBy: "other", status: "open", player2Id: "" });
+    seedMatch({ id: "taken1", player1Id: "other", createdBy: "other", status: "open" });
+    // Someone else took the spot server-side: the join returns false.
+    vi.mocked(joinOpenMatch).mockResolvedValue(false);
     render(<OpenMatchesPage />);
     const user = userEvent.setup();
     await user.click(await screen.findByRole("tab", { name: /Browse Open/i }));
 
-    // Sabotage: flip the match to taken right before joining.
-    const m = matches.find((x) => x.id === "taken1")!;
-    m.player2Id = "someone";
     const joinBtn = await screen.findByRole("button", { name: /Request to Join/i });
     await user.click(joinBtn);
 
-    // The join fails (someone else took it); the match keeps its foreign player2.
-    // Toaster isn't mounted in this test, so we assert on the resulting state.
     await waitFor(() => {
-      const taken = matches.find((x) => x.id === "taken1")!;
-      expect(taken.status).toBe("open");
-      expect(taken.player2Id).toBe("someone");
+      expect(toastMock).toHaveBeenCalledWith(
+        expect.objectContaining({ title: "Match no longer available", variant: "destructive" })
+      );
     });
   });
 
@@ -193,7 +204,8 @@ describe("OpenMatchesPage", () => {
     expect(await screen.findByText(/waiting for a partner/i)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /Delete Match/i }));
 
-    await waitFor(() => expect(matches.find((m) => m.id === "mine_open")).toBeUndefined());
+    await waitFor(() => expect(deleteMatch).toHaveBeenCalledWith("mine_open"));
+    await waitFor(() => expect(screen.queryByText(/waiting for a partner/i)).not.toBeInTheDocument());
   });
 
   it("shows pending-creator accept/decline and accepting confirms the match", async () => {
@@ -214,10 +226,19 @@ describe("OpenMatchesPage", () => {
     await user.click(screen.getByRole("button", { name: /Accept/i }));
 
     await waitFor(() => {
-      const m = matches.find((x) => x.id === "pend1");
-      expect(m?.status).toBe("confirmed");
-      expect(m?.conversationId).toBeTruthy();
+      // A group conversation is created and attached as the match confirms.
+      expect(createGroupConversation).toHaveBeenCalledWith(
+        ["me", "joiner"],
+        "pend1",
+        expect.stringContaining("vs"),
+        expect.any(String),
+        "me"
+      );
+      expect(updateMatch).toHaveBeenCalledWith("pend1", { status: "confirmed", conversationId: "conv_new" });
     });
+    // Both players are added as each other's contacts.
+    expect(addContact).toHaveBeenCalledWith("joiner", expect.objectContaining({ id: "me" }));
+    expect(addContact).toHaveBeenCalledWith("me", expect.objectContaining({ id: "joiner" }));
   });
 
   it("declines a pending join request, reverting to open", async () => {
@@ -235,7 +256,12 @@ describe("OpenMatchesPage", () => {
     const user = userEvent.setup();
     await screen.findByText(/wants to join this match/i);
     await user.click(screen.getByRole("button", { name: /Decline/i }));
-    await waitFor(() => expect(matches.find((x) => x.id === "pend2")?.status).toBe("open"));
+    await waitFor(() =>
+      expect(updateMatch).toHaveBeenCalledWith(
+        "pend2",
+        expect.objectContaining({ status: "open", player2Id: "", acceptedBy: "" })
+      )
+    );
   });
 
   it("shows pending-partner waiting state and withdraws", async () => {
@@ -253,7 +279,12 @@ describe("OpenMatchesPage", () => {
     const user = userEvent.setup();
     expect(await screen.findByText(/Waiting for .* to approve/i)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /Withdraw Request/i }));
-    await waitFor(() => expect(matches.find((x) => x.id === "pend3")?.status).toBe("open"));
+    await waitFor(() =>
+      expect(updateMatch).toHaveBeenCalledWith(
+        "pend3",
+        expect.objectContaining({ status: "open", player2Id: "" })
+      )
+    );
   });
 
   it("confirmed-creator can mark scheduled and cancel", async () => {
@@ -273,7 +304,7 @@ describe("OpenMatchesPage", () => {
     // Chat link present because conversationId set
     expect(screen.getByRole("link")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /Mark Scheduled/i }));
-    await waitFor(() => expect(matches.find((x) => x.id === "conf1")?.status).toBe("scheduled"));
+    await waitFor(() => expect(updateMatch).toHaveBeenCalledWith("conf1", { status: "scheduled" }));
   });
 
   it("confirmed-partner sees waiting text and can withdraw", async () => {
@@ -291,7 +322,9 @@ describe("OpenMatchesPage", () => {
     const user = userEvent.setup();
     expect(await screen.findByText(/You're confirmed/i)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /Withdraw/i }));
-    await waitFor(() => expect(matches.find((x) => x.id === "conf2")?.status).toBe("open"));
+    await waitFor(() =>
+      expect(updateMatch).toHaveBeenCalledWith("conf2", expect.objectContaining({ status: "open" }))
+    );
   });
 
   it("scheduled-creator can start the match", async () => {
@@ -308,7 +341,7 @@ describe("OpenMatchesPage", () => {
     const user = userEvent.setup();
     expect(await screen.findByText(/Court reserved/i)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /Start Match/i }));
-    await waitFor(() => expect(matches.find((x) => x.id === "sched1")?.status).toBe("in_progress"));
+    await waitFor(() => expect(updateMatch).toHaveBeenCalledWith("sched1", { status: "in_progress" }));
   });
 
   it("scheduled-partner sees the see-you-on-court text", async () => {
@@ -326,7 +359,7 @@ describe("OpenMatchesPage", () => {
     expect(await screen.findByText(/see you on the court/i)).toBeInTheDocument();
   });
 
-  it("in_progress match: report score, pick winner and complete + record stats", async () => {
+  it("in_progress match: report score, pick winner and complete with winnerId", async () => {
     seedPlayer("partner", "Partner Person");
     seedMatch({
       id: "prog1",
@@ -353,16 +386,13 @@ describe("OpenMatchesPage", () => {
 
     await user.click(screen.getByRole("button", { name: /Submit Score/i }));
 
+    // The server records both players' stats; the client just sends winnerId.
     await waitFor(() => {
-      const m = matches.find((x) => x.id === "prog1");
-      expect(m?.status).toBe("completed");
-      expect(m?.score).toBe("6-4, 6-3");
-    });
-    // Stats recorded for the winner
-    await waitFor(() => {
-      const me = players.find((p) => p.id === "me")!;
-      expect(me.matchesPlayed).toBe(1);
-      expect(me.wins).toBe(1);
+      expect(updateMatch).toHaveBeenCalledWith("prog1", {
+        status: "completed",
+        score: "6-4, 6-3",
+        winnerId: "me",
+      });
     });
   });
 
@@ -382,6 +412,7 @@ describe("OpenMatchesPage", () => {
     await screen.findByText("Report Final Score");
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(screen.queryByText("Report Final Score")).not.toBeInTheDocument());
+    expect(updateMatch).not.toHaveBeenCalled();
   });
 
   it("filters matches by search text and shows the completed/cancelled past matches", async () => {
@@ -434,11 +465,9 @@ describe("OpenMatchesPage", () => {
     const user = userEvent.setup();
     await screen.findByText(/Partner confirmed/i);
     await user.click(screen.getByRole("button", { name: "Cancel Match" }));
-    await waitFor(() => {
-      const m = matches.find((x) => x.id === "conf_cancel");
-      expect(m?.status).toBe("cancelled");
-      expect(m?.cancelledBy).toBe("me");
-    });
+    await waitFor(() =>
+      expect(updateMatch).toHaveBeenCalledWith("conf_cancel", { status: "cancelled", cancelledBy: "me" })
+    );
   });
 
   it("pending-creator can delete the match from the pending state", async () => {
@@ -457,7 +486,7 @@ describe("OpenMatchesPage", () => {
     await screen.findByText(/wants to join this match/i);
     // The only "Delete Match" button in the pending-creator actions
     await user.click(screen.getByRole("button", { name: /Delete Match/i }));
-    await waitFor(() => expect(matches.find((x) => x.id === "pend_del")).toBeUndefined());
+    await waitFor(() => expect(deleteMatch).toHaveBeenCalledWith("pend_del"));
   });
 
   it("scheduled-creator can cancel the match", async () => {
@@ -474,39 +503,24 @@ describe("OpenMatchesPage", () => {
     const user = userEvent.setup();
     await screen.findByText(/Court reserved/i);
     await user.click(screen.getByRole("button", { name: "Cancel Match" }));
-    await waitFor(() => expect(matches.find((x) => x.id === "sched_cancel")?.status).toBe("cancelled"));
+    await waitFor(() =>
+      expect(updateMatch).toHaveBeenCalledWith("sched_cancel", { status: "cancelled", cancelledBy: "me" })
+    );
   });
 
-  it("resolves a player via getUser when not seeded in players/cache", async () => {
-    // Owner is NOT in the players array — forces the getUser() resolvePlayer path.
-    // Seed the owner into the mock user store only.
-    await fs.updateUser("ghostowner", {
-      id: "ghostowner",
-      name: "Ghost Owner",
-      email: "ghost@example.com",
-      ntrpRating: 4.5,
-    } as Player);
-    players.push({
-      id: "ghostowner",
-      name: "Ghost Owner",
-      email: "ghost@example.com",
-      ntrpRating: 4.5,
-      avatar: "👤",
-      location: "",
-      availability: [],
-      preferredTimes: [],
-      sport: "tennis",
-      matchesPlayed: 0,
-      wins: 0,
-      losses: 0,
-      bio: "",
-      joinedDate: "2024-01-01",
-    });
+  it("resolves a player via getUser when not in the public players list", async () => {
+    // Owner is NOT in getPlayers() — forces the getUser() resolvePlayer path.
+    vi.mocked(getUser).mockImplementation(async (id) =>
+      id === "ghostowner"
+        ? makePlayer({ id: "ghostowner", name: "Ghost Owner", email: "ghost@example.com", ntrpRating: 4.5 })
+        : undefined
+    );
     seedMatch({ id: "ghost1", player1Id: "ghostowner", createdBy: "ghostowner", status: "open" });
     render(<OpenMatchesPage />);
     const user = userEvent.setup();
     await user.click(await screen.findByRole("tab", { name: /Browse Open/i }));
     expect(await screen.findByText("Ghost Owner")).toBeInTheDocument();
+    expect(getUser).toHaveBeenCalledWith("ghostowner");
   });
 
   it("changes sport and match-type in the create form", async () => {
@@ -537,9 +551,14 @@ describe("OpenMatchesPage", () => {
     await user.click(screen.getByRole("button", { name: /Post Open Match/i }));
 
     await waitFor(() => {
-      const m = matches.find((x) => x.createdBy === "me" && x.location === "Sports Park");
-      expect(m?.sport).toBe("pickleball");
-      expect(m?.matchType).toBe("doubles");
+      expect(createMatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sport: "pickleball",
+          matchType: "doubles",
+          location: "Sports Park",
+          createdBy: "me",
+        })
+      );
     });
   });
 
@@ -576,7 +595,9 @@ describe("OpenMatchesPage", () => {
     await user.click(await screen.findByRole("button", { name: /Report Score/i }));
     const scoreInput = await screen.findByPlaceholderText("6-4, 6-3");
     await user.type(scoreInput, "7-5{Enter}");
-    await waitFor(() => expect(matches.find((x) => x.id === "prog_enter")?.status).toBe("completed"));
+    await waitFor(() =>
+      expect(updateMatch).toHaveBeenCalledWith("prog_enter", expect.objectContaining({ status: "completed", score: "7-5" }))
+    );
   });
 
   it("filters by sport via the sport Select", async () => {

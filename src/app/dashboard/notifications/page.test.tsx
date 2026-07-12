@@ -1,18 +1,30 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { notifications } from "@/lib/mock-data";
+import type { Notification } from "@/lib/mock-data";
 import { makePlayer, makeAuth } from "../../test-fixtures";
 
 let authValue: ReturnType<typeof makeAuth>;
 vi.mock("@/lib/auth-context", () => ({ useAuth: () => authValue }));
 
+const getNotifications = vi.fn();
+const markNotificationRead = vi.fn();
+vi.mock("@/lib/firestore", () => ({
+  getNotifications: (...a: unknown[]) => getNotifications(...a),
+  markNotificationRead: (...a: unknown[]) => markNotificationRead(...a),
+}));
+
 import NotificationsPage from "./page";
 
 const self = makePlayer({ id: "u_self" });
+const notif = (over: Partial<Notification>): Notification => ({
+  id: "n", userId: "u_self", type: "new_message", title: "T", body: "B",
+  read: false, createdAt: new Date().toISOString(), ...over,
+});
 
 beforeEach(() => {
-  notifications.length = 0;
+  getNotifications.mockReset().mockResolvedValue([]);
+  markNotificationRead.mockReset().mockResolvedValue(undefined);
   authValue = makeAuth(self);
 });
 
@@ -23,21 +35,24 @@ describe("NotificationsPage", () => {
   });
 
   it("renders notifications and marks all as read", async () => {
-    notifications.push(
-      { id: "n1", userId: "u_self", type: "match_request", title: "Request", body: "Someone", read: false, createdAt: new Date().toISOString() },
-      { id: "n2", userId: "u_self", type: "new_message", title: "Message", body: "Hi", read: false, createdAt: new Date().toISOString() },
-    );
+    getNotifications.mockResolvedValue([
+      notif({ id: "n1", type: "match_request", title: "Request", body: "Someone" }),
+      notif({ id: "n2", type: "new_message", title: "Message", body: "Hi" }),
+    ]);
     render(<NotificationsPage />);
     expect(await screen.findByText("Request")).toBeInTheDocument();
     expect(screen.getByText("Message")).toBeInTheDocument();
 
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: /Mark all read/i }));
-    // Both notifications flip to read in the mock store.
+    // Each unread notification is marked read via the API.
     await waitFor(() => {
-      expect(notifications.every((n) => n.read)).toBe(true);
+      expect(markNotificationRead).toHaveBeenCalledWith("n1");
+      expect(markNotificationRead).toHaveBeenCalledWith("n2");
     });
     // The "Mark all read" button disappears once nothing is unread.
-    await waitFor(() => expect(screen.queryByRole("button", { name: /Mark all read/i })).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: /Mark all read/i })).not.toBeInTheDocument()
+    );
   });
 });

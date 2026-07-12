@@ -1,13 +1,8 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import {
-  conversations,
-  messages,
-  players,
-  type Conversation,
-  type Message,
-} from "@/lib/mock-data";
-import * as fs from "@/lib/firestore";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { Conversation, Message } from "@/lib/mock-data";
+import { makePlayer, makeAuth } from "../../../test-fixtures";
 
 /* ─────────── router / auth mocks ─────────── */
 const pushMock = vi.fn();
@@ -20,59 +15,32 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
-const COMPLETE_USER = {
-  id: "me",
-  firstName: "Me",
-  lastName: "User",
-  name: "Me User",
-  email: "me@example.com",
-  ntrpRating: 3.5,
-  avatar: "🎾",
-  sport: "tennis" as const,
-};
+const me = makePlayer({ id: "me", name: "Me User", firstName: "Me", lastName: "User", email: "me@example.com" });
+vi.mock("@/lib/auth-context", () => ({ useAuth: () => makeAuth(me) }));
 
-vi.mock("@/lib/auth-context", () => ({
-  useAuth: () => ({
-    user: COMPLETE_USER,
-    firebaseUser: null,
-    isAuthenticated: true,
-    profileComplete: true,
-    loading: false,
-    login: vi.fn(),
-    loginWithGoogle: vi.fn(),
-    register: vi.fn(),
-    logout: vi.fn(),
-    resetPassword: vi.fn(),
-    deleteAccount: vi.fn(),
-    setProfileComplete: vi.fn(),
-    updateUserProfile: vi.fn(),
-  }),
+vi.mock("@/lib/firestore", () => ({
+  subscribeMessages: vi.fn(),
+  sendMessage: vi.fn(),
+  getUser: vi.fn(),
+  getConversation: vi.fn(),
+  addContact: vi.fn(),
+  deleteConversation: vi.fn(),
+  markConversationRead: vi.fn(),
 }));
 
+import {
+  subscribeMessages,
+  sendMessage,
+  getUser,
+  getConversation,
+  addContact,
+  deleteConversation,
+  markConversationRead,
+} from "@/lib/firestore";
 import ChatPage from "./chat-client";
 
-function seedPlayer(id: string, name: string, firstName?: string) {
-  players.push({
-    id,
-    name,
-    email: `${id}@example.com`,
-    ntrpRating: 3.5,
-    avatar: "👤",
-    location: "",
-    availability: [],
-    preferredTimes: [],
-    sport: "tennis",
-    matchesPlayed: 0,
-    wins: 0,
-    losses: 0,
-    bio: "",
-    joinedDate: "2024-01-01",
-    ...(firstName ? { firstName, lastName: "Doe" } : {}),
-  });
-}
-
-function seedConversation(overrides: Partial<Conversation> = {}): Conversation {
-  const conv: Conversation = {
+function makeConversation(overrides: Partial<Conversation> = {}): Conversation {
+  return {
     id: "direct_a_me",
     participants: ["a", "me"],
     type: "direct",
@@ -82,14 +50,12 @@ function seedConversation(overrides: Partial<Conversation> = {}): Conversation {
     createdAt: new Date().toISOString(),
     ...overrides,
   };
-  conversations.push(conv);
-  return conv;
 }
 
-function seedMessage(conversationId: string, overrides: Partial<Message> = {}): Message {
-  const msg: Message = {
-    id: `msg_${messages.length}`,
-    conversationId,
+function makeMessage(overrides: Partial<Message> = {}): Message {
+  return {
+    id: `msg_${Math.random()}`,
+    conversationId: "direct_a_me",
     senderId: "a",
     senderName: "Alice",
     text: "hello there",
@@ -97,17 +63,33 @@ function seedMessage(conversationId: string, overrides: Partial<Message> = {}): 
     readBy: ["a"],
     ...overrides,
   };
-  messages.push(msg);
-  return msg;
 }
 
+let messagesData: Message[];
+const unsubscribe = vi.fn();
+
 beforeEach(() => {
-  conversations.length = 0;
-  messages.length = 0;
-  players.length = 0;
-  pushMock.mockClear();
+  vi.clearAllMocks();
   currentPath = "/dashboard/messages/direct_a_me";
-  fs.__resetMockState();
+  messagesData = [];
+
+  vi.mocked(getConversation).mockResolvedValue(makeConversation());
+  // Deliver the fixture messages synchronously, like the poll's first tick.
+  vi.mocked(subscribeMessages).mockImplementation((_convId, cb) => {
+    cb([...messagesData]);
+    return unsubscribe;
+  });
+  vi.mocked(getUser).mockImplementation(async (id) =>
+    id === "a"
+      ? makePlayer({ id: "a", name: "Alice Doe", firstName: "Alice", lastName: "Doe", email: "a@example.com", avatar: "👤" })
+      : undefined
+  );
+  vi.mocked(sendMessage).mockImplementation(async (convId, text) =>
+    makeMessage({ id: "sent_1", conversationId: convId, senderId: "me", senderName: "Me User", text, readBy: ["me"] })
+  );
+  vi.mocked(addContact).mockResolvedValue(undefined);
+  vi.mocked(deleteConversation).mockResolvedValue(undefined);
+  vi.mocked(markConversationRead).mockResolvedValue(undefined);
 });
 
 describe("ChatPage", () => {
@@ -115,25 +97,28 @@ describe("ChatPage", () => {
     currentPath = "/dashboard/messages/placeholder";
     const { container } = render(<ChatPage />);
     expect(container).toBeEmptyDOMElement();
+    expect(getConversation).not.toHaveBeenCalled();
   });
 
   it("shows not-found state for a missing conversation", async () => {
     currentPath = "/dashboard/messages/does_not_exist";
+    vi.mocked(getConversation).mockResolvedValue(undefined);
     render(<ChatPage />);
     expect(await screen.findByText("Conversation not found")).toBeInTheDocument();
+    expect(getConversation).toHaveBeenCalledWith("does_not_exist");
     const back = screen.getByRole("button", { name: /Back to Messages/i });
     await userEvent.click(back);
     expect(pushMock).toHaveBeenCalledWith("/dashboard/messages");
   });
 
-  it("renders title, messages with date separators, and empty back nav", async () => {
-    seedPlayer("a", "Alice", "Alice");
-    seedConversation();
+  it("renders title, messages with date separators, and marks the conversation read", async () => {
     // yesterday + today messages to trigger the date separator branch
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
-    seedMessage("direct_a_me", { id: "m_old", text: "yesterday msg", createdAt: yesterday.toISOString() });
-    seedMessage("direct_a_me", { id: "m_new", text: "today msg" });
+    messagesData = [
+      makeMessage({ id: "m_old", text: "yesterday msg", createdAt: yesterday.toISOString() }),
+      makeMessage({ id: "m_new", text: "today msg" }),
+    ];
 
     render(<ChatPage />);
 
@@ -143,13 +128,12 @@ describe("ChatPage", () => {
     expect(screen.getByText("Yesterday")).toBeInTheDocument();
     // Direct message label
     expect(screen.getByText("Direct Message")).toBeInTheDocument();
-    // Title resolves to Alice's name
+    // Title resolves to Alice's name via getUser
     await waitFor(() => expect(screen.getByText("Alice Doe")).toBeInTheDocument());
+    expect(markConversationRead).toHaveBeenCalledWith("direct_a_me", "me");
   });
 
   it("shows empty-state and sends a message via the input", async () => {
-    seedPlayer("a", "Alice");
-    seedConversation();
     const user = userEvent.setup();
     render(<ChatPage />);
 
@@ -158,36 +142,38 @@ describe("ChatPage", () => {
     const input = screen.getByPlaceholderText("Type a message…");
     await user.type(input, "hi Alice{Enter}");
 
+    // sendMessage is called with (conversationId, text) and the sent message
+    // is shown immediately.
     expect(await screen.findByText("hi Alice")).toBeInTheDocument();
+    expect(sendMessage).toHaveBeenCalledWith("direct_a_me", "hi Alice");
   });
 
-  it("triggers a Rally reply in a group conversation when addressed", async () => {
-    seedPlayer("a", "Alice");
-    seedConversation({
-      id: "direct_a_me",
-      type: "group",
-      name: "Match: Me vs Alice",
-      participants: ["a", "me", "rally"],
-    });
-    const user = userEvent.setup();
+  it("renders group + Rally badges and Rally's server-generated (isAI) messages", async () => {
+    vi.mocked(getConversation).mockResolvedValue(
+      makeConversation({ type: "group", name: "Match: Me vs Alice", participants: ["a", "me", "rally"] })
+    );
+    messagesData = [
+      makeMessage({ id: "rally1", senderId: "rally", senderName: "Rally", isAI: true, text: "Welcome to your match chat!" }),
+    ];
     render(<ChatPage />);
 
     // Group + Rally badges rendered
     expect(await screen.findByText("Group")).toBeInTheDocument();
-    expect(screen.getByText("Rally")).toBeInTheDocument();
+    expect(screen.getAllByText("Rally").length).toBeGreaterThan(0);
 
-    const input = screen.getByPlaceholderText("Type a message…");
-    await user.type(input, "@rally where do we play?{Enter}");
+    // The AI message renders like any other incoming message.
+    expect(screen.getByText("Welcome to your match chat!")).toBeInTheDocument();
+  });
 
-    // Rally's fallback response about courts should appear
-    expect(
-      await screen.findByText(/Lifetime Activities Pleasanton/i)
-    ).toBeInTheDocument();
+  it("unsubscribes from messages on unmount", async () => {
+    const { unmount } = render(<ChatPage />);
+    await screen.findByText("Direct Message");
+    expect(subscribeMessages).toHaveBeenCalledWith("direct_a_me", expect.any(Function));
+    unmount();
+    expect(unsubscribe).toHaveBeenCalled();
   });
 
   it("opens the delete dropdown and confirms deletion", async () => {
-    seedPlayer("a", "Alice");
-    seedConversation();
     const user = userEvent.setup();
     render(<ChatPage />);
 
@@ -205,16 +191,17 @@ describe("ChatPage", () => {
     await user.click(screen.getByRole("button", { name: "Delete" }));
 
     await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/dashboard/messages"));
+    expect(deleteConversation).toHaveBeenCalledWith("direct_a_me");
   });
 
   it("shows Add-to-contacts entries for group members and adds a contact", async () => {
-    seedPlayer("a", "Alice");
-    seedPlayer("b", "Bob");
-    seedConversation({
-      id: "direct_a_me",
-      type: "group",
-      name: "Trio",
-      participants: ["a", "b", "me", "rally"],
+    vi.mocked(getConversation).mockResolvedValue(
+      makeConversation({ type: "group", name: "Trio", participants: ["a", "b", "me", "rally"] })
+    );
+    vi.mocked(getUser).mockImplementation(async (id) => {
+      if (id === "a") return makePlayer({ id: "a", name: "Alice Doe", firstName: "Alice", lastName: "Doe", email: "a@example.com" });
+      if (id === "b") return makePlayer({ id: "b", name: "Bob Roe", firstName: "Bob", lastName: "Roe", email: "b@example.com" });
+      return undefined;
     });
     const user = userEvent.setup();
     render(<ChatPage />);
@@ -225,12 +212,14 @@ describe("ChatPage", () => {
     const trigger = buttons.find((b) => b.querySelector("svg.lucide-ellipsis-vertical")) || buttons[buttons.length - 1];
     await user.click(trigger!);
 
-    const addAlice = await screen.findByText(/Add Alice to contacts/i);
+    const addAlice = await screen.findByText(/Add Alice Doe to contacts/i);
     await user.click(addAlice);
 
-    await waitFor(async () => {
-      const contacts = await fs.getContacts("me");
-      expect(contacts.some((c) => c.id === "a")).toBe(true);
+    await waitFor(() => {
+      expect(addContact).toHaveBeenCalledWith(
+        "me",
+        expect.objectContaining({ id: "a", name: "Alice Doe", email: "a@example.com" })
+      );
     });
   });
 });

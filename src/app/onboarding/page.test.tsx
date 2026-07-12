@@ -1,7 +1,8 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { players, type Player } from "@/lib/mock-data";
-import * as fs from "@/lib/firestore";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { Player } from "@/lib/mock-data";
+import { makePlayer, makeAuth } from "../test-fixtures";
 
 const pushMock = vi.fn();
 vi.mock("next/navigation", () => ({
@@ -11,60 +12,51 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
+vi.mock("@/lib/firestore", () => ({
+  updateUser: vi.fn(),
+}));
+
 const updateUserProfileMock = vi.fn();
 const setProfileCompleteMock = vi.fn();
+let currentUser: Player | null;
+
+vi.mock("@/lib/auth-context", () => ({
+  useAuth: () =>
+    makeAuth(currentUser, {
+      profileComplete: false,
+      updateUserProfile: updateUserProfileMock,
+      setProfileComplete: setProfileCompleteMock,
+    }),
+}));
+
+import { updateUser } from "@/lib/firestore";
+import OnboardingPage from "./page";
 
 function makeUser(): Player {
-  return {
+  return makePlayer({
     id: "me",
     name: "",
     email: "me@example.com",
-    ntrpRating: 3.5,
     avatar: "",
-    location: "",
-    availability: [],
-    preferredTimes: [],
-    sport: "tennis",
-    matchesPlayed: 0,
-    wins: 0,
-    losses: 0,
-    bio: "",
-    joinedDate: "2024-01-01",
     firstName: "",
     lastName: "",
-  };
+    age: undefined,
+    gender: undefined,
+    aboutMe: undefined,
+    bio: "",
+    sports: undefined,
+    matchFormats: undefined,
+    gameType: undefined,
+    weeklyAvailability: undefined,
+    partnerPreferences: undefined,
+    profileComplete: false,
+  });
 }
 
-let currentUser: Player | null = makeUser();
-
-vi.mock("@/lib/auth-context", () => ({
-  useAuth: () => ({
-    user: currentUser,
-    firebaseUser: null,
-    isAuthenticated: true,
-    profileComplete: false,
-    loading: false,
-    login: vi.fn(),
-    loginWithGoogle: vi.fn(),
-    register: vi.fn(),
-    logout: vi.fn(),
-    resetPassword: vi.fn(),
-    deleteAccount: vi.fn(),
-    setProfileComplete: setProfileCompleteMock,
-    updateUserProfile: updateUserProfileMock,
-  }),
-}));
-
-import OnboardingPage from "./page";
-
 beforeEach(() => {
-  players.length = 0;
-  pushMock.mockClear();
-  updateUserProfileMock.mockClear();
-  setProfileCompleteMock.mockClear();
-  fs.__resetMockState();
+  vi.clearAllMocks();
   currentUser = makeUser();
-  players.push({ ...currentUser });
+  vi.mocked(updateUser).mockResolvedValue(undefined);
 });
 
 /** Fill out step 1 fields and click Next. */
@@ -173,10 +165,27 @@ describe("OnboardingPage", () => {
       expect(pushMock).toHaveBeenCalledWith("/dashboard");
     });
 
-    // Persisted to the mock player store
-    const p = players.find((x) => x.id === "me")!;
-    expect(p.firstName).toBe("Alex");
-    expect(p.profileComplete).toBe(true);
+    // Persisted via the data layer with the full profile payload.
+    expect(updateUser).toHaveBeenCalledWith(
+      "me",
+      expect.objectContaining({
+        firstName: "Alex",
+        lastName: "Rivera",
+        name: "Alex Rivera",
+        age: 28,
+        gender: "Male",
+        avatar: "🎾",
+        gameType: "recreational",
+        profileComplete: true,
+        partnerPreferences: expect.objectContaining({ genderPreference: "Female" }),
+        weeklyAvailability: expect.arrayContaining([
+          expect.objectContaining({ day: "Mon", enabled: true }),
+        ]),
+      })
+    );
+    expect(updateUserProfileMock).toHaveBeenCalledWith(
+      expect.objectContaining({ firstName: "Alex", profileComplete: true })
+    );
   });
 
   it("toggles an availability slot off again (branch coverage)", async () => {
@@ -205,5 +214,6 @@ describe("OnboardingPage", () => {
     await waitFor(() => expect(complete).not.toBeDisabled());
     await user.click(complete);
     await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/dashboard"));
+    expect(updateUser).not.toHaveBeenCalled();
   });
 });

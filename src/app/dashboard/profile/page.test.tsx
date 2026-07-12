@@ -1,7 +1,8 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { matches, players, type Player } from "@/lib/mock-data";
-import * as fs from "@/lib/firestore";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import type { Match, Player } from "@/lib/mock-data";
+import { makePlayer, makeAuth } from "../../test-fixtures";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
@@ -10,82 +11,84 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
-const updateUserProfileMock = vi.fn();
+const toastMock = vi.fn();
+vi.mock("@/hooks/use-toast", () => ({ useToast: () => ({ toast: toastMock }) }));
 
-function makeUser(): Player {
-  return {
-  id: "me",
-  name: "Me User",
-  email: "me@example.com",
-  ntrpRating: 3.5,
-  avatar: "🎾",
-  location: "Pleasanton",
-  availability: [],
-  preferredTimes: [],
-  sport: "tennis",
-  matchesPlayed: 4,
-  wins: 3,
-  losses: 1,
-  bio: "old bio",
-  joinedDate: "2024-01-01",
-  firstName: "Me",
-  lastName: "User",
-  age: 30,
-  gender: "Male",
-  aboutMe: "I love tennis",
-  sports: ["tennis"],
-  matchFormats: ["singles"],
-  gameType: "slightly-competitive",
-  weeklyAvailability: [
-    { day: "Mon", enabled: true, slots: [{ start: 8, end: 12 }] },
-    { day: "Wed", enabled: true, slots: [{ start: 17, end: 21 }] },
-  ],
-  partnerPreferences: {
-    ageRange: "10",
-    ntrpMin: 3.0,
-    ntrpMax: 4.5,
-    gameTypes: ["slightly-competitive"],
-    sports: ["tennis"],
-    matchFormats: ["singles"],
-    genderPreference: "No Preference",
-  },
-  profileComplete: true,
-  };
-}
-
-let currentUser: Player | null = makeUser();
-
-vi.mock("@/lib/auth-context", () => ({
-  useAuth: () => ({
-    user: currentUser,
-    firebaseUser: null,
-    isAuthenticated: true,
-    profileComplete: true,
-    loading: false,
-    login: vi.fn(),
-    loginWithGoogle: vi.fn(),
-    register: vi.fn(),
-    logout: vi.fn(),
-    resetPassword: vi.fn(),
-    deleteAccount: vi.fn(),
-    setProfileComplete: vi.fn(),
-    updateUserProfile: updateUserProfileMock,
-  }),
+vi.mock("@/lib/firestore", () => ({
+  getMatches: vi.fn(),
+  getPlayers: vi.fn(),
+  updateUser: vi.fn(),
 }));
 
+const updateUserProfileMock = vi.fn();
+let currentUser: Player | null;
+
+vi.mock("@/lib/auth-context", () => ({
+  useAuth: () => makeAuth(currentUser, { updateUserProfile: updateUserProfileMock }),
+}));
+
+import { getMatches, getPlayers, updateUser } from "@/lib/firestore";
 import ProfilePage from "./page";
 
+function makeUser(): Player {
+  return makePlayer({
+    id: "me",
+    name: "Me User",
+    email: "me@example.com",
+    firstName: "Me",
+    lastName: "User",
+    bio: "old bio",
+    aboutMe: "I love tennis",
+    sports: ["tennis"],
+    matchFormats: ["singles"],
+    weeklyAvailability: [
+      { day: "Mon", enabled: true, slots: [{ start: 8, end: 12 }] },
+      { day: "Wed", enabled: true, slots: [{ start: 17, end: 21 }] },
+    ],
+    partnerPreferences: {
+      ageRange: "10",
+      ntrpMin: 3.0,
+      ntrpMax: 4.5,
+      gameTypes: ["slightly-competitive"],
+      sports: ["tennis"],
+      matchFormats: ["singles"],
+      genderPreference: "No Preference",
+    },
+  });
+}
+
+let matchesData: Match[];
+let playersData: Player[];
+
 beforeEach(() => {
-  matches.length = 0;
-  players.length = 0;
-  updateUserProfileMock.mockClear();
-  fs.__resetMockState();
+  vi.clearAllMocks();
   currentUser = makeUser();
-  players.push({ ...currentUser });
+  matchesData = [];
+  playersData = [{ ...currentUser }];
+  vi.mocked(getMatches).mockImplementation(async () => [...matchesData]);
+  vi.mocked(getPlayers).mockImplementation(async () => [...playersData]);
+  vi.mocked(updateUser).mockResolvedValue(undefined);
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  delete (URL as unknown as Record<string, unknown>).createObjectURL;
+  delete (URL as unknown as Record<string, unknown>).revokeObjectURL;
 });
 
 async function switchToTab(user: ReturnType<typeof userEvent.setup>, name: RegExp) {
   await user.click(screen.getByRole("tab", { name }));
+}
+
+/**
+ * jsdom's URL lacks the object-URL helpers; patch just those two statics so
+ * `new URL(...)` (used by next/image) keeps working. Cleaned up in afterEach.
+ */
+function stubObjectURL() {
+  const createObjectURL = vi.fn(() => "blob:preview");
+  const revokeObjectURL = vi.fn();
+  Object.assign(URL, { createObjectURL, revokeObjectURL });
+  return { createObjectURL, revokeObjectURL };
 }
 
 describe("ProfilePage", () => {
@@ -120,11 +123,17 @@ describe("ProfilePage", () => {
     await user.click(screen.getByRole("button", { name: /Save/i }));
 
     await waitFor(() => {
-      expect(updateUserProfileMock).toHaveBeenCalled();
-      const p = players.find((x) => x.id === "me")!;
-      expect(p.firstName).toBe("Newfirst");
-      expect(p.avatar).toBe("🔥");
-      expect(p.aboutMe).toBe("updated bio");
+      expect(updateUser).toHaveBeenCalledWith(
+        "me",
+        expect.objectContaining({
+          firstName: "Newfirst",
+          avatar: "🔥",
+          aboutMe: "updated bio",
+          bio: "updated bio",
+          name: "Newfirst User",
+        })
+      );
+      expect(updateUserProfileMock).toHaveBeenCalledWith(expect.objectContaining({ firstName: "Newfirst" }));
     });
   });
 
@@ -145,12 +154,13 @@ describe("ProfilePage", () => {
 
     // Back to read-only view; the throwaway change was not persisted
     expect(screen.queryByLabelText("First Name")).not.toBeInTheDocument();
-    expect(players.find((x) => x.id === "me")!.firstName).toBe("Me");
+    expect(updateUser).not.toHaveBeenCalled();
   });
 
   it("rejects a non-image photo upload with a toast (no crash)", async () => {
     render(<ProfilePage />);
-    const user = userEvent.setup();
+    // Bypass the accept="image/*" filter so the handler's own guard runs.
+    const user = userEvent.setup({ applyAccept: false });
     const basicCard = screen.getByText("Basic Info").closest("div")!.parentElement!.parentElement!;
     await user.click(within(basicCard).getByRole("button", { name: /Edit/i }));
 
@@ -160,6 +170,7 @@ describe("ProfilePage", () => {
 
     // No preview image is created for a rejected file
     expect(screen.queryByAltText("Preview")).not.toBeInTheDocument();
+    expect(toastMock).toHaveBeenCalledWith(expect.objectContaining({ title: "Invalid file" }));
   });
 
   it("rejects an oversized image upload", async () => {
@@ -173,30 +184,64 @@ describe("ProfilePage", () => {
     await user.upload(fileInput, big);
 
     expect(screen.queryByAltText("Preview")).not.toBeInTheDocument();
+    expect(toastMock).toHaveBeenCalledWith(expect.objectContaining({ title: "File too large" }));
   });
 
-  it("accepts a valid small image and previews it, then removes it", async () => {
-    // jsdom lacks createObjectURL; stub it.
-    const orig = URL.createObjectURL;
-    URL.createObjectURL = vi.fn(() => "blob:preview");
-    URL.revokeObjectURL = vi.fn();
-    try {
-      render(<ProfilePage />);
-      const user = userEvent.setup();
-      const basicCard = screen.getByText("Basic Info").closest("div")!.parentElement!.parentElement!;
-      await user.click(within(basicCard).getByRole("button", { name: /Edit/i }));
+  it("uploads a valid image via POST /api/me/photo, previews it, then removes it", async () => {
+    // jsdom lacks createObjectURL; stub it along with the upload endpoint.
+    stubObjectURL();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ photoURL: "/uploads/me.png" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
 
-      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
-      const good = new File([new Uint8Array(1024)], "avatar.png", { type: "image/png" });
-      await user.upload(fileInput, good);
+    render(<ProfilePage />);
+    const user = userEvent.setup();
+    const basicCard = screen.getByText("Basic Info").closest("div")!.parentElement!.parentElement!;
+    await user.click(within(basicCard).getByRole("button", { name: /Edit/i }));
 
-      expect(await screen.findByAltText("Preview")).toBeInTheDocument();
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const good = new File([new Uint8Array(1024)], "avatar.png", { type: "image/png" });
+    await user.upload(fileInput, good);
 
-      await user.click(screen.getByRole("button", { name: /Remove photo/i }));
-      await waitFor(() => expect(screen.queryByAltText("Preview")).not.toBeInTheDocument());
-    } finally {
-      URL.createObjectURL = orig;
-    }
+    // The photo is POSTed to the upload endpoint and the preview swaps to the
+    // server-returned URL.
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith("/api/me/photo", expect.objectContaining({ method: "POST" }));
+    });
+    const preview = await screen.findByAltText("Preview");
+    await waitFor(() => expect(preview.getAttribute("src")).toContain(encodeURIComponent("/uploads/me.png")));
+    expect(toastMock).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: /Remove photo/i }));
+    await waitFor(() => expect(screen.queryByAltText("Preview")).not.toBeInTheDocument());
+  });
+
+  it("reverts the preview and shows a toast when the photo upload fails", async () => {
+    stubObjectURL();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      json: async () => ({ error: "Storage unavailable" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<ProfilePage />);
+    const user = userEvent.setup();
+    const basicCard = screen.getByText("Basic Info").closest("div")!.parentElement!.parentElement!;
+    await user.click(within(basicCard).getByRole("button", { name: /Edit/i }));
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const good = new File([new Uint8Array(1024)], "avatar.png", { type: "image/png" });
+    await user.upload(fileInput, good);
+
+    // Preview reverts to the previous (empty) state and the failure is toasted.
+    await waitFor(() => {
+      expect(toastMock).toHaveBeenCalledWith(
+        expect.objectContaining({ title: "Upload failed", description: "Storage unavailable", variant: "destructive" })
+      );
+    });
+    expect(screen.queryByAltText("Preview")).not.toBeInTheDocument();
   });
 
   it("triggers the file picker via the Upload Photo button", async () => {
@@ -216,7 +261,7 @@ describe("ProfilePage", () => {
     const playCard = screen.getByText("Play Preferences").closest("div")!.parentElement!.parentElement!;
     await user.click(within(playCard).getByRole("button", { name: /Edit/i }));
 
-    // Toggle pickleball sport on, singles off, doubles on
+    // Toggle pickleball sport on, doubles on, recreational game type
     await user.click(screen.getByRole("button", { name: "Pickleball" }));
     await user.click(screen.getByRole("button", { name: "doubles" }));
     await user.click(screen.getByRole("button", { name: "Recreational" }));
@@ -224,10 +269,15 @@ describe("ProfilePage", () => {
     await user.click(within(playCard).getByRole("button", { name: /Save/i }));
 
     await waitFor(() => {
-      const p = players.find((x) => x.id === "me")!;
-      expect(p.sports).toContain("pickleball");
-      expect(p.matchFormats).toContain("doubles");
-      expect(p.gameType).toBe("recreational");
+      expect(updateUser).toHaveBeenCalledWith(
+        "me",
+        expect.objectContaining({
+          sports: expect.arrayContaining(["tennis", "pickleball"]),
+          matchFormats: expect.arrayContaining(["singles", "doubles"]),
+          gameType: "recreational",
+        })
+      );
+      expect(updateUserProfileMock).toHaveBeenCalledWith(expect.objectContaining({ gameType: "recreational" }));
     });
   });
 
@@ -240,6 +290,7 @@ describe("ProfilePage", () => {
     const cancelBtn = within(playCard).getAllByRole("button").find((b) => b.querySelector("svg.lucide-x"))!;
     await user.click(cancelBtn);
     expect(within(playCard).queryByText("Recreational")).not.toBeInTheDocument();
+    expect(updateUser).not.toHaveBeenCalled();
   });
 
   it("edits Availability grid and saves (>=3 slots)", async () => {
@@ -263,8 +314,12 @@ describe("ProfilePage", () => {
     await user.click(saveBtn);
 
     await waitFor(() => {
-      const p = players.find((x) => x.id === "me")!;
-      expect(p.weeklyAvailability!.some((d) => d.day === "Tue" && d.enabled)).toBe(true);
+      expect(updateUser).toHaveBeenCalledWith("me", {
+        weeklyAvailability: expect.arrayContaining([
+          expect.objectContaining({ day: "Tue", enabled: true }),
+        ]),
+      });
+      expect(updateUserProfileMock).toHaveBeenCalled();
     });
   });
 
@@ -304,11 +359,15 @@ describe("ProfilePage", () => {
     await user.click(screen.getByRole("button", { name: /Save/i }));
 
     await waitFor(() => {
-      const p = players.find((x) => x.id === "me")!;
-      expect(p.partnerPreferences!.genderPreference).toBe("Female");
-      expect(p.partnerPreferences!.gameTypes).toContain("hardcore-competitive");
-      expect(p.partnerPreferences!.sports).toContain("pickleball");
-      expect(p.partnerPreferences!.matchFormats).toContain("doubles");
+      expect(updateUser).toHaveBeenCalledWith("me", {
+        partnerPreferences: expect.objectContaining({
+          genderPreference: "Female",
+          gameTypes: expect.arrayContaining(["hardcore-competitive"]),
+          sports: expect.arrayContaining(["pickleball"]),
+          matchFormats: expect.arrayContaining(["doubles"]),
+        }),
+      });
+      expect(updateUserProfileMock).toHaveBeenCalled();
     });
   });
 
@@ -320,6 +379,7 @@ describe("ProfilePage", () => {
     const cancelBtn = screen.getAllByRole("button").find((b) => b.querySelector("svg.lucide-x"))!;
     await user.click(cancelBtn);
     expect(await screen.findByText(/NTRP range/i)).toBeInTheDocument();
+    expect(updateUser).not.toHaveBeenCalled();
   });
 
   it("shows 'No partner preferences set yet' when unset", async () => {
@@ -331,36 +391,23 @@ describe("ProfilePage", () => {
   });
 
   it("renders the Stats tab with win rate and match history", async () => {
-    matches.push({
-      id: "hist1",
-      player1Id: "me",
-      player2Id: "opp",
-      date: "2026-05-01",
-      time: "10:00",
-      location: "Court A",
-      sport: "tennis",
-      status: "completed",
-      score: "6-3, 6-2",
-      compatibilityScore: 0,
-      matchExplanation: "",
-      participants: ["me", "opp"],
-    });
-    players.push({
-      id: "opp",
-      name: "Opponent",
-      email: "opp@example.com",
-      ntrpRating: 3.5,
-      avatar: "👤",
-      location: "",
-      availability: [],
-      preferredTimes: [],
-      sport: "tennis",
-      matchesPlayed: 0,
-      wins: 0,
-      losses: 0,
-      bio: "",
-      joinedDate: "2024-01-01",
-    });
+    matchesData = [
+      {
+        id: "hist1",
+        player1Id: "me",
+        player2Id: "opp",
+        date: "2026-05-01",
+        time: "10:00",
+        location: "Court A",
+        sport: "tennis",
+        status: "completed",
+        score: "6-3, 6-2",
+        compatibilityScore: 0,
+        matchExplanation: "",
+        participants: ["me", "opp"],
+      },
+    ];
+    playersData.push(makePlayer({ id: "opp", name: "Opponent", email: "opp@example.com", firstName: undefined, lastName: undefined }));
     render(<ProfilePage />);
     const user = userEvent.setup();
     await switchToTab(user, /Stats/i);
@@ -398,8 +445,7 @@ describe("ProfilePage", () => {
       firstName: "Solo",
       lastName: "",
     };
-    players.length = 0;
-    players.push({ ...currentUser });
+    playersData = [{ ...currentUser }];
 
     render(<ProfilePage />);
     const user = userEvent.setup();
@@ -441,7 +487,6 @@ describe("ProfilePage", () => {
 
   it("returns null when there is no auth user", async () => {
     currentUser = null;
-    players.length = 0;
     const { container } = render(<ProfilePage />);
     expect(container).toBeEmptyDOMElement();
   });

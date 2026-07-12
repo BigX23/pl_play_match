@@ -53,7 +53,6 @@ export function makePlayer(overrides: Partial<Player> = {}): Player {
 export function makeAuth(user: Player | null, overrides: Record<string, unknown> = {}) {
   return {
     user,
-    firebaseUser: null,
     isAuthenticated: !!user,
     profileComplete: user?.profileComplete ?? false,
     loading: false,
@@ -61,10 +60,10 @@ export function makeAuth(user: Player | null, overrides: Record<string, unknown>
     loginWithGoogle: () => Promise.resolve(true),
     register: () => Promise.resolve(true),
     logout: () => {},
-    resetPassword: () => Promise.resolve(true),
     deleteAccount: () => Promise.resolve(),
     setProfileComplete: () => {},
     updateUserProfile: () => {},
+    refreshProfile: () => Promise.resolve(),
     ...overrides,
   };
 }
