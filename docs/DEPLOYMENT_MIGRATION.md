@@ -49,6 +49,26 @@ not a bill or a service we run).
 
 ## Status
 
+- **2026-07-12 — Phase 3 complete and verified in production.**
+  - Entire data layer runs on Postgres behind 20 session-authorized API routes
+    (matches, requests, conversations + per-user unread, messages, contacts,
+    notifications). Authorization (the old firestore.rules) enforced server-side:
+    senders/creators stamped from the session, participant-gated chat,
+    recipient-only accept/decline, creator-only delete, transactional open-match
+    join, server-computed stats on completion (winner validated as a match player).
+  - Client `src/lib/data.ts` keeps the old firestore.ts signatures (re-exported)
+    so pages were untouched; subscribe* poll every 5s until Phase 4 SSE.
+  - Profile photos: upload to a VPS volume (/api/me/photo) served by
+    /api/photos/[file] — replaces Firebase Storage. Firebase fully removed.
+  - Verified in-browser with the real session: created an open match through the
+    UI → row persisted in Postgres with correct creator → deleted via UI. All
+    endpoints 401 without a session.
+  - Tests: 337 green; server data layer covered by an in-memory pglite suite
+    (100% stmts). Coverage gate passes (97% stmts / 93% funcs / 89% branch).
+    Two authz bugs the tests caught (forged winner stats, roster rewrite) were
+    fixed before deploy. Fixed a suite-wide hang (a login test's mocked async
+    rejection through onClick tripped vitest's unhandled-rejection tracker) and
+    capped the vitest worker pool (pglite WASM + many jsdom workers deadlock).
 - **2026-07-12 — Phase 2 complete and verified in production.**
   - Postgres 16 running in compose (healthcheck, volume); Drizzle migrations
     apply automatically at app boot (`src/instrumentation.ts`).
