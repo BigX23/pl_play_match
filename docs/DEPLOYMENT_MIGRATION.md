@@ -49,7 +49,12 @@ not a bill or a service we run).
 
 ## Status
 
-- **2026-07-11 — Phase 1 complete on the box; waiting on DNS.**
+- **2026-07-11 — SITE LIVE: https://aiplaymatch.com** (valid Let's Encrypt cert;
+  www 301s to apex; A + AAAA records for apex and www set via the Porkbun API —
+  parking ALIAS/wildcard-CNAME removed, MX/NS left untouched). App is in mock
+  mode until Phases 2–3. Still pending (user): Google OAuth client (Phase 2
+  blocker), OVH backup add-on.
+- **2026-07-11 — Phase 1 complete on the box.**
   - VPS live: `vps-17f0b082.vps.ovh.us` / 15.204.114.63 (Debian 13.4, x86_64).
   - Hardened: SSH key-only (password auth + root login disabled), ufw deny-all
     except 22/80/443, fail2ban (systemd backend, sshd jail — already banning
