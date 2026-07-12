@@ -59,29 +59,12 @@ describe("SettingsPage", () => {
     expect((timeInputs[0] as HTMLInputElement).value).toBe("23:00");
   });
 
-  it("sends a password reset link", async () => {
+  it("shows the Google account security note instead of a password flow", () => {
     render(<SettingsPage />);
-    const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: "Change Password" }));
-    await waitFor(() => expect(resetPassword).toHaveBeenCalledWith("self@example.com"));
-    expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Reset link sent" }));
-  });
-
-  it("warns when changing password with no email on file", async () => {
-    authValue = makeAuth(makePlayer({ email: "" }), { logout, resetPassword, deleteAccount });
-    render(<SettingsPage />);
-    const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: "Change Password" }));
-    expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: "No email on file" }));
-    expect(resetPassword).not.toHaveBeenCalled();
-  });
-
-  it("surfaces a toast when reset link fails", async () => {
-    resetPassword.mockRejectedValue({ code: "auth/too-many-requests" });
-    render(<SettingsPage />);
-    const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: "Change Password" }));
-    await waitFor(() => expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Couldn't send reset link" })));
+    expect(screen.getByText(/you sign in with google/i)).toBeInTheDocument();
+    const link = screen.getByRole("link", { name: /google account/i });
+    expect(link).toHaveAttribute("href", "https://myaccount.google.com/security");
+    expect(screen.queryByRole("button", { name: "Change Password" })).not.toBeInTheDocument();
   });
 
   it("signs out and navigates home", async () => {

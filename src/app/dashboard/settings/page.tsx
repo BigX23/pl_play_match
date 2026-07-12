@@ -13,7 +13,6 @@ import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
 import { Sun, Bell, Shield, LogOut, Bot, Smartphone, Check, AlertTriangle } from "lucide-react";
 import { loadPreferences, savePreferences, type NotificationPreferences, enablePushNotifications, getPushPermission } from "@/lib/notifications";
-import { authErrorMessage } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -29,31 +28,18 @@ import {
 
 export default function SettingsPage() {
   const { setTheme, theme } = useTheme();
-  const { user, logout, resetPassword, deleteAccount } = useAuth();
+  const { user, logout, deleteAccount } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
   const [prefs, setPrefs] = useState<NotificationPreferences>(loadPreferences());
   const [pushStatus, setPushStatus] = useState<"idle" | "loading" | "enabled" | "denied" | "unsupported">("idle");
 
-  const handleChangePassword = async () => {
-    if (!user?.email) {
-      toast({ title: "No email on file", description: "Add an email to your account first.", variant: "destructive" });
-      return;
-    }
-    try {
-      await resetPassword(user.email);
-      toast({ title: "Reset link sent", description: `Check ${user.email} for a password reset link.` });
-    } catch (err) {
-      toast({ title: "Couldn't send reset link", description: authErrorMessage(err), variant: "destructive" });
-    }
-  };
-
   const handleDeleteAccount = async () => {
     try {
       await deleteAccount();
       router.push("/");
-    } catch (err) {
-      toast({ title: "Couldn't delete account", description: authErrorMessage(err), variant: "destructive" });
+    } catch {
+      toast({ title: "Couldn't delete account", description: "Please try again.", variant: "destructive" });
     }
   };
 
@@ -203,7 +189,10 @@ export default function SettingsPage() {
           <CardDescription>Manage your account settings</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Button variant="outline" className="w-full" onClick={handleChangePassword}>Change Password</Button>
+          <p className="text-sm text-muted-foreground">
+            You sign in with Google{user?.email ? ` (${user.email})` : ""} — manage your password and
+            security in your <a href="https://myaccount.google.com/security" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Google Account</a>.
+          </p>
           <Separator />
           <Button variant="destructive" className="w-full" onClick={() => { logout(); router.push("/"); }}>
             <LogOut className="h-4 w-4 mr-2" />Sign Out

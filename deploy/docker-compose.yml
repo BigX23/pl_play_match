@@ -1,5 +1,5 @@
 # PlayMatch — single-VPS stack (OVH vps2-2027, aiplaymatch.com)
-# Phase 1: caddy + app. Postgres arrives in Phase 2/3, Ollama in Phase 5.
+# Phase 2: caddy + app + postgres. Ollama arrives in Phase 5.
 services:
   caddy:
     image: caddy:2
@@ -24,7 +24,26 @@ services:
       - .env
     expose:
       - "3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: playmatch
+      POSTGRES_USER: playmatch
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U playmatch -d playmatch"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
 volumes:
   caddy_data:
   caddy_config:
+  pg_data:
