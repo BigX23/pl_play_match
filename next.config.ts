@@ -7,8 +7,9 @@ import type { NextConfig } from 'next';
  * - Adds a Webpack alias so "@/…" always resolves to "src/…"
  */
 const nextConfig: NextConfig = {
-  // ─── Static export for Firebase Hosting ─────────────────────────────────────
-  output: 'export',
+  // ─── Server build for self-hosted VPS (Docker standalone) ───────────────────
+  output: 'standalone',
+  // Kept from the static-export era so existing trailing-slash links keep working.
   trailingSlash: true,
 
   // ─── Existing options ───────────────────────────────────────────────────────
@@ -19,7 +20,6 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: false,
   },
 
-  // ─── Image config (unoptimized required for static export) ──────────────────
   images: {
     unoptimized: true,
     remotePatterns: [

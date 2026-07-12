@@ -1,0 +1,30 @@
+# PlayMatch — single-VPS stack (OVH vps2-2027, aiplaymatch.com)
+# Phase 1: caddy + app. Postgres arrives in Phase 2/3, Ollama in Phase 5.
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    expose:
+      - "3000"
+
+volumes:
+  caddy_data:
+  caddy_config:

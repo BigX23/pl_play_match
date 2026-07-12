@@ -1,0 +1,8 @@
+aiplaymatch.com {
+	encode zstd gzip
+	reverse_proxy app:3000
+}
+
+www.aiplaymatch.com {
+	redir https://aiplaymatch.com{uri} permanent
+}
