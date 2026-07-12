@@ -49,6 +49,24 @@ not a bill or a service we run).
 
 ## Status
 
+- **2026-07-12 — Phase 2 complete and verified in production.**
+  - Postgres 16 running in compose (healthcheck, volume); Drizzle migrations
+    apply automatically at app boot (`src/instrumentation.ts`).
+  - Auth.js v5 Google-only sign-in live at aiplaymatch.com — verified end to
+    end: real Google OAuth created a user + oidc account + session in Postgres,
+    and the incomplete profile correctly gated to /onboarding.
+  - /api/me GET/PATCH/DELETE serves the profile (session-guarded, allow-listed
+    fields); auth-context is now a thin shim keeping the old useAuth interface.
+  - login/register collapsed to one Google flow; Change Password replaced with
+    a Google Account link; firebase auth lib deleted.
+  - Fixes along the way: trailingSlash removed (its 308s would corrupt the
+    OAuth callback), ufw now allows 443/udp (Caddy advertises HTTP/3 — QUIC was
+    firewalled, black-holing Chrome), lockfile now generated inside the
+    node:24-alpine build image so macOS/container npm can't drift.
+  - Note: browsers that visited during the trailing-slash era may hold a cached
+    308 on /login, /dashboard etc. — a hard refresh (Cmd+Shift+R) clears it.
+  - Remaining: user completes onboarding once to confirm the profile
+    persistence round-trip in prod (code path already unit-tested).
 - **2026-07-11 — SITE LIVE: https://aiplaymatch.com** (valid Let's Encrypt cert;
   www 301s to apex; A + AAAA records for apex and www set via the Porkbun API —
   parking ALIAS/wildcard-CNAME removed, MX/NS left untouched). App is in mock
