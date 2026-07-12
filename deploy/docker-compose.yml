@@ -24,6 +24,8 @@ services:
       - .env
     environment:
       UPLOAD_DIR: /app/uploads
+      OLLAMA_URL: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma2:2b}
     volumes:
       - uploads:/app/uploads
     expose:
@@ -31,6 +33,21 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      ollama:
+        condition: service_started
+
+  ollama:
+    image: ollama/ollama
+    restart: unless-stopped
+    volumes:
+      - ollama_models:/root/.ollama
+    # CPU inference; cap memory so a spike can't OOM the app/db.
+    deploy:
+      resources:
+        limits:
+          memory: 6g
+    expose:
+      - "11434"
 
   postgres:
     image: postgres:16
@@ -52,3 +69,4 @@ volumes:
   caddy_config:
   pg_data:
   uploads:
+  ollama_models:
