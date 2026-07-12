@@ -556,6 +556,49 @@ describe("messages", () => {
   });
 });
 
+// ---------- Rally message helpers (Phase 5) ----------
+
+describe("insertRallyMessage / conversationContext", () => {
+  it("insertRallyMessage inserts as Rally, bumps unread for humans, updates the conversation", async () => {
+    const c = await data.createGroupConversation(db, ALICE, [ALICE, BOB], "", "G", "intro");
+    await data.markConversationRead(db, ALICE, c.id);
+    await data.markConversationRead(db, BOB, c.id);
+
+    const m = await data.insertRallyMessage(db, c.id, "Court is booked, see you there.");
+    expect(m?.senderId).toBe(RALLY_ID);
+    expect(m?.isAI).toBe(true);
+
+    const parts = await rawDb
+      .select()
+      .from(schema.conversationParticipants)
+      .where(eq(schema.conversationParticipants.conversationId, c.id));
+    const unread = Object.fromEntries(parts.map((p) => [p.userId, p.unreadCount]));
+    expect(unread[ALICE]).toBe(1);
+    expect(unread[BOB]).toBe(1);
+    expect(unread[RALLY_ID]).toBe(0);
+
+    const conv = await data.getConversation(db, ALICE, c.id);
+    expect(conv.lastMessage).toBe("Court is booked, see you there.");
+  });
+
+  it("insertRallyMessage no-ops when Rally isn't in the conversation", async () => {
+    const c = await data.createDirectConversation(db, ALICE, BOB); // no Rally
+    const m = await data.insertRallyMessage(db, c.id, "should not appear");
+    expect(m).toBeUndefined();
+    expect(await data.listMessages(db, ALICE, c.id)).toHaveLength(0);
+  });
+
+  it("conversationContext returns messages, human names, and hasRally", async () => {
+    const c = await data.createGroupConversation(db, ALICE, [ALICE, BOB], "", "G", "intro");
+    await data.sendMessage(db, ALICE, c.id, "@rally where do we play?");
+    const ctx = await data.conversationContext(db, c.id);
+    expect(ctx.hasRally).toBe(true);
+    expect(ctx.names[ALICE]).toBe("Alice");
+    expect(ctx.names[RALLY_ID]).toBeUndefined(); // Rally excluded from name map
+    expect(ctx.messages.some((m) => m.text.includes("where do we play"))).toBe(true);
+  });
+});
+
 // ---------- contacts ----------
 
 describe("contacts", () => {

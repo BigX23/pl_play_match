@@ -503,6 +503,60 @@ export async function sendMessage(db: Db, me: string, conversationId: string, te
   return toMessage(msg);
 }
 
+/** Insert a message from Rally (the AI). Bumps unread for all human members. */
+export async function insertRallyMessage(db: Db, conversationId: string, text: string) {
+  const parts = await participantsOf(db, conversationId);
+  if (!parts.some((p) => p.userId === RALLY_ID)) return; // Rally not in this chat
+
+  const msg = await db.transaction(async (tx) => {
+    const [m] = await tx
+      .insert(messages)
+      .values({ conversationId, senderId: RALLY_ID, senderName: "Rally", text, isAi: true })
+      .returning();
+    await tx
+      .update(conversations)
+      .set({ lastMessage: text, lastMessageAt: new Date() })
+      .where(eq(conversations.id, conversationId));
+    for (const p of parts) {
+      if (p.userId !== RALLY_ID) {
+        await tx
+          .update(conversationParticipants)
+          .set({ unreadCount: sql`${conversationParticipants.unreadCount} + 1` })
+          .where(
+            and(
+              eq(conversationParticipants.conversationId, conversationId),
+              eq(conversationParticipants.userId, p.userId)
+            )
+          );
+      }
+    }
+    return m;
+  });
+  await notifyChange(db, {
+    conversationId,
+    participants: parts.map((p) => p.userId).filter((u) => u !== RALLY_ID),
+  });
+  return toMessage(msg);
+}
+
+/** Load a conversation's messages + participant display names for Rally's prompt. */
+export async function conversationContext(db: Db, conversationId: string) {
+  const msgs = await db
+    .select()
+    .from(messages)
+    .where(eq(messages.conversationId, conversationId))
+    .orderBy(asc(messages.createdAt));
+  const parts = await participantsOf(db, conversationId);
+  const names: Record<string, string> = {};
+  const humanIds = parts.map((p) => p.userId).filter((u) => u !== RALLY_ID);
+  if (humanIds.length) {
+    const rows = await db.select().from(users).where(inArray(users.id, humanIds));
+    for (const u of rows) names[u.id] = u.firstName || u.name || "Player";
+  }
+  const hasRally = parts.some((p) => p.userId === RALLY_ID);
+  return { messages: msgs.map(toMessage), names, hasRally };
+}
+
 // ---------- contacts ----------
 
 export async function listContacts(db: Db, me: string) {
