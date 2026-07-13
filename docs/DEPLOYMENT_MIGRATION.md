@@ -49,6 +49,24 @@ not a bill or a service we run).
 
 ## Status
 
+- **2026-07-13 — Phase 6 complete: Web Push (VAPID) live; FCM removed entirely.**
+  - `src/server/push.ts` sends via the `web-push` library to a user's
+    `push_subscriptions`, pruning dead ones (404/410). Configured from VAPID_*
+    env. Higher-level triggers (new message, match request, match accepted)
+    mirror the old FCM Cloud Functions and fire via `after()` post-response.
+  - Routes: `/api/push/{subscribe,unsubscribe,vapid}`. The public key is served
+    at runtime (`/api/push/vapid`) — no build-time injection, survives rotation.
+  - Client `enablePushNotifications` registers the SW, subscribes via
+    PushManager with the fetched key, and persists the subscription; `sw.js`
+    handles `push` (show notification) + `notificationclick` (focus/open the
+    linked page). `firebase-messaging-sw.js` deleted.
+  - Verified in the live browser: SW registered + active (site-wide scope),
+    `/api/push/vapid` returns the key, subscribe endpoint runs and validates
+    (403 on a malformed body). Server send/prune/truncate logic is unit-tested.
+    Final step — granting the OS notification permission — is a user action
+    (via Settings → Enable Push Notifications); browsers forbid programmatic
+    permission grants.
+  - Tests: push + Web-Push client suites; 363 green; coverage gate passing.
 - **2026-07-13 — Phase 5 complete and verified in production. Rally is live on
   local Gemma — zero AI API cost, no key anywhere.**
   - Model: **gemma3:4b** (3.3 GB Q4) via Ollama on the VPS. Gemma 4 didn't fit:
