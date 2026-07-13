@@ -1,7 +1,10 @@
-# Firestore Database Schema
+# Firestore Database Schema  — ⚠️ DEPRECATED / HISTORICAL
 
-> **Single source of truth** for the Pleasanton PlayMatch database structure.
-> Last updated: 2026-02-17
+> **⚠️ OUT OF DATE.** This describes the original **Firestore** model, which no longer
+> exists. PlayMatch was migrated to **PostgreSQL** in July 2026. The current schema is
+> defined in code at `src/db/schema.ts` and documented in
+> [`ARCHITECTURE.md` §5](./ARCHITECTURE.md#5-data-model-postgres). This file is kept only
+> as historical reference for the pre-migration design.
 
 ---
 
