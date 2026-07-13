@@ -41,6 +41,10 @@ services:
     restart: unless-stopped
     volumes:
       - ollama_models:/root/.ollama
+    environment:
+      # Keep the model resident in RAM so Rally has no cold-start (~4 GB pinned;
+      # the box has headroom). Default is unload after 5 min idle.
+      OLLAMA_KEEP_ALIVE: "-1"
     # CPU inference; cap memory so a spike can't OOM the app/db.
     deploy:
       resources:
