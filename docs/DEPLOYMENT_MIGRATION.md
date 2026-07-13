@@ -49,6 +49,19 @@ not a bill or a service we run).
 
 ## Status
 
+- **2026-07-13 — Phase 7/8 complete: Firebase decommissioned. Migration DONE. 🎉**
+  - Removed all Firebase deps (firebase, @tanstack-query-firebase, @tanstack/
+    react-query — 76 packages), config (functions/, firebase.json,
+    firestore.rules/indexes, storage.rules, .firebaserc, .firebase/), and the
+    firestore.ts shim (imports repointed to @/lib/data). Stale comments refreshed.
+  - CI: `firebase-deploy.yml` → `ci.yml` (typecheck + lint + test + build).
+  - Verified: 363 tests green; site fully functional with **two real Google
+    users** (matching, requests, accepts, chat all working); **no Firebase
+    strings in the served bundle**; all API endpoints auth-gated. Vendor surface
+    is now exactly **OVH + Porkbun**.
+  - See `docs/OPERATIONS.md` for the runbook and the 3 manual close-out steps
+    (rotate the old Gemini key, delete the Firebase project, delete the local
+    admin-SDK json).
 - **2026-07-13 — Phase 6 complete: Web Push (VAPID) live; FCM removed entirely.**
   - `src/server/push.ts` sends via the `web-push` library to a user's
     `push_subscriptions`, pruning dead ones (404/410). Configured from VAPID_*
