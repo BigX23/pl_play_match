@@ -11,7 +11,7 @@ import {
   addContact,
   deleteConversation,
   markConversationRead,
-} from "@/lib/firestore";
+} from "@/lib/data";
 import { type Message, type Conversation, getPlayerById, RALLY_USER } from "@/lib/mock-data";
 import MessageBubble from "@/components/message-bubble";
 import ChatInput from "@/components/chat-input";
@@ -82,11 +82,11 @@ export default function ChatPage() {
       const names: Record<string, string> = { [RALLY_USER.id]: RALLY_USER.name };
       for (const id of otherIds) {
         if (id === RALLY_USER.id || id === "ai") { names[id] = RALLY_USER.name; continue; }
-        const firestoreUser = await getUser(id);
-        if (firestoreUser) {
-          names[id] = firestoreUser.firstName
-            ? `${firestoreUser.firstName} ${firestoreUser.lastName || ""}`.trim()
-            : firestoreUser.name;
+        const dbUser = await getUser(id);
+        if (dbUser) {
+          names[id] = dbUser.firstName
+            ? `${dbUser.firstName} ${dbUser.lastName || ""}`.trim()
+            : dbUser.name;
         } else {
           names[id] = getPlayerById(id)?.name || "Unknown";
         }

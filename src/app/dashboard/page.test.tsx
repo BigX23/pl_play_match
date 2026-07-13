@@ -7,7 +7,7 @@ import { makePlayer, makeAuth } from "../test-fixtures";
 let authValue: ReturnType<typeof makeAuth>;
 vi.mock("@/lib/auth-context", () => ({ useAuth: () => authValue }));
 
-vi.mock("@/lib/firestore", () => ({
+vi.mock("@/lib/data", () => ({
   getMatches: vi.fn(),
   getPlayers: vi.fn(),
   getMatchRequests: vi.fn(),
@@ -25,7 +25,7 @@ import {
   updateMatchRequest,
   createGroupConversation,
   addContact,
-} from "@/lib/firestore";
+} from "@/lib/data";
 import DashboardPage from "./page";
 
 const self = makePlayer({ id: "u_self" });

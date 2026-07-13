@@ -11,7 +11,7 @@ let authValue: ReturnType<typeof makeAuth>;
 vi.mock("@/lib/auth-context", () => ({ useAuth: () => authValue }));
 
 // getUser is used by the nested ConversationCard to resolve names.
-vi.mock("@/lib/firestore", () => ({
+vi.mock("@/lib/data", () => ({
   subscribeConversations: vi.fn(),
   getContacts: vi.fn(),
   addContact: vi.fn(),
@@ -30,7 +30,7 @@ import {
   createDirectConversation,
   findPlayerByEmail,
   getUser,
-} from "@/lib/firestore";
+} from "@/lib/data";
 import MessagesPage from "./page";
 
 const self = makePlayer({ id: "u_self", firstName: "Self" });

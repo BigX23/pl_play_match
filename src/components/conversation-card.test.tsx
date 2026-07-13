@@ -5,7 +5,7 @@ import type { Conversation } from "@/lib/mock-data";
 import { players } from "@/lib/mock-data";
 
 // getUser returns undefined so the component falls back to getPlayerById.
-vi.mock("@/lib/firestore", () => ({
+vi.mock("@/lib/data", () => ({
   getUser: vi.fn(async () => undefined),
 }));
 
@@ -119,7 +119,7 @@ describe("ConversationCard", () => {
   });
 
   it("resolves a name from the firestore user when getUser returns one", async () => {
-    const { getUser } = await import("@/lib/firestore");
+    const { getUser } = await import("@/lib/data");
     (getUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       firstName: "Firestore",
       lastName: "User",

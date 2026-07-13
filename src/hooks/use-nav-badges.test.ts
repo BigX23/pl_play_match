@@ -8,7 +8,7 @@ vi.mock("@/lib/auth-context", () => ({
 
 const subscribeConversationsMock = vi.fn();
 const getNotificationsMock = vi.fn();
-vi.mock("@/lib/firestore", () => ({
+vi.mock("@/lib/data", () => ({
   subscribeConversations: (...args: unknown[]) => subscribeConversationsMock(...args),
   getNotifications: (...args: unknown[]) => getNotificationsMock(...args),
 }));

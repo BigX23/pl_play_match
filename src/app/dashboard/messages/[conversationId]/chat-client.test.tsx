@@ -18,7 +18,7 @@ vi.mock("next/navigation", () => ({
 const me = makePlayer({ id: "me", name: "Me User", firstName: "Me", lastName: "User", email: "me@example.com" });
 vi.mock("@/lib/auth-context", () => ({ useAuth: () => makeAuth(me) }));
 
-vi.mock("@/lib/firestore", () => ({
+vi.mock("@/lib/data", () => ({
   subscribeMessages: vi.fn(),
   sendMessage: vi.fn(),
   getUser: vi.fn(),
@@ -36,7 +36,7 @@ import {
   addContact,
   deleteConversation,
   markConversationRead,
-} from "@/lib/firestore";
+} from "@/lib/data";
 import ChatPage from "./chat-client";
 
 function makeConversation(overrides: Partial<Conversation> = {}): Conversation {

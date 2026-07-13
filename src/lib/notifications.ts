@@ -1,6 +1,6 @@
 /**
  * Notification preferences (localStorage) + push scaffolding.
- * FCM was removed with Firebase; Web Push (VAPID) arrives in Phase 6 —
+ * Web Push (VAPID) handles delivery;
  * until then enablePushNotifications reports unavailable.
  */
 

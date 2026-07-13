@@ -17,7 +17,7 @@ vi.mock("@/lib/auth-context", () => ({ useAuth: () => makeAuth(me) }));
 const toastMock = vi.fn();
 vi.mock("@/hooks/use-toast", () => ({ useToast: () => ({ toast: toastMock }) }));
 
-vi.mock("@/lib/firestore", () => ({
+vi.mock("@/lib/data", () => ({
   getMatches: vi.fn(),
   getPlayers: vi.fn(),
   createMatch: vi.fn(),
@@ -40,7 +40,7 @@ import {
   createGroupConversation,
   addContact,
   getUser,
-} from "@/lib/firestore";
+} from "@/lib/data";
 import OpenMatchesPage from "./page";
 
 /* ── mutable fixtures the mocked data layer serves ── */

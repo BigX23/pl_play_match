@@ -9,7 +9,7 @@ import { type Player } from "./mock-data";
  *
  * The full profile lives in Postgres and is served by /api/me; this context
  * loads it once, exposes it as `user`, and persists edits via PATCH /api/me.
- * The exported interface is unchanged from the Firebase era so pages and
+ * The exported interface is kept stable across the backend migration so pages and
  * components don't need to know the backend moved.
  *
  * Mock mode (NEXT_PUBLIC_MOCK_AUTH="true", local dev only): a fake user kept

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Trophy, Calendar, TrendingUp, Users, Send, Check, X, MessageCircle, Bell, Clock, CircleCheck, Target } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { getMatches, getPlayers, getMatchRequests, createMatchRequest, updateMatchRequest, createGroupConversation, addContact } from "@/lib/firestore";
+import { getMatches, getPlayers, getMatchRequests, createMatchRequest, updateMatchRequest, createGroupConversation, addContact } from "@/lib/data";
 import { type Match, type Player, type MatchRequest, getPlayerById, playerToUserProfile } from "@/lib/mock-data";
 import { findMatches, type MatchResult } from "@/lib/matching-engine";
 import { buildMatchIntro } from "@/lib/ai-assistant";

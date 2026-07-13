@@ -11,7 +11,7 @@ import {
 /**
  * Client data layer — REST client for the app's API routes (Postgres behind
  * session-authorized endpoints). Function names/signatures match the old
- * Firestore-era module so pages didn't have to change.
+ * the previous data module, so page imports did not have to change.
  *
  * subscribe* helpers poll for now; Phase 4 replaces them with SSE.
  */

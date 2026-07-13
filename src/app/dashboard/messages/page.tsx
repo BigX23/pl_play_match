@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
-import { subscribeConversations, getContacts, addContact, removeContact, createDirectConversation, deleteConversation } from "@/lib/firestore";
+import { subscribeConversations, getContacts, addContact, removeContact, createDirectConversation, deleteConversation } from "@/lib/data";
 import { type Conversation, type Contact, getPlayerById, RALLY_USER } from "@/lib/mock-data";
 import ConversationCard from "@/components/conversation-card";
 import { MessageSquare, Users, Plus, UserPlus, Trash2, MessageCircle } from "lucide-react";
@@ -52,7 +52,7 @@ export default function MessagesPage() {
     if (!user || !addContactEmail.trim()) return;
     setAddContactError("");
     // Exact-email lookup server-side (player emails are not in the public list).
-    const { findPlayerByEmail } = await import("@/lib/firestore");
+    const { findPlayerByEmail } = await import("@/lib/data");
     const found = await findPlayerByEmail(addContactEmail.trim());
     if (!found || found.id === user.id || found.id === RALLY_USER.id) {
       setAddContactError("No user found with that email");

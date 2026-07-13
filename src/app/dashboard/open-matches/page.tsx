@@ -45,7 +45,7 @@ import {
   addContact,
   getUser,
   updateUser,
-} from "@/lib/firestore";
+} from "@/lib/data";
 import { type Match, type MatchStatus, type Player, type Contact, getPlayerById } from "@/lib/mock-data";
 import { buildMatchIntro } from "@/lib/ai-assistant";
 import { useToast } from "@/hooks/use-toast";
@@ -119,10 +119,10 @@ export default function OpenMatchesPage() {
     if (playerCache[id]) return playerCache[id];
     const p = allPlayers.find((pl) => pl.id === id);
     if (p) return p;
-    const firestoreUser = await getUser(id);
-    if (firestoreUser) {
-      setPlayerCache((prev) => ({ ...prev, [id]: firestoreUser }));
-      return firestoreUser;
+    const dbUser = await getUser(id);
+    if (dbUser) {
+      setPlayerCache((prev) => ({ ...prev, [id]: dbUser }));
+      return dbUser;
     }
     return getPlayerById(id);
   };

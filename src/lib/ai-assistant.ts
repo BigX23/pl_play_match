@@ -6,11 +6,10 @@ export const AI_SENDER_NAME = "Rally";
 /**
  * Rally AI — shared, key-free helpers.
  *
- * The live Gemini call runs server-side in a Cloud Function (functions/src),
- * so no API key is ever shipped to the browser. This module holds the pure
- * pieces both client and function need: the trigger check, the system prompt,
- * history construction, and a deterministic static fallback used in mock/dev
- * mode where no function is available.
+ * The live generation runs server-side against a local Ollama model
+ * (src/server/rally.ts). This module holds the pure pieces both sides use: the
+ * trigger check, the system prompt, history construction, and a deterministic
+ * static fallback used when the model is unavailable.
  */
 
 // ---------- System prompt ----------
@@ -88,7 +87,7 @@ export function buildHistory(
   return lines.join("\n");
 }
 
-/** Compose the full prompt the Cloud Function sends to Gemini. */
+/** Compose the full prompt sent to the model. */
 export function buildRallyPrompt(
   msgs: Message[],
   names: Record<string, string>
@@ -108,8 +107,8 @@ export function clampWords(text: string, maxWords = 80): string {
 
 // ---------- Static fallback (mock/dev mode) ----------
 /**
- * Deterministic keyword response used when no Cloud Function is available
- * (mock mode). Calm, concrete voice — matches the system prompt.
+ * Deterministic keyword response used when the model is unavailable.
+ * Calm, concrete voice — matches the system prompt.
  */
 export function getStaticResponse(text: string): string {
   const lower = text.toLowerCase();
@@ -126,10 +125,7 @@ export function getStaticResponse(text: string): string {
   return "Happy to help — ask me about scheduling, courts, or match logistics.";
 }
 
-/**
- * Client-side reply used in mock mode. In a Firebase deploy the Cloud Function
- * generates the reply server-side instead.
- */
+/** Deterministic fallback reply (newest message → static response). */
 export function getRallyFallbackResponse(msgs: Message[]): string | null {
   const last = msgs[msgs.length - 1];
   return last ? getStaticResponse(last.text) : null;

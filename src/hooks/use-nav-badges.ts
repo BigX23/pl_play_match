@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
-import { subscribeConversations, getNotifications } from "@/lib/firestore";
+import { subscribeConversations, getNotifications } from "@/lib/data";
 
 /**
  * Live unread counts for the nav badges: total unread messages across

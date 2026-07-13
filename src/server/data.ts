@@ -18,8 +18,8 @@ import {
 
 /**
  * Server data layer. Every function takes the Drizzle db and the SESSION user
- * id (`me`) and enforces authorization — the moved-over logic of the old
- * firestore.rules. Route handlers stay thin.
+ * id (`me`) and enforces authorization here (the logic that used to live in the
+ * old database security rules). Route handlers stay thin.
  *
  * Errors: throws AuthzError for permission failures (routes map to 403),
  * NotFoundError for missing rows (404).

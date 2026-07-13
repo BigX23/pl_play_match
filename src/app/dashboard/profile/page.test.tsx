@@ -14,7 +14,7 @@ vi.mock("next/navigation", () => ({
 const toastMock = vi.fn();
 vi.mock("@/hooks/use-toast", () => ({ useToast: () => ({ toast: toastMock }) }));
 
-vi.mock("@/lib/firestore", () => ({
+vi.mock("@/lib/data", () => ({
   getMatches: vi.fn(),
   getPlayers: vi.fn(),
   updateUser: vi.fn(),
@@ -27,7 +27,7 @@ vi.mock("@/lib/auth-context", () => ({
   useAuth: () => makeAuth(currentUser, { updateUserProfile: updateUserProfileMock }),
 }));
 
-import { getMatches, getPlayers, updateUser } from "@/lib/firestore";
+import { getMatches, getPlayers, updateUser } from "@/lib/data";
 import ProfilePage from "./page";
 
 function makeUser(): Player {

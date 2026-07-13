@@ -13,7 +13,7 @@ import { Camera, Edit2, Save, Settings, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
-import { getMatches, getPlayers, updateUser } from "@/lib/firestore";
+import { getMatches, getPlayers, updateUser } from "@/lib/data";
 import { type Match, type Player, getPlayerById } from "@/lib/mock-data";
 import type { GameType, SportType, MatchFormat, AgeRange, DayAvailability } from "@/lib/matching-engine";
 import { useToast } from "@/hooks/use-toast";

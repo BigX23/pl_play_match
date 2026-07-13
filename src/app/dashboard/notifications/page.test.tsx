@@ -9,7 +9,7 @@ vi.mock("@/lib/auth-context", () => ({ useAuth: () => authValue }));
 
 const getNotifications = vi.fn();
 const markNotificationRead = vi.fn();
-vi.mock("@/lib/firestore", () => ({
+vi.mock("@/lib/data", () => ({
   getNotifications: (...a: unknown[]) => getNotifications(...a),
   markNotificationRead: (...a: unknown[]) => markNotificationRead(...a),
 }));

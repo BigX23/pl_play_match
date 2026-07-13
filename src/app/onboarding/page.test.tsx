@@ -12,7 +12,7 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
-vi.mock("@/lib/firestore", () => ({
+vi.mock("@/lib/data", () => ({
   updateUser: vi.fn(),
 }));
 
@@ -29,7 +29,7 @@ vi.mock("@/lib/auth-context", () => ({
     }),
 }));
 
-import { updateUser } from "@/lib/firestore";
+import { updateUser } from "@/lib/data";
 import OnboardingPage from "./page";
 
 function makeUser(): Player {

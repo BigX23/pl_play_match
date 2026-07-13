@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { type Conversation, getPlayerById, RALLY_USER } from "@/lib/mock-data";
-import { getUser } from "@/lib/firestore";
+import { getUser } from "@/lib/data";
 import { Users, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -47,11 +47,11 @@ export default function ConversationCard({ conversation, currentUserId, onDelete
       }
       const names: string[] = [];
       for (const id of otherIds) {
-        const firestoreUser = await getUser(id);
-        if (firestoreUser) {
-          const name = firestoreUser.firstName
-            ? `${firestoreUser.firstName} ${firestoreUser.lastName || ""}`.trim()
-            : firestoreUser.name;
+        const dbUser = await getUser(id);
+        if (dbUser) {
+          const name = dbUser.firstName
+            ? `${dbUser.firstName} ${dbUser.lastName || ""}`.trim()
+            : dbUser.name;
           names.push(name);
         } else {
           const mockPlayer = getPlayerById(id);

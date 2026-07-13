@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
-import { getNotifications, markNotificationRead } from "@/lib/firestore";
+import { getNotifications, markNotificationRead } from "@/lib/data";
 import { type Notification } from "@/lib/mock-data";
 import NotificationCard from "@/components/notification-card";
 import { Bell } from "lucide-react";

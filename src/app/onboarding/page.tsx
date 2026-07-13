@@ -14,7 +14,7 @@ import { HelpCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import Image from "next/image";
 import { useAuth } from "@/lib/auth-context";
-import { updateUser } from "@/lib/firestore";
+import { updateUser } from "@/lib/data";
 import type { GameType, SportType, MatchFormat, AgeRange, DayAvailability, PartnerPreferences } from "@/lib/matching-engine";
 
 const EMOJI_AVATARS = ["🎾", "🏓", "💪", "🔥", "⭐", "🏆", "🎯", "🦊", "🐻", "🦁", "🐯", "🦅", "🐬", "🌟", "🎪", "🚀", "💎", "🌈", "🎭", "🎨"];
