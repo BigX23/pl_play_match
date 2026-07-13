@@ -1,10 +1,25 @@
+import { after } from "next/server";
 import { withUser, jsonBody } from "@/server/route-helpers";
-import { updateMatchRequest } from "@/server/data";
+import { updateMatchRequest, getPlayer } from "@/server/data";
+import { pushMatchAccepted } from "@/server/push";
+import { getDb } from "@/db";
 
 export const PATCH = withUser(async (db, me, req, params) => {
   const body = await jsonBody(req);
-  return updateMatchRequest(db, me, params.id, {
-    status: body.status ? String(body.status) : undefined,
-    conversationId: body.conversationId !== undefined ? String(body.conversationId) : undefined,
-  });
+  const status = body.status ? String(body.status) : undefined;
+  const conversationId = body.conversationId !== undefined ? String(body.conversationId) : undefined;
+  const updated = await updateMatchRequest(db, me, params.id, { status, conversationId });
+
+  if (status === "accepted") {
+    after(async () => {
+      const by = await getPlayer(getDb(), me).catch(() => null);
+      await pushMatchAccepted(
+        getDb(),
+        updated.fromUserId,
+        by?.firstName || by?.name || "Someone",
+        updated.conversationId ?? undefined
+      );
+    });
+  }
+  return updated;
 });

@@ -1,16 +1,18 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   loadPreferences,
   savePreferences,
   defaultPreferences,
   isPushSupported,
   getPushPermission,
-  initFCM,
   enablePushNotifications,
 } from "./notifications";
 
 beforeEach(() => {
   localStorage.removeItem("playmatch_notification_prefs");
+});
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 describe("preferences", () => {
@@ -50,13 +52,57 @@ describe("push support helpers", () => {
   });
 });
 
-describe("FCM in mock mode (unconfigured Firebase)", () => {
-  it("initFCM returns null", async () => {
-    expect(await initFCM()).toBeNull();
-  });
-  it("enablePushNotifications returns null", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+describe("enablePushNotifications (Web Push)", () => {
+  it("returns null when push isn't supported (jsdom has no serviceWorker)", async () => {
+    // jsdom lacks navigator.serviceWorker → isPushSupported() is false.
     expect(await enablePushNotifications("u1")).toBeNull();
-    warn.mockRestore();
+  });
+
+  it("returns null when permission is denied", async () => {
+    vi.stubGlobal("Notification", {
+      permission: "default",
+      requestPermission: vi.fn().mockResolvedValue("denied"),
+    });
+    Object.defineProperty(navigator, "serviceWorker", {
+      value: { ready: Promise.resolve({}) },
+      configurable: true,
+    });
+    expect(await enablePushNotifications("u1")).toBeNull();
+    // @ts-expect-error cleanup
+    delete navigator.serviceWorker;
+  });
+
+  it("subscribes and POSTs the subscription when granted", async () => {
+    vi.stubGlobal("Notification", {
+      permission: "granted",
+      requestPermission: vi.fn().mockResolvedValue("granted"),
+    });
+    const subscription = {
+      endpoint: "https://push.example/abc",
+      toJSON: () => ({ endpoint: "https://push.example/abc", keys: { p256dh: "p", auth: "a" } }),
+    };
+    Object.defineProperty(navigator, "serviceWorker", {
+      value: {
+        ready: Promise.resolve({
+          pushManager: {
+            getSubscription: vi.fn().mockResolvedValue(null),
+            subscribe: vi.fn().mockResolvedValue(subscription),
+          },
+        }),
+      },
+      configurable: true,
+    });
+    const vapid = "BJdrAzNdtVMS5-j8-bjhhh2UmROQLD07b2_FRJZbCDFQJtmbMC1j_9klY7_m7smJ9KzfN8FztJVxeCoSoI0XimI";
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ publicKey: vapid }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(null, { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await enablePushNotifications("u1");
+    expect(result).toBe("https://push.example/abc");
+    expect(fetchMock).toHaveBeenCalledWith("/api/push/vapid");
+    expect(fetchMock).toHaveBeenCalledWith("/api/push/subscribe", expect.objectContaining({ method: "POST" }));
+    // @ts-expect-error cleanup
+    delete navigator.serviceWorker;
   });
 });

@@ -8,6 +8,7 @@ import {
   matches,
   messages,
   notifications,
+  pushSubscriptions,
   users,
   type DbConversation,
   type DbMatch,
@@ -616,4 +617,39 @@ export async function markNotificationRead(db: Db, me: string, notificationId: s
     .where(and(eq(notifications.id, notificationId), eq(notifications.userId, me)))
     .returning();
   if (!row) throw new NotFoundError("notification");
+}
+
+// ---------- push subscriptions (Phase 6) ----------
+
+export async function addPushSubscription(
+  db: Db,
+  me: string,
+  sub: { endpoint: string; p256dh: string; auth: string }
+) {
+  // An endpoint is unique to a browser install; upsert so it binds to `me`.
+  await db
+    .insert(pushSubscriptions)
+    .values({ userId: me, endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth })
+    .onConflictDoUpdate({
+      target: pushSubscriptions.endpoint,
+      set: { userId: me, p256dh: sub.p256dh, auth: sub.auth },
+    });
+}
+
+export async function removePushSubscription(db: Db, me: string, endpoint: string) {
+  await db
+    .delete(pushSubscriptions)
+    .where(and(eq(pushSubscriptions.endpoint, endpoint), eq(pushSubscriptions.userId, me)));
+}
+
+/** Human participants of a conversation other than `exceptUserId`. */
+export async function otherHumanParticipants(
+  db: Db,
+  conversationId: string,
+  exceptUserId: string
+): Promise<string[]> {
+  const parts = await participantsOf(db, conversationId);
+  return parts
+    .map((p) => p.userId)
+    .filter((u) => u !== RALLY_ID && u !== exceptUserId);
 }
