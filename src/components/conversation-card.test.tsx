@@ -118,13 +118,12 @@ describe("ConversationCard", () => {
     await waitFor(() => expect(screen.getByText("3d")).toBeInTheDocument());
   });
 
-  it("resolves a name from the firestore user when getUser returns one", async () => {
+  it("uses the privacy-safe name the API returns for a db user", async () => {
     const { getUser } = await import("@/lib/data");
     (getUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      firstName: "Firestore",
-      lastName: "User",
+      name: "Firestore U.",
     });
     render(<ConversationCard conversation={makeConversation()} currentUserId="me" />);
-    await waitFor(() => expect(screen.getByText("Firestore User")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Firestore U.")).toBeInTheDocument());
   });
 });

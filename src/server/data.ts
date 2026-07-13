@@ -26,6 +26,8 @@ import {
  */
 
 import { notifyChange } from "./realtime";
+import { displayName, ageBracket } from "@/lib/privacy";
+import { findMatches, type UserProfile, type SportType, type MatchFormat, type GameType } from "@/lib/matching-engine";
 
 export class AuthzError extends Error {}
 export class NotFoundError extends Error {}
@@ -36,14 +38,18 @@ export const RALLY_ID = "rally";
 
 // ---------- serialization ----------
 
-/** Public player card — NO email, NO private fields. */
+/**
+ * Public player card shown to OTHER users. Deliberately privacy-minimized:
+ * first name + last initial only (`name`), a 5-year `ageBracket` instead of the
+ * exact age, and NO email, last name, availability, or partner preferences.
+ * (A user's own full profile comes from /api/me, not this.)
+ */
 export function toPublicPlayer(u: DbUser) {
   return {
     id: u.id,
-    name: u.name ?? `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim(),
+    name: displayName(u.firstName, u.lastName),
     firstName: u.firstName ?? undefined,
-    lastName: u.lastName ?? undefined,
-    age: u.age ?? undefined,
+    ageBracket: ageBracket(u.age ?? undefined),
     gender: u.gender ?? undefined,
     avatar: u.avatar ?? u.image ?? "",
     photoURL: u.photoUrl ?? undefined,
@@ -52,8 +58,6 @@ export function toPublicPlayer(u: DbUser) {
     sports: u.sports ?? undefined,
     matchFormats: u.matchFormats ?? undefined,
     gameType: u.gameType ?? undefined,
-    weeklyAvailability: u.weeklyAvailability ?? undefined,
-    partnerPreferences: u.partnerPreferences ?? undefined,
     profileComplete: u.profileComplete,
     matchesPlayed: u.matchesPlayed,
     wins: u.wins,
@@ -65,6 +69,29 @@ export function toPublicPlayer(u: DbUser) {
     availability: [] as string[],
     preferredTimes: [] as string[],
     joinedDate: u.createdAt.toISOString(),
+  };
+}
+
+/** Build a matching-engine profile from a DB row (server-side; uses real data). */
+function dbUserToProfile(u: DbUser): UserProfile | null {
+  if (!u.profileComplete || !u.firstName || !u.weeklyAvailability || !u.partnerPreferences) {
+    return null;
+  }
+  return {
+    id: u.id,
+    firstName: u.firstName,
+    lastName: u.lastName ?? "",
+    age: u.age ?? 30,
+    gender: u.gender ?? "Prefer not to say",
+    avatar: u.avatar ?? "",
+    aboutMe: u.aboutMe ?? u.bio ?? undefined,
+    ntrpRating: u.ntrpRating ?? 0,
+    sports: (u.sports as SportType[]) ?? ["tennis"],
+    matchFormats: (u.matchFormats as MatchFormat[]) ?? ["singles"],
+    gameType: (u.gameType as GameType) ?? "slightly-competitive",
+    availability: u.weeklyAvailability,
+    partnerPreferences: u.partnerPreferences,
+    profileComplete: true,
   };
 }
 
@@ -124,6 +151,31 @@ export async function getPlayer(db: Db, id: string) {
   const [row] = await db.select().from(users).where(eq(users.id, id)).limit(1);
   if (!row) throw new NotFoundError("player");
   return toPublicPlayer(row);
+}
+
+/**
+ * Ranked compatibility suggestions for the signed-in user. Runs the matching
+ * engine server-side over real profiles, then returns only privacy-safe public
+ * player cards (name + ageBracket) with a `matchScore`. Exact ages / partner
+ * preferences never leave the server.
+ */
+export async function getMatchSuggestions(db: Db, me: string) {
+  const rows = await db.select().from(users);
+  const meRow = rows.find((u) => u.id === me);
+  const myProfile = meRow ? dbUserToProfile(meRow) : null;
+  if (!myProfile) return [];
+
+  const others = rows
+    .filter((u) => u.id !== me && u.id !== RALLY_ID)
+    .map(dbUserToProfile)
+    .filter((p): p is UserProfile => p !== null);
+
+  const results = findMatches(myProfile, others);
+  const byId = new Map(rows.map((u) => [u.id, u]));
+  return results.map((r) => ({
+    ...toPublicPlayer(byId.get(r.user.id)!),
+    matchScore: r.score,
+  }));
 }
 
 /** Exact-email lookup for explicit contact adds; returns email on match. */

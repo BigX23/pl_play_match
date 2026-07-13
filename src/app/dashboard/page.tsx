@@ -7,9 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Trophy, Calendar, TrendingUp, Users, Send, Check, X, MessageCircle, Bell, Clock, CircleCheck, Target } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { getMatches, getPlayers, getMatchRequests, createMatchRequest, updateMatchRequest, createGroupConversation, addContact } from "@/lib/data";
-import { type Match, type Player, type MatchRequest, getPlayerById, playerToUserProfile } from "@/lib/mock-data";
-import { findMatches, type MatchResult } from "@/lib/matching-engine";
+import { getMatches, getPlayers, getMatchSuggestions, getMatchRequests, createMatchRequest, updateMatchRequest, createGroupConversation, addContact } from "@/lib/data";
+import { type Match, type Player, type MatchRequest, getPlayerById } from "@/lib/mock-data";
 import { buildMatchIntro } from "@/lib/ai-assistant";
 import Link from "next/link";
 
@@ -29,7 +28,7 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const [userMatches, setUserMatches] = useState<Match[]>([]);
   const [allPlayers, setAllPlayers] = useState<Player[]>([]);
-  const [matchResults, setMatchResults] = useState<MatchResult[]>([]);
+  const [suggestions, setSuggestions] = useState<Player[]>([]);
   const [requests, setRequests] = useState<MatchRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [sendingTo, setSendingTo] = useState<string | null>(null);
@@ -40,24 +39,16 @@ export default function DashboardPage() {
   const loadData = useCallback(async () => {
     if (!displayUser) return;
     try {
-      const [m, p, r] = await Promise.all([
+      const [m, p, r, s] = await Promise.all([
         getMatches(displayUser.id),
         getPlayers(),
         getMatchRequests(displayUser.id),
+        getMatchSuggestions(),
       ]);
       setUserMatches(m);
       setAllPlayers(p);
       setRequests(r);
-
-      // Run matching engine
-      const myProfile = playerToUserProfile(displayUser as Player);
-      if (myProfile) {
-        const otherProfiles = p
-          .filter((pl) => pl.id !== displayUser.id)
-          .map(playerToUserProfile)
-          .filter(Boolean) as NonNullable<ReturnType<typeof playerToUserProfile>>[];
-        setMatchResults(findMatches(myProfile, otherProfiles));
-      }
+      setSuggestions(s); // scored server-side; privacy-safe (name + ageBracket)
     } catch (e) {
       console.error("Failed to load dashboard data:", e);
     } finally {
@@ -274,11 +265,11 @@ export default function DashboardPage() {
           <CardTitle className="text-lg flex items-center gap-2"><Target className="h-5 w-5 text-primary" /> Your Top Matches</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {matchResults.length === 0 ? (
+          {suggestions.length === 0 ? (
             <p className="text-muted-foreground text-sm">No compatible players found yet. Check back soon!</p>
           ) : (
-            matchResults.slice(0, 10).map(({ user: matchUser, score }) => {
-              const player = allPlayers.find((p) => p.id === matchUser.id) || getPlayerById(matchUser.id);
+            suggestions.slice(0, 10).map((matchUser) => {
+              const score = matchUser.matchScore ?? 0;
               const requested = alreadyRequested.has(matchUser.id);
               return (
                 <div key={matchUser.id} className={`flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors ${scoreBg(score)}`}>
@@ -286,11 +277,13 @@ export default function DashboardPage() {
                     <div className="text-2xl">{matchUser.avatar || "👤"}</div>
                     <div>
                       <p className="font-medium">
-                        {matchUser.firstName} {matchUser.lastName}{" "}
+                        {matchUser.name}{" "}
                         <span className="text-xs text-muted-foreground">NTRP {matchUser.ntrpRating}</span>
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        Age {matchUser.age} · {matchUser.sports.join(", ")} · {matchUser.gameType.replace("-", " ")}
+                        {matchUser.ageBracket ? `Age ${matchUser.ageBracket} · ` : ""}
+                        {(matchUser.sports ?? []).join(", ")}
+                        {matchUser.gameType ? ` · ${matchUser.gameType.replace("-", " ")}` : ""}
                       </p>
                     </div>
                   </div>

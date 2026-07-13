@@ -49,10 +49,7 @@ export default function ConversationCard({ conversation, currentUserId, onDelete
       for (const id of otherIds) {
         const dbUser = await getUser(id);
         if (dbUser) {
-          const name = dbUser.firstName
-            ? `${dbUser.firstName} ${dbUser.lastName || ""}`.trim()
-            : dbUser.name;
-          names.push(name);
+          names.push(dbUser.name); // privacy-safe "First L."
         } else {
           const mockPlayer = getPlayerById(id);
           if (mockPlayer) names.push(mockPlayer.name);

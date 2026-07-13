@@ -13,7 +13,9 @@ import {
   markConversationRead,
 } from "@/lib/data";
 import { type Message, type Conversation, getPlayerById, RALLY_USER } from "@/lib/mock-data";
+import { shouldRallyRespond } from "@/lib/ai-assistant";
 import MessageBubble from "@/components/message-bubble";
+import RallyTyping from "@/components/rally-typing";
 import ChatInput from "@/components/chat-input";
 import { ArrowLeft, Users, User, Trash2, UserPlus, MoreVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -58,7 +60,15 @@ export default function ChatPage() {
   const [msgs, setMsgs] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [rallyTyping, setRallyTyping] = useState(false);
+  const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const stopTyping = () => {
+    setRallyTyping(false);
+    if (typingTimeout.current) { clearTimeout(typingTimeout.current); typingTimeout.current = null; }
+  };
+  useEffect(() => () => { if (typingTimeout.current) clearTimeout(typingTimeout.current); }, []);
 
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [participantNames, setParticipantNames] = useState<Record<string, string>>({});
@@ -84,9 +94,7 @@ export default function ChatPage() {
         if (id === RALLY_USER.id || id === "ai") { names[id] = RALLY_USER.name; continue; }
         const dbUser = await getUser(id);
         if (dbUser) {
-          names[id] = dbUser.firstName
-            ? `${dbUser.firstName} ${dbUser.lastName || ""}`.trim()
-            : dbUser.name;
+          names[id] = dbUser.name; // privacy-safe "First L."
         } else {
           names[id] = getPlayerById(id)?.name || "Unknown";
         }
@@ -110,10 +118,17 @@ export default function ChatPage() {
     markConversationRead(conversationId, user.id);
   }, [user, conversationId, msgs.length]);
 
-  // Auto-scroll
+  // Clear the "Rally is typing" indicator once Rally's reply actually arrives.
+  useEffect(() => {
+    if (rallyTyping && msgs.length && msgs[msgs.length - 1].senderId === RALLY_USER.id) {
+      stopTyping();
+    }
+  }, [msgs, rallyTyping]);
+
+  // Auto-scroll (also when the typing indicator appears)
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [msgs]);
+  }, [msgs, rallyTyping]);
 
   const isGroup = conversation?.type === "group" || conversation?.participants?.includes("rally") || conversation?.participants?.includes("ai");
   const hasRally = conversation?.participants?.includes(RALLY_USER.id) || conversation?.participants?.includes("ai");
@@ -126,10 +141,17 @@ export default function ChatPage() {
 
   const handleSend = async (text: string) => {
     if (!user || !conversationId) return;
+    // If Rally will reply (server-side), show a typing indicator right away so
+    // the user knows a response is coming. Cleared when the reply arrives, or
+    // after a timeout if generation fails silently.
+    if (hasRally && shouldRallyRespond(text)) {
+      setRallyTyping(true);
+      if (typingTimeout.current) clearTimeout(typingTimeout.current);
+      typingTimeout.current = setTimeout(() => setRallyTyping(false), 90_000);
+    }
     const sent = await sendMessage(conversationId, text);
     // Show immediately; the poll/stream refresh keeps it consistent.
     setMsgs((prev) => (prev.some((m) => m.id === sent.id) ? prev : [...prev, sent]));
-    // Rally's AI replies are generated server-side (Phase 5).
   };
 
   const handleDelete = async () => {
@@ -235,6 +257,7 @@ export default function ChatPage() {
             </div>
           );
         })}
+        {rallyTyping && <RallyTyping />}
         <div ref={scrollRef} />
       </div>
 

@@ -114,6 +114,11 @@ export async function getMatches(userId?: string): Promise<Match[]> {
   return get<Match[]>(userId ? "/api/matches?mine=1" : "/api/matches");
 }
 
+/** Ranked compatibility suggestions (privacy-safe players + matchScore). */
+export async function getMatchSuggestions(): Promise<Player[]> {
+  return get<Player[]>("/api/matches/suggestions");
+}
+
 export async function createMatch(data: Omit<Match, "id">): Promise<string> {
   const m = await send<Match>("POST", "/api/matches", data);
   return m.id;

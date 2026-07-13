@@ -10,6 +10,7 @@ vi.mock("@/lib/auth-context", () => ({ useAuth: () => authValue }));
 vi.mock("@/lib/data", () => ({
   getMatches: vi.fn(),
   getPlayers: vi.fn(),
+  getMatchSuggestions: vi.fn(),
   getMatchRequests: vi.fn(),
   createMatchRequest: vi.fn(),
   updateMatchRequest: vi.fn(),
@@ -20,6 +21,7 @@ vi.mock("@/lib/data", () => ({
 import {
   getMatches,
   getPlayers,
+  getMatchSuggestions,
   getMatchRequests,
   createMatchRequest,
   updateMatchRequest,
@@ -34,6 +36,7 @@ const self = makePlayer({ id: "u_self" });
 let playersData: Player[];
 let matchesData: Match[];
 let requestsData: MatchRequest[];
+let suggestionsData: Player[];
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -41,9 +44,11 @@ beforeEach(() => {
   playersData = [self];
   matchesData = [];
   requestsData = [];
+  suggestionsData = [];
 
   vi.mocked(getMatches).mockImplementation(async () => [...matchesData]);
   vi.mocked(getPlayers).mockImplementation(async () => [...playersData]);
+  vi.mocked(getMatchSuggestions).mockImplementation(async () => [...suggestionsData]);
   vi.mocked(getMatchRequests).mockImplementation(async () => [...requestsData]);
   vi.mocked(createMatchRequest).mockImplementation(async (data) => {
     requestsData.push({ id: `mr_${requestsData.length}`, ...data });
@@ -84,11 +89,13 @@ describe("DashboardPage", () => {
   });
 
   it("shows top matches and lets the user send a request", async () => {
-    const other = makePlayer({ id: "u_other", name: "Other Person", firstName: "Other", lastName: "Person" });
+    // Suggestions come from the server privacy-minimized: "First L." + age bracket.
+    const other = { ...makePlayer({ id: "u_other", name: "Other P.", firstName: "Other" }), ageBracket: "45 - 50", matchScore: 80 } as Player;
     playersData = [self, other];
+    suggestionsData = [other];
     render(<DashboardPage />);
     expect(await screen.findByText("Your Top Matches")).toBeInTheDocument();
-    expect(await screen.findByText(/Other Person/i)).toBeInTheDocument();
+    expect(await screen.findByText("Other P.")).toBeInTheDocument();
     const matchBtn = await screen.findByRole("button", { name: /Match/i });
     const user = userEvent.setup();
     await user.click(matchBtn);

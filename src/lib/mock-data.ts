@@ -28,6 +28,10 @@ export interface Player {
   weeklyAvailability?: DayAvailability[];
   partnerPreferences?: PartnerPreferences;
   profileComplete?: boolean;
+  /** 5-year age bracket ("45 - 50") shown for OTHER users instead of exact age. */
+  ageBracket?: string;
+  /** Compatibility % — present on match-suggestion results only. */
+  matchScore?: number;
 }
 
 export type MatchStatus = "open" | "pending" | "confirmed" | "scheduled" | "in_progress" | "completed" | "cancelled";

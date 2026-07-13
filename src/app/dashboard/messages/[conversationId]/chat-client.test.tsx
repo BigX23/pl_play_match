@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Conversation, Message } from "@/lib/mock-data";
@@ -67,15 +67,19 @@ function makeMessage(overrides: Partial<Message> = {}): Message {
 
 let messagesData: Message[];
 const unsubscribe = vi.fn();
+// Captured so tests can push a later message (e.g. Rally's reply) after mount.
+let messagesCb: ((m: Message[]) => void) | null = null;
 
 beforeEach(() => {
   vi.clearAllMocks();
   currentPath = "/dashboard/messages/direct_a_me";
   messagesData = [];
+  messagesCb = null;
 
   vi.mocked(getConversation).mockResolvedValue(makeConversation());
   // Deliver the fixture messages synchronously, like the poll's first tick.
   vi.mocked(subscribeMessages).mockImplementation((_convId, cb) => {
+    messagesCb = cb;
     cb([...messagesData]);
     return unsubscribe;
   });
@@ -163,6 +167,56 @@ describe("ChatPage", () => {
 
     // The AI message renders like any other incoming message.
     expect(screen.getByText("Welcome to your match chat!")).toBeInTheDocument();
+  });
+
+  it("shows 'Rally is typing' after an @rally message and hides it when Rally replies", async () => {
+    vi.mocked(getConversation).mockResolvedValue(
+      makeConversation({ type: "group", name: "Match chat", participants: ["a", "me", "rally"] })
+    );
+    const user = userEvent.setup();
+    render(<ChatPage />);
+    await screen.findByText("Group");
+
+    const input = screen.getByPlaceholderText("Type a message…");
+    await user.type(input, "@rally where do we play?{Enter}");
+
+    // Typing indicator appears while Rally's server-side reply is generated.
+    expect(await screen.findByRole("status", { name: /rally is typing/i })).toBeInTheDocument();
+
+    // Rally's reply arrives over the (mocked) stream → indicator disappears.
+    await act(async () => {
+      messagesCb?.([
+        makeMessage({ id: "sent_1", senderId: "me", text: "@rally where do we play?" }),
+        makeMessage({ id: "rally_reply", senderId: "rally", senderName: "Rally", isAI: true, text: "Lifetime Activities Pleasanton." }),
+      ]);
+    });
+    await waitFor(() =>
+      expect(screen.queryByRole("status", { name: /rally is typing/i })).not.toBeInTheDocument()
+    );
+    expect(screen.getByText("Lifetime Activities Pleasanton.")).toBeInTheDocument();
+  });
+
+  it("does not show the typing indicator when the message doesn't address Rally", async () => {
+    vi.mocked(getConversation).mockResolvedValue(
+      makeConversation({ type: "group", name: "Match chat", participants: ["a", "me", "rally"] })
+    );
+    const user = userEvent.setup();
+    render(<ChatPage />);
+    await screen.findByText("Group");
+
+    await user.type(screen.getByPlaceholderText("Type a message…"), "just chatting{Enter}");
+    await screen.findByText("just chatting");
+    expect(screen.queryByRole("status", { name: /rally is typing/i })).not.toBeInTheDocument();
+  });
+
+  it("does not show the typing indicator in a conversation without Rally", async () => {
+    const user = userEvent.setup();
+    render(<ChatPage />); // default direct conversation, no rally
+    await screen.findByText("Direct Message");
+
+    await user.type(screen.getByPlaceholderText("Type a message…"), "@rally hi{Enter}");
+    await screen.findByText("@rally hi");
+    expect(screen.queryByRole("status", { name: /rally is typing/i })).not.toBeInTheDocument();
   });
 
   it("unsubscribes from messages on unmount", async () => {

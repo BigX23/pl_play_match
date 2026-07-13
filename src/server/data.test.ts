@@ -106,17 +106,33 @@ describe("players", () => {
   it("listPlayers serializes profile fields", async () => {
     const players = await data.listPlayers(db);
     const alice = players.find((p) => p.id === ALICE)!;
-    expect(alice.name).toBe("Alice Smith");
     expect(alice.firstName).toBe("Alice");
     expect(alice.ntrpRating).toBe(4);
     expect(alice.sport).toBe("tennis");
     expect(alice.matchesPlayed).toBe(0);
     expect(alice.joinedDate).toEqual(expect.any(String));
-    // Nameless user: name falls back to trimmed first/last (empty here).
     const nameless = players.find((p) => p.id === NAMELESS)!;
-    expect(nameless.name).toBe("");
     expect(nameless.sport).toBe("both");
     expect(nameless.ntrpRating).toBe(0);
+  });
+
+  it("public players are privacy-minimized (first + last initial, no exact age / last name / prefs)", async () => {
+    // Give Alice a last name + exact age via a direct update.
+    await rawDb
+      .update(schema.users)
+      .set({ age: 46 })
+      .where(eq(schema.users.id, ALICE));
+    const alice = (await data.listPlayers(db)).find((p) => p.id === ALICE)! as Record<string, unknown>;
+    expect(alice.name).toBe("Alice S."); // not "Alice Smith"
+    expect(alice.ageBracket).toBe("45 - 50"); // 5-year bracket, not exact
+    expect(alice.age).toBeUndefined(); // exact age never leaves the server
+    expect(alice.lastName).toBeUndefined();
+    expect(alice.partnerPreferences).toBeUndefined();
+    expect(alice.weeklyAvailability).toBeUndefined();
+    expect(alice.email).toBe("");
+    const nameless = (await data.listPlayers(db)).find((p) => p.id === NAMELESS)!;
+    expect(nameless.name).toBe("Player"); // no first name → fallback
+    expect(nameless.ageBracket).toBeUndefined();
   });
 
   it("getPlayer returns a public player and 404s on missing", async () => {
@@ -139,6 +155,72 @@ describe("players", () => {
     await expect(data.lookupPlayerByEmail(db, "rally@playmatch.app")).rejects.toBeInstanceOf(
       NotFoundError
     );
+  });
+});
+
+// ---------- match suggestions (server-side scoring) ----------
+
+describe("getMatchSuggestions", () => {
+  const availability = [
+    { day: "Mon", enabled: true, slots: [{ start: 9, end: 12 }] },
+    { day: "Wed", enabled: true, slots: [{ start: 18, end: 20 }] },
+  ];
+  const prefs = {
+    ageRange: "any",
+    ntrpMin: 2,
+    ntrpMax: 5,
+    gameTypes: [],
+    sports: [],
+    matchFormats: [],
+    genderPreference: "No Preference",
+  };
+  const complete = {
+    profileComplete: true,
+    age: 46,
+    gender: "Female",
+    sports: ["tennis"],
+    matchFormats: ["singles"],
+    gameType: "slightly-competitive",
+    weeklyAvailability: availability,
+    partnerPreferences: prefs,
+  };
+
+  async function makeComplete(id: string, extra: Record<string, unknown> = {}) {
+    await rawDb
+      .update(schema.users)
+      .set({ ...complete, ...extra } as never)
+      .where(eq(schema.users.id, id));
+  }
+
+  it("returns privacy-safe scored suggestions and excludes self, rally, and incomplete profiles", async () => {
+    await makeComplete(ALICE);
+    await makeComplete(BOB); // Bob is a compatible, complete profile
+    // CARA and NAMELESS stay incomplete → excluded.
+
+    const suggestions = await data.getMatchSuggestions(db, ALICE);
+    const ids = suggestions.map((s) => s.id);
+    expect(ids).toContain(BOB);
+    expect(ids).not.toContain(ALICE); // self excluded
+    expect(ids).not.toContain(RALLY_ID); // rally excluded
+    expect(ids).not.toContain(CARA); // incomplete excluded
+    expect(ids).not.toContain(NAMELESS);
+
+    const bob = suggestions.find((s) => s.id === BOB)! as Record<string, unknown>;
+    expect(typeof bob.matchScore).toBe("number");
+    expect(bob.matchScore as number).toBeGreaterThan(0);
+    expect(bob.name).toBe("Bob J."); // privacy-safe
+    expect(bob.ageBracket).toBe("45 - 50");
+    expect(bob.age).toBeUndefined(); // exact age never returned
+    expect(bob.partnerPreferences).toBeUndefined();
+  });
+
+  it("returns [] when the current user has no complete profile", async () => {
+    // ALICE stays incomplete (no availability/prefs).
+    expect(await data.getMatchSuggestions(db, ALICE)).toEqual([]);
+  });
+
+  it("returns [] for an unknown user id", async () => {
+    expect(await data.getMatchSuggestions(db, "nobody")).toEqual([]);
   });
 });
 

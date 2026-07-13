@@ -64,7 +64,7 @@ export default function MessagesPage() {
     }
     const contact: Contact = {
       id: found.id,
-      name: found.firstName ? `${found.firstName} ${found.lastName || ""}`.trim() : found.name,
+      name: found.name, // privacy-safe "First L."
       email: found.email,
       avatar: found.avatar,
       addedAt: new Date().toISOString(),
