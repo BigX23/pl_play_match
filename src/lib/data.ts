@@ -7,6 +7,7 @@ import {
   type Notification,
   type Contact,
 } from "./mock-data";
+import type { AvailabilityGrid } from "./availability";
 
 /**
  * Client data layer — REST client for the app's API routes (Postgres behind
@@ -117,6 +118,30 @@ export async function getMatches(userId?: string): Promise<Match[]> {
 /** Ranked compatibility suggestions (privacy-safe players + matchScore). */
 export async function getMatchSuggestions(): Promise<Player[]> {
   return get<Player[]>("/api/matches/suggestions");
+}
+
+/** One row of the You-vs-them compatibility table. */
+export interface CompatFactor {
+  key: string;
+  label: string;
+  weight: number;
+  score: number;
+  state: "match" | "partial" | "miss";
+  you: string;
+  them: string;
+}
+
+/** Full compatibility breakdown for the match-detail view. */
+export interface Compatibility {
+  player: Player;
+  score: number;
+  factors: CompatFactor[];
+  grid: AvailabilityGrid;
+}
+
+/** Compatibility breakdown between the signed-in user and one other player. */
+export async function getCompatibility(id: string): Promise<Compatibility> {
+  return get<Compatibility>(`/api/matches/compatibility/${encodeURIComponent(id)}`);
 }
 
 export async function createMatch(data: Omit<Match, "id">): Promise<string> {

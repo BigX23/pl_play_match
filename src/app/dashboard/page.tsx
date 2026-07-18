@@ -273,7 +273,7 @@ export default function DashboardPage() {
               const requested = alreadyRequested.has(matchUser.id);
               return (
                 <div key={matchUser.id} className={`flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors ${scoreBg(score)}`}>
-                  <div className="flex items-center gap-3">
+                  <Link href={`/dashboard/match/${matchUser.id}`} className="flex items-center gap-3 min-w-0 flex-1 rounded-md" aria-label={`View match details for ${matchUser.name}`}>
                     <div className="text-2xl">{matchUser.avatar || "👤"}</div>
                     <div>
                       <p className="font-medium">
@@ -286,7 +286,7 @@ export default function DashboardPage() {
                         {matchUser.gameType ? ` · ${matchUser.gameType.replace("-", " ")}` : ""}
                       </p>
                     </div>
-                  </div>
+                  </Link>
                   <div className="flex items-center gap-3">
                     <div className="text-right">
                       <p className={`font-bold ${scoreColor(score)}`}>{score}%</p>

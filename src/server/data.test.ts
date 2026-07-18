@@ -224,6 +224,90 @@ describe("getMatchSuggestions", () => {
   });
 });
 
+describe("getCompatibility", () => {
+  const prefs = {
+    ageRange: "any",
+    ntrpMin: 2,
+    ntrpMax: 5,
+    gameTypes: [],
+    sports: [],
+    matchFormats: [],
+    genderPreference: "No Preference",
+  };
+  const base = {
+    profileComplete: true,
+    age: 46,
+    gender: "Female",
+    sports: ["tennis"],
+    matchFormats: ["singles"],
+    gameType: "slightly-competitive",
+    partnerPreferences: prefs,
+  };
+  // Alice is free most of Mon–Wed; Bob only overlaps her on Wed evening.
+  const aliceAvail = [
+    { day: "Mon", enabled: true, slots: [{ start: 8, end: 22 }] },
+    { day: "Tue", enabled: true, slots: [{ start: 8, end: 22 }] },
+    { day: "Wed", enabled: true, slots: [{ start: 8, end: 22 }] },
+  ];
+  const bobAvail = [
+    { day: "Wed", enabled: true, slots: [{ start: 18, end: 20 }] },
+    { day: "Sat", enabled: true, slots: [{ start: 8, end: 10 }] },
+  ];
+  async function complete(id: string, avail: unknown, extra: Record<string, unknown> = {}) {
+    await rawDb
+      .update(schema.users)
+      .set({ ...base, weeklyAvailability: avail, ...extra } as never)
+      .where(eq(schema.users.id, id));
+  }
+
+  it("returns a privacy-safe breakdown with factors and availability grid", async () => {
+    await complete(ALICE, aliceAvail);
+    await complete(BOB, bobAvail);
+
+    const c = await data.getCompatibility(db, ALICE, BOB);
+
+    expect(c.score).toBeGreaterThan(0);
+    expect(c.score).toBeLessThanOrEqual(100);
+    // privacy-safe player card, no exact age
+    expect(c.player.name).toBe("Bob J.");
+    expect(c.player.ageBracket).toBe("45 - 50");
+    expect((c.player as Record<string, unknown>).age).toBeUndefined();
+
+    expect(c.factors.map((f) => f.key)).toEqual([
+      "sport", "ntrp", "availability", "gameType", "matchFormat", "age", "gender",
+    ]);
+    const sport = c.factors.find((f) => f.key === "sport")!;
+    expect(sport.state).toBe("match");
+    expect(sport.you).toBe("Tennis");
+    expect(sport.them).toBe("Tennis");
+    expect(sport.weight).toBe(20);
+    // Only Wed evening overlaps out of Alice's wide availability → partial.
+    expect(c.factors.find((f) => f.key === "availability")!.state).toBe("partial");
+    expect(c.factors.find((f) => f.key === "age")!.you).toBe("Any age");
+    expect(c.factors.find((f) => f.key === "gender")!.them).toBe("No preference");
+
+    // grid: Wed (index 2) evening is the one shared slot
+    expect(c.grid.sharedCount).toBe(1);
+    expect(c.grid.cells.evening[2]).toBe("both");
+  });
+
+  it("404s for self, rally, and unknown ids", async () => {
+    await complete(ALICE, aliceAvail);
+    await expect(data.getCompatibility(db, ALICE, ALICE)).rejects.toThrow("match");
+    await expect(data.getCompatibility(db, ALICE, RALLY_ID)).rejects.toThrow("match");
+    await expect(data.getCompatibility(db, ALICE, "nobody")).rejects.toThrow("match");
+  });
+
+  it("404s when either profile is incomplete", async () => {
+    await complete(ALICE, aliceAvail);
+    // Bob stays incomplete → not a valid target
+    await expect(data.getCompatibility(db, ALICE, BOB)).rejects.toThrow("match");
+    // Current user incomplete (Cara) → also rejected
+    await complete(BOB, bobAvail);
+    await expect(data.getCompatibility(db, CARA, BOB)).rejects.toThrow("match");
+  });
+});
+
 // ---------- matches ----------
 
 describe("matches", () => {
