@@ -31,3 +31,31 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  deploy:
+    name: Deploy to production
+    needs: verify # only deploys if typecheck/lint/test/build all pass
+    # Push to master only — never on PRs or other branches.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: production-deploy # serialize deploys; don't race two pushes
+      cancel-in-progress: false # let an in-flight deploy finish rather than kill it
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy over SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          # Pipe the repo's deploy script (at this commit) into the box's shell,
+          # so the deploy logic that runs is exactly the version being deployed.
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
+            "$VPS_USER@$VPS_HOST" 'bash -s' < deploy/remote-deploy.sh

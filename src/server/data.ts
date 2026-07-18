@@ -27,7 +27,17 @@ import {
 
 import { notifyChange } from "./realtime";
 import { displayName, ageBracket } from "@/lib/privacy";
-import { findMatches, type UserProfile, type SportType, type MatchFormat, type GameType } from "@/lib/matching-engine";
+import {
+  findMatches,
+  calculateMatchScore,
+  WEIGHTS,
+  type UserProfile,
+  type SportType,
+  type MatchFormat,
+  type GameType,
+  type AgeRange,
+} from "@/lib/matching-engine";
+import { availabilityGrid, type AvailabilityGrid } from "@/lib/availability";
 
 export class AuthzError extends Error {}
 export class NotFoundError extends Error {}
@@ -176,6 +186,99 @@ export async function getMatchSuggestions(db: Db, me: string) {
     ...toPublicPlayer(byId.get(r.user.id)!),
     matchScore: r.score,
   }));
+}
+
+// ---------- compatibility breakdown (match-detail view) ----------
+
+export type FactorState = "match" | "partial" | "miss";
+
+/** One row of the You-vs-them comparison table. */
+export interface CompatFactor {
+  key: string;
+  label: string;
+  weight: number; // percent contribution to the total
+  score: number; // 0..1 the factor scored
+  state: FactorState;
+  you: string;
+  them: string;
+}
+
+export interface Compatibility {
+  player: ReturnType<typeof toPublicPlayer>;
+  score: number; // overall %, matches the engine
+  factors: CompatFactor[];
+  grid: AvailabilityGrid;
+}
+
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+const sportsLabel = (s: SportType[]) =>
+  s.map((x) => (x === "both" ? "Tennis & Pickleball" : cap(x))).join(", ") || "—";
+const formatsLabel = (f: MatchFormat[]) =>
+  f.map((x) => (x === "both" ? "Singles & Doubles" : cap(x))).join(", ") || "—";
+const GAME_TYPE_LABEL: Record<GameType, string> = {
+  recreational: "Recreational",
+  "slightly-competitive": "Slightly competitive",
+  "hardcore-competitive": "Hardcore competitive",
+};
+const ageLabel = (r: AgeRange) => (r === "any" ? "Any age" : `Within ${r} yrs`);
+const genderLabel = (g: string) =>
+  g === "Male" ? "Prefers men" : g === "Female" ? "Prefers women" : "No preference";
+const daysLabel = (av: UserProfile["availability"]) => {
+  const d = (av ?? []).filter((x) => x.enabled && x.slots.length > 0).map((x) => x.day);
+  return d.length ? d.join(", ") : "None set";
+};
+
+/** Factor rows in display order; `val` reads each side's own profile. */
+const FACTOR_META: { key: keyof typeof WEIGHTS; label: string; val: (p: UserProfile) => string }[] = [
+  { key: "sport", label: "Sport", val: (p) => sportsLabel(p.sports) },
+  { key: "ntrp", label: "NTRP Rating", val: (p) => p.ntrpRating.toFixed(1) },
+  { key: "availability", label: "Availability", val: (p) => daysLabel(p.availability) },
+  { key: "gameType", label: "Play Style", val: (p) => GAME_TYPE_LABEL[p.gameType] ?? "—" },
+  { key: "matchFormat", label: "Format", val: (p) => formatsLabel(p.matchFormats) },
+  { key: "age", label: "Age Preference", val: (p) => ageLabel(p.partnerPreferences.ageRange) },
+  { key: "gender", label: "Partner Gender", val: (p) => genderLabel(p.partnerPreferences.genderPreference) },
+];
+
+function factorState(score: number): FactorState {
+  if (score >= 0.999) return "match";
+  if (score > 0) return "partial";
+  return "miss";
+}
+
+/**
+ * Full compatibility breakdown between the signed-in user and one other player.
+ * Runs the engine over real profiles server-side, then returns privacy-safe
+ * display values only: coarse preference labels (not exact ages) and the shared
+ * availability grid. 404s if either profile is incomplete or the id is invalid.
+ */
+export async function getCompatibility(db: Db, me: string, otherId: string): Promise<Compatibility> {
+  if (otherId === me || otherId === RALLY_ID) throw new NotFoundError("match");
+  const rows = await db.select().from(users).where(inArray(users.id, [me, otherId]));
+  const meRow = rows.find((u) => u.id === me);
+  const otherRow = rows.find((u) => u.id === otherId);
+  if (!otherRow) throw new NotFoundError("match");
+
+  const myProfile = meRow ? dbUserToProfile(meRow) : null;
+  const otherProfile = dbUserToProfile(otherRow);
+  if (!myProfile || !otherProfile) throw new NotFoundError("match");
+
+  const { score, breakdown } = calculateMatchScore(myProfile, otherProfile);
+  const factors: CompatFactor[] = FACTOR_META.map((f) => ({
+    key: f.key,
+    label: f.label,
+    weight: Math.round(WEIGHTS[f.key] * 100),
+    score: breakdown[f.key],
+    state: factorState(breakdown[f.key]),
+    you: f.val(myProfile),
+    them: f.val(otherProfile),
+  }));
+
+  return {
+    player: toPublicPlayer(otherRow),
+    score,
+    factors,
+    grid: availabilityGrid(myProfile.availability, otherProfile.availability),
+  };
 }
 
 /** Exact-email lookup for explicit contact adds; returns email on match. */
