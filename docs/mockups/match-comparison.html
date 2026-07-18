@@ -87,7 +87,7 @@
 
   .ring-row { display: flex; align-items: center; gap: 18px; }
   .ring {
-    --pct: 65;
+    --pct: 68;
     width: 96px; height: 96px; border-radius: 50%; flex: none;
     background:
       conic-gradient(var(--primary) calc(var(--pct) * 1%), hsl(147 30% 90%) 0);
@@ -234,8 +234,8 @@
       </div>
     </div>
     <div class="ring-row">
-      <div class="ring" role="img" aria-label="65 percent compatibility">
-        <div class="pct"><b>65%</b><span>Match</span></div>
+      <div class="ring" role="img" aria-label="68 percent compatibility">
+        <div class="pct"><b>68%</b><span>Match</span></div>
       </div>
       <div class="verdict">
         <b>Strong on the fundamentals.</b> Sport, rating, and format all line up.
@@ -249,20 +249,20 @@
   <section>
     <div class="sec-head">
       <h2>How the 65% is built</h2>
-      <span class="hint">65 / 100 pts</span>
+      <span class="hint">68 / 100 pts</span>
     </div>
     <div class="compo">
       <div class="stack" aria-hidden="true">
-        <!-- earned green (full matches): sport 20 + rating 20 -->
+        <!-- earned green (full matches): sport 20 + rating 20 + age 5 -->
         <i class="g" style="width:20%"></i>
         <i class="g" style="width:20%"></i>
-        <!-- earned amber (partial): availability 12.5 + style 5 + format 5 + age 2.5 -->
+        <i class="g" style="width:5%"></i>
+        <!-- earned amber (partial): availability 12.5 + style 5 + format 5 -->
         <i class="a" style="width:12.5%"></i>
         <i class="a" style="width:5%"></i>
         <i class="a" style="width:5%"></i>
-        <i class="a" style="width:2.5%"></i>
-        <!-- unearned (missed points): gender 10 + partial shortfalls 25 = 35 -->
-        <i class="gap" style="width:35%"></i>
+        <!-- unearned (missed points): gender 10 + partial shortfalls 22.5 = 32.5 -->
+        <i class="gap" style="width:32.5%"></i>
       </div>
       <div class="legend">
         <span><i class="dot g"></i> Full match</span>
@@ -319,11 +319,11 @@
             <td class="val">Singles, Doubles</td>
             <td class="st"><span class="state" title="Partial">~</span></td>
           </tr>
-          <tr class="p">
+          <tr class="m">
             <td class="factor"><div class="fname">Age Preference</div><div class="fweight">5% weight</div></td>
-            <td class="val">Any age</td>
-            <td class="val">Within 10 yrs</td>
-            <td class="st"><span class="state" title="Partial">~</span></td>
+            <td class="val">No age limit<span class="sub">any age welcome</span></td>
+            <td class="val them">Within 10 yrs<span class="sub">condition met</span></td>
+            <td class="st"><span class="state" title="Match">&#10003;</span></td>
           </tr>
           <tr class="x">
             <td class="factor"><div class="fname">Partner Gender</div><div class="fweight">10% weight</div></td>
