@@ -11,16 +11,21 @@ The app is fully self-hosted. **Two vendors:** OVH (the VPS) and Porkbun (domain
 
 ## Manual steps only you can do (do these to fully close out)
 
-1. **Rotate the old Gemini API key.** It was public in the repo's git history (since
-   April 2025) and in old built bundles. The app no longer uses it, but the key is
-   still live until you rotate it: Google AI Studio → delete/rotate the key. Nothing
-   in the app depends on it anymore.
-2. **Delete the Firebase project** (`pl-play-match`) in the Firebase console once
-   you've confirmed the site works — Auth, Firestore, Hosting, FCM, Storage are all
-   unused now. This is the moment the vendor list truly drops to OVH + Porkbun.
-3. **Delete the admin service-account key** from your local disk:
-   `pl-play-match-firebase-adminsdk-*.json` (repo root). It's gitignored but useless
-   now — remove it (and it's revoked automatically when the project is deleted).
+1. ~~**Rotate the old Gemini API key.**~~ ✅ **Done (2026-07-14).** All keys were
+   deleted in Google AI Studio, so the old key — still present as a dead string in
+   git history (`.env`, `firebase-messaging-sw.js`) — is now permanently unusable.
+   No history rewrite needed; the credential is neutralized at the source.
+2. ~~**Delete the Firebase project.**~~ ✅ **Partially done (2026-07-14).** All
+   Firebase *services* (Auth, Firestore, Hosting, FCM, Storage) were deleted. The
+   underlying **Google Cloud project must stay** — it hosts the OAuth 2.0 client that
+   powers Google sign-in (`AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET`). Deleting the
+   Firebase project deletes the GCP project and would break login. ⚠️ **Do not delete
+   `pl-play-match` in the Google Cloud / Firebase console.** Runtime vendors are now
+   OVH (hosting) + Porkbun (domain) + Google (free OAuth identity only, no billed use).
+3. ~~**Revoke the leftover Firebase Admin service-account key.**~~ ✅ **Done (2026-07-14).**
+   The `firebase-adminsdk-*` service account was deleted in Google Cloud IAM (revoking the
+   key at the source), and the local `pl-play-match-firebase-adminsdk-*.json` was deleted
+   from disk. No Firebase Admin credential remains anywhere.
 
 ---
 
