@@ -1,0 +1,379 @@
+<title>Potential Match — Compatibility Breakdown</title>
+<style>
+  :root {
+    /* PlayMatch app tokens */
+    --paper: hsl(140 20% 99%);
+    --ink: hsl(150 12% 12%);
+    --muted: hsl(140 14% 95%);
+    --muted-2: hsl(140 16% 97%);
+    --muted-fg: hsl(150 6% 42%);
+    --border: hsl(150 12% 89%);
+    --primary: hsl(147 51% 38%);
+    --primary-fg: hsl(0 0% 99%);
+    --accent: hsl(22 90% 48%); /* orange — sport tag only */
+
+    /* semantic trio, kept clear of the orange brand accent */
+    --match: hsl(147 51% 34%);
+    --match-bg: hsl(147 44% 95%);
+    --match-line: hsl(147 40% 82%);
+    --partial: hsl(35 88% 38%);
+    --partial-bg: hsl(43 92% 95%);
+    --partial-line: hsl(40 85% 80%);
+    --miss: hsl(0 68% 47%);
+    --miss-bg: hsl(0 80% 97%);
+    --miss-line: hsl(0 72% 88%);
+
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --radius: 14px;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background:
+      radial-gradient(120% 60% at 50% -10%, hsl(147 40% 96%), transparent 60%),
+      var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    padding: 22px 16px 56px;
+    min-height: 100vh;
+  }
+
+  .app { max-width: 460px; margin: 0 auto; }
+
+  /* ---- top bar ---- */
+  .bar {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 6px;
+  }
+  .bar .icon-btn {
+    width: 36px; height: 36px; border-radius: 10px;
+    display: grid; place-items: center;
+    border: 1px solid var(--border); background: var(--paper);
+    color: var(--muted-fg); flex: none;
+  }
+  .crumb { font-size: 12px; color: var(--muted-fg); letter-spacing: .01em; }
+  .crumb b { color: var(--ink); font-weight: 600; }
+
+  /* ---- hero ---- */
+  .hero {
+    background: var(--paper);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-top: 14px;
+    box-shadow: 0 1px 0 hsl(150 12% 92%), 0 12px 28px -22px hsl(150 30% 20% / .5);
+  }
+  .faces { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+  .face {
+    width: 46px; height: 46px; border-radius: 50%;
+    display: grid; place-items: center; font-size: 22px;
+    background: var(--muted); border: 1px solid var(--border);
+  }
+  .face.me { background: hsl(147 40% 92%); }
+  .vs {
+    font-family: var(--mono); font-size: 11px; font-weight: 600;
+    color: var(--muted-fg); letter-spacing: .08em;
+    border: 1px solid var(--border); border-radius: 999px;
+    padding: 3px 8px; background: var(--muted-2);
+  }
+  .hero-name { flex: 1; min-width: 0; }
+  .hero-name h1 { margin: 0; font-size: 19px; font-weight: 650; letter-spacing: -.01em; }
+  .hero-name p { margin: 2px 0 0; font-size: 13px; color: var(--muted-fg); }
+
+  .ring-row { display: flex; align-items: center; gap: 18px; }
+  .ring {
+    --pct: 65;
+    width: 96px; height: 96px; border-radius: 50%; flex: none;
+    background:
+      conic-gradient(var(--primary) calc(var(--pct) * 1%), hsl(147 30% 90%) 0);
+    display: grid; place-items: center;
+    position: relative;
+  }
+  .ring::after {
+    content: ""; position: absolute; inset: 9px;
+    border-radius: 50%; background: var(--paper);
+  }
+  .ring .pct {
+    position: relative; z-index: 1; text-align: center;
+    font-family: var(--mono);
+  }
+  .ring .pct b { display: block; font-size: 26px; font-weight: 680; letter-spacing: -.02em; line-height: 1; }
+  .ring .pct span { font-size: 10px; color: var(--muted-fg); letter-spacing: .06em; text-transform: uppercase; }
+  .verdict { font-size: 13.5px; color: hsl(150 10% 25%); }
+  .verdict b { color: var(--ink); font-weight: 620; }
+
+  /* ---- section scaffolding ---- */
+  section { margin-top: 22px; }
+  .sec-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin: 0 2px 10px;
+  }
+  .sec-head h2 {
+    margin: 0; font-size: 12px; font-weight: 680;
+    text-transform: uppercase; letter-spacing: .07em; color: var(--muted-fg);
+  }
+  .sec-head .hint { font-size: 11.5px; color: var(--muted-fg); font-family: var(--mono); }
+
+  /* ---- composition bar ---- */
+  .compo {
+    background: var(--paper); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px;
+  }
+  .stack {
+    display: flex; height: 16px; border-radius: 6px; overflow: hidden;
+    background: var(--muted); border: 1px solid var(--border);
+  }
+  .stack i { display: block; height: 100%; border-right: 1.5px solid var(--paper); }
+  .stack i.g { background: var(--primary); }
+  .stack i.a { background: hsl(38 88% 52%); }
+  .stack i.gap { background: repeating-linear-gradient(-45deg, hsl(150 8% 90%) 0 5px, hsl(150 8% 94%) 5px 10px); border-right: none; }
+  .legend { display: flex; gap: 16px; margin-top: 12px; flex-wrap: wrap; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted-fg); }
+  .dot { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+  .dot.g { background: var(--primary); }
+  .dot.a { background: hsl(38 88% 52%); }
+  .dot.r { background: repeating-linear-gradient(-45deg, hsl(150 8% 88%) 0 4px, hsl(150 8% 93%) 4px 8px); }
+
+  /* ---- comparison table ---- */
+  .cmp { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .cmp table { width: 100%; border-collapse: collapse; }
+  .cmp thead th {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .05em;
+    color: var(--muted-fg); font-weight: 640; text-align: left;
+    padding: 9px 12px; background: var(--muted-2); border-bottom: 1px solid var(--border);
+  }
+  .cmp thead th.you { color: var(--primary); }
+  .cmp thead th.them { text-align: left; }
+  .cmp tbody td { padding: 11px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .cmp tbody tr:last-child td { border-bottom: none; }
+  .cmp tbody tr { position: relative; }
+  /* state stripe on the leading cell */
+  .factor { position: relative; }
+  .factor::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+  }
+  tr.m .factor::before { background: var(--match); }
+  tr.p .factor::before { background: var(--partial); }
+  tr.x .factor::before { background: var(--miss); }
+  .factor .fname { font-size: 13.5px; font-weight: 600; }
+  .factor .fweight { font-size: 11px; color: var(--muted-fg); font-family: var(--mono); }
+  .val { font-size: 13px; }
+  .val .sub { display: block; font-size: 11px; color: var(--muted-fg); margin-top: 1px; }
+  tr.m .val.them { color: var(--match); font-weight: 560; }
+  .state {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; border-radius: 50%; font-size: 12px; font-weight: 700;
+  }
+  tr.m .state { background: var(--match-bg); color: var(--match); }
+  tr.p .state { background: var(--partial-bg); color: var(--partial); }
+  tr.x .state { background: var(--miss-bg); color: var(--miss); }
+  td.st { text-align: center; width: 34px; }
+
+  /* ---- availability strip ---- */
+  .avail { background: var(--paper); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+  .days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+  .day {
+    text-align: center; border-radius: 9px; padding: 8px 0 9px;
+    border: 1px solid var(--border); background: var(--muted-2);
+  }
+  .day .dname { font-size: 11px; font-weight: 640; text-transform: uppercase; letter-spacing: .03em; color: var(--muted-fg); }
+  .day .dmark { font-size: 12px; margin-top: 4px; height: 14px; color: var(--muted-fg); }
+  .day.both { background: var(--match-bg); border-color: var(--match-line); }
+  .day.both .dname { color: var(--match); }
+  .day.both .dmark { color: var(--match); font-weight: 700; }
+  .day.one { background: var(--partial-bg); border-color: var(--partial-line); }
+  .day.one .dname, .day.one .dmark { color: var(--partial); }
+  .avail-cap { display: flex; gap: 14px; margin-top: 12px; font-size: 11.5px; color: var(--muted-fg); flex-wrap: wrap; }
+  .avail-cap span { display: inline-flex; align-items: center; gap: 6px; }
+  .swatch { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+  .swatch.both { background: var(--match-bg); border: 1px solid var(--match-line); }
+  .swatch.one { background: var(--partial-bg); border: 1px solid var(--partial-line); }
+  .swatch.none { background: var(--muted-2); border: 1px solid var(--border); }
+
+  /* ---- actions ---- */
+  .actions { display: flex; gap: 10px; margin-top: 22px; }
+  .btn {
+    flex: 1; text-align: center; padding: 12px; border-radius: 11px;
+    font-size: 14px; font-weight: 620; border: 1px solid var(--border);
+    background: var(--paper); color: var(--ink);
+  }
+  .btn.primary { background: var(--primary); color: var(--primary-fg); border-color: var(--primary); }
+
+  /* ---- terminology note ---- */
+  .note {
+    margin-top: 24px; border: 1px dashed var(--border); border-radius: var(--radius);
+    padding: 14px 16px; background: var(--muted-2);
+  }
+  .note h3 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--accent); }
+  .note p { margin: 0; font-size: 12.5px; color: hsl(150 8% 30%); }
+  .note code { font-family: var(--mono); font-size: 11.5px; background: var(--paper); border: 1px solid var(--border); border-radius: 5px; padding: 1px 5px; }
+
+  .foot { text-align: center; font-size: 11px; color: var(--muted-fg); margin-top: 26px; }
+</style>
+
+<div class="app">
+  <div class="bar">
+    <div class="icon-btn" aria-hidden="true">&#8592;</div>
+    <div class="crumb">Dashboard &rsaquo; Your Matches &rsaquo; <b>Jill W.</b></div>
+  </div>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="faces">
+      <div class="face me" title="You">&#127939;</div>
+      <div class="vs">VS</div>
+      <div class="face" title="Jill W.">&#127947;</div>
+      <div class="hero-name">
+        <h1>Jill W.</h1>
+        <p>Age 45&ndash;50 &middot; Tennis &middot; Pleasanton</p>
+      </div>
+    </div>
+    <div class="ring-row">
+      <div class="ring" role="img" aria-label="65 percent compatibility">
+        <div class="pct"><b>65%</b><span>Match</span></div>
+      </div>
+      <div class="verdict">
+        <b>Strong on the fundamentals.</b> Sport, rating, and format all line up.
+        The score is held back by limited weekly overlap and a partner preference
+        mismatch &mdash; details below.
+      </div>
+    </div>
+  </div>
+
+  <!-- SCORE COMPOSITION -->
+  <section>
+    <div class="sec-head">
+      <h2>How the 65% is built</h2>
+      <span class="hint">65 / 100 pts</span>
+    </div>
+    <div class="compo">
+      <div class="stack" aria-hidden="true">
+        <!-- earned green (full matches): sport 20 + rating 20 -->
+        <i class="g" style="width:20%"></i>
+        <i class="g" style="width:20%"></i>
+        <!-- earned amber (partial): availability 12.5 + style 5 + format 5 + age 2.5 -->
+        <i class="a" style="width:12.5%"></i>
+        <i class="a" style="width:5%"></i>
+        <i class="a" style="width:5%"></i>
+        <i class="a" style="width:2.5%"></i>
+        <!-- unearned (missed points): gender 10 + partial shortfalls 25 = 35 -->
+        <i class="gap" style="width:35%"></i>
+      </div>
+      <div class="legend">
+        <span><i class="dot g"></i> Full match</span>
+        <span><i class="dot a"></i> Partial credit</span>
+        <span><i class="dot r"></i> Points left on the table</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- COMPARISON TABLE -->
+  <section>
+    <div class="sec-head">
+      <h2>How you two line up</h2>
+      <span class="hint">weighted factors</span>
+    </div>
+    <div class="cmp">
+      <table>
+        <thead>
+          <tr>
+            <th>Factor</th>
+            <th class="you">You</th>
+            <th class="them">Jill W.</th>
+            <th class="st" aria-label="Match state"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="m">
+            <td class="factor"><div class="fname">Sport</div><div class="fweight">20% weight</div></td>
+            <td class="val">Tennis</td>
+            <td class="val them">Tennis</td>
+            <td class="st"><span class="state" title="Match">&#10003;</span></td>
+          </tr>
+          <tr class="m">
+            <td class="factor"><div class="fname">NTRP Rating</div><div class="fweight">20% weight</div></td>
+            <td class="val">4.0<span class="sub">wants 3.0&ndash;4.5</span></td>
+            <td class="val them">3.5<span class="sub">wants 3.5&ndash;4.5</span></td>
+            <td class="st"><span class="state" title="Match">&#10003;</span></td>
+          </tr>
+          <tr class="p">
+            <td class="factor"><div class="fname">Availability</div><div class="fweight">25% weight</div></td>
+            <td class="val">Mon, Tue, Thu, Sat<span class="sub">evenings + Sat AM</span></td>
+            <td class="val">Tue, Wed, Thu, Sun<span class="sub">evenings + Sun</span></td>
+            <td class="st"><span class="state" title="Partial">~</span></td>
+          </tr>
+          <tr class="p">
+            <td class="factor"><div class="fname">Play Style</div><div class="fweight">10% weight</div></td>
+            <td class="val">Slightly competitive</td>
+            <td class="val">Hardcore competitive</td>
+            <td class="st"><span class="state" title="Partial">~</span></td>
+          </tr>
+          <tr class="p">
+            <td class="factor"><div class="fname">Format</div><div class="fweight">10% weight</div></td>
+            <td class="val">Singles</td>
+            <td class="val">Singles, Doubles</td>
+            <td class="st"><span class="state" title="Partial">~</span></td>
+          </tr>
+          <tr class="p">
+            <td class="factor"><div class="fname">Age Preference</div><div class="fweight">5% weight</div></td>
+            <td class="val">Any age</td>
+            <td class="val">Within 10 yrs</td>
+            <td class="st"><span class="state" title="Partial">~</span></td>
+          </tr>
+          <tr class="x">
+            <td class="factor"><div class="fname">Partner Gender</div><div class="fweight">10% weight</div></td>
+            <td class="val">No preference</td>
+            <td class="val">Prefers women</td>
+            <td class="st"><span class="state" title="Miss">&#10007;</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- AVAILABILITY STRIP -->
+  <section>
+    <div class="sec-head">
+      <h2>Weekly availability</h2>
+      <span class="hint">2 shared days</span>
+    </div>
+    <div class="avail">
+      <div class="days">
+        <div class="day one"><div class="dname">Mon</div><div class="dmark">you</div></div>
+        <div class="day both"><div class="dname">Tue</div><div class="dmark">&#10003;</div></div>
+        <div class="day one"><div class="dname">Wed</div><div class="dmark">Jill</div></div>
+        <div class="day both"><div class="dname">Thu</div><div class="dmark">&#10003;</div></div>
+        <div class="day"><div class="dname">Fri</div><div class="dmark">&mdash;</div></div>
+        <div class="day one"><div class="dname">Sat</div><div class="dmark">you</div></div>
+        <div class="day one"><div class="dname">Sun</div><div class="dmark">Jill</div></div>
+      </div>
+      <div class="avail-cap">
+        <span><i class="swatch both"></i> Both free</span>
+        <span><i class="swatch one"></i> One of you</span>
+        <span><i class="swatch none"></i> Neither</span>
+      </div>
+    </div>
+  </section>
+
+  <div class="actions">
+    <div class="btn">Message</div>
+    <div class="btn primary">Request Match</div>
+  </div>
+
+  <!-- TERMINOLOGY NOTE -->
+  <div class="note">
+    <h3>Proposed: rename &ldquo;Open Matches&rdquo; &rarr; &ldquo;Open Games&rdquo;</h3>
+    <p>
+      &ldquo;Match&rdquo; would then mean only one thing &mdash; being paired with a
+      player (this screen). Joinable pickup games become <code>Open Games</code>,
+      removing the overlap. Reflected in the breadcrumb above.
+    </p>
+  </div>
+
+  <div class="foot">Mockup &middot; PlayMatch &middot; feature/match-comparison</div>
+</div>
