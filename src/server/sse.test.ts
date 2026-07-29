@@ -98,4 +98,29 @@ describe("sseResponse", () => {
     controller.abort();
     expect(unsub).toHaveBeenCalled();
   });
+
+  it("tears down after the max lifetime so a zombie can't accumulate", async () => {
+    vi.useFakeTimers();
+    try {
+      authMock.mockResolvedValue({ user: { id: "u1" } });
+      const res = await sseResponse(req(), () => true);
+      await res.body!.getReader().read(); // run start()
+      expect(unsub).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(5 * 60_000 + 10);
+      expect(unsub).toHaveBeenCalled(); // listener released, stream closed
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("tears down when the consumer stops draining (backpressure)", async () => {
+    authMock.mockResolvedValue({ user: { id: "u1" } });
+    const res = await sseResponse(req(), () => true);
+    const reader = res.body!.getReader();
+    await reader.read(); // start() + drain the first chunk
+    // Fire many matching changes without reading → the queue backs up → teardown.
+    for (let i = 0; i < 40; i++) changeHandler!({ participants: ["u1"] });
+    expect(unsub).toHaveBeenCalled();
+    reader.cancel();
+  });
 });
