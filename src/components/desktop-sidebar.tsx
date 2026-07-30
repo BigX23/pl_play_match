@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 
 const items = [
   { href: "/dashboard", icon: Home, label: "Dashboard" },
-  { href: "/dashboard/open-matches", icon: Search, label: "Open Matches" },
+  { href: "/dashboard/open-games", icon: Search, label: "Open Games" },
   { href: "/dashboard/messages", icon: MessageSquare, label: "Messages", badgeKey: "messages" as const },
   { href: "/dashboard/notifications", icon: Bell, label: "Notifications", badgeKey: "notifications" as const },
   { href: "/dashboard/profile", icon: User, label: "My Profile" },

@@ -8,7 +8,7 @@ import { useNavBadges } from "@/hooks/use-nav-badges";
 
 const items = [
   { href: "/dashboard", icon: Home, label: "Home" },
-  { href: "/dashboard/open-matches", icon: Search, label: "Matches" },
+  { href: "/dashboard/open-games", icon: Search, label: "Games" },
   { href: "/dashboard/messages", icon: MessageSquare, label: "Messages", badgeKey: "messages" as const },
   { href: "/dashboard/notifications", icon: Bell, label: "Alerts", badgeKey: "notifications" as const },
   { href: "/dashboard/profile", icon: User, label: "Profile" },
