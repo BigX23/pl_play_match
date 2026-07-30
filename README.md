@@ -139,8 +139,10 @@ Browser ──HTTPS──▶ Caddy ──▶ Next.js (UI + /api + SSE) ──▶
 ## 📦 Deployment
 
 Deployed via `docker-compose` (Caddy · Next app · Postgres · Ollama) on an OVH VPS; Caddy
-handles TLS automatically. See [`docs/OPERATIONS.md`](docs/OPERATIONS.md) for the deploy
-flow, and [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §13 for the topology.
+handles TLS automatically. **CI/CD is automatic** — merging to `master` runs GitHub Actions
+(verify → deploy), which SSHes to the VPS, rebuilds, health-checks, and auto-rolls-back on
+failure. See [`docs/OPERATIONS.md`](docs/OPERATIONS.md) for the deploy flow, and
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §13 for the topology.
 
 ---
 

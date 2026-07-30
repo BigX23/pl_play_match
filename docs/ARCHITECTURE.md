@@ -237,12 +237,14 @@ code is backend-agnostic. `subscribe*` use SSE (§8) with a polling fallback.
 | GET/PATCH/DELETE | `/api/me` | Signed-in user's profile: read / update / delete account |
 | POST | `/api/me/photo` | Upload profile photo (multipart) → VPS volume |
 | GET | `/api/photos/[file]` | Serve a profile photo (session-gated, filename allow-list) |
-| GET | `/api/players` | Public player list (no emails) |
-| GET | `/api/players/[id]` | One public player |
+| GET | `/api/players` | Public player list — privacy-minimized (first name + last initial, 5-yr age bracket, no emails) |
+| GET | `/api/players/[id]` | One public player (same privacy minimization) |
 | GET | `/api/players/lookup?email=` | Exact-email lookup (for adding a contact) |
 | GET/POST | `/api/matches` | List (`?mine=1`) / create a match |
 | PATCH/DELETE | `/api/matches/[id]` | Update / delete a match |
 | POST | `/api/matches/[id]/join` | Transactional join of an open match |
+| GET | `/api/matches/suggestions` | Ranked compatibility suggestions (privacy-safe cards + matchScore) |
+| GET | `/api/matches/compatibility/[id]` | Full You-vs-them compatibility breakdown for one potential match (see `/dashboard/match/[id]`) |
 | GET/POST | `/api/match-requests` | List / create; POST also pushes the recipient |
 | PATCH | `/api/match-requests/[id]` | Accept/decline/cancel; accept pushes the sender |
 | GET/POST | `/api/conversations` | List / create (direct or group) |
@@ -273,8 +275,13 @@ in `src/lib/data.ts`.
 3. **Stream** → the two SSE routes call `sseResponse(req, shouldWake, { onOpen })`. It gates
    on the session, runs an authz check in `onOpen` (e.g. "am I a participant of this
    conversation?"), then streams: an initial `ping`, a `change` event whenever `shouldWake`
-   matches a payload, and a heartbeat comment every 25s. It tears everything down on client
-   disconnect (`req.signal` abort + stream cancel).
+   matches a payload, and a heartbeat comment every 25s. **Teardown is defensive:**
+   `req.signal` abort is unreliable in Next standalone, so besides abort + stream cancel each
+   stream is capped to a **5-minute max lifetime** (the client `EventSource` reconnects
+   seamlessly) and torn down on **outbound-queue backpressure** (a dead socket that stopped
+   draining). Without this, disconnected clients leaked LISTEN listeners and buffered forever
+   — a real incident that grew the app to ~2.4 GB / ~390% CPU (see `OPERATIONS.md` → Incident
+   runbook).
 4. **Client** → `subscribeSSE()` opens an `EventSource`; on `ping`/`change` it **re-fetches**
    through the normal authorized API (so the SSE never carries data, only a "something
    changed" nudge). If `EventSource` is unavailable or the stream closes, it falls back to a
@@ -376,17 +383,19 @@ net.
 **Migrations & seed** run automatically at server boot via `src/instrumentation.ts` (Drizzle
 migrator + idempotent `INSERT` of the `rally` user). No manual migration step.
 
-**Deploy flow** (from `docs/OPERATIONS.md`):
-```bash
-ssh playmatch
-cd ~/app && git pull
-cd deploy && sudo docker compose build app && sudo docker compose up -d app
-```
-Prefer running long builds detached (`nohup … &`) so an SSH blip can't interrupt them. The
-box tracks the `master` branch.
+**CI/CD — deploy is automatic.** `.github/workflows/ci.yml` has two jobs:
+- **`verify`** — typecheck + lint + `test:ci` (coverage gate) + build, on every push to
+  `master` and on PRs.
+- **`deploy`** — gated on `verify`; runs **only** on push to `master` (never PRs, serialized
+  by a concurrency group). It SSHes to the VPS and runs `deploy/remote-deploy.sh`:
+  fetch → hard-reset to the pushed commit → `docker compose build app` → `up -d app` →
+  health-check `https://aiplaymatch.com/` → **auto-rollback** to the previous commit if the
+  new build fails to serve. Deploy secrets (`DEPLOY_SSH_KEY`, `VPS_HOST`, `VPS_USER`,
+  `VPS_KNOWN_HOSTS`) are GitHub Actions secrets; a dedicated deploy key lives in the VPS
+  `authorized_keys`.
 
-**CI:** `.github/workflows/ci.yml` runs typecheck + lint + `test:ci` (with coverage gate) +
-build on every push to `master` and on PRs.
+So **merging to `master` ships to production.** The box tracks `master`. Manual deploy
+(fallback) and the lockfile gotcha are in `docs/OPERATIONS.md`.
 
 ---
 
@@ -401,8 +410,8 @@ build on every push to `master` and on PRs.
 - **Client, components, pages** use Testing Library with mocked `@/lib/data`, `useAuth`, and
   `next/navigation`. Realtime/push/rally have dedicated suites.
 - **Coverage gate** (`vitest.config.ts`): ≥90% statements/functions, ≥80% branches. Thin
-  API-route glue and the boot instrumentation are excluded (integration-tested live). ~363
-  tests currently pass.
+  API-route glue and the boot instrumentation are excluded (integration-tested live). ~400+
+  tests currently pass (~96% overall).
 - `typecheck` runs the app tsconfig **and** `tsconfig.test.json` so test files are type-safe.
 
 ---
@@ -440,9 +449,13 @@ build on every push to `master` and on PRs.
 
 ---
 
-## 16. The three manual close-out items (post-migration)
+## 16. Post-migration close-out — resolved (2026-07-14)
 
-Not code — they need account access (documented in `OPERATIONS.md`):
-1. Rotate the old Gemini API key in Google AI Studio (still live in git history; unused now).
-2. Delete the Firebase project `pl-play-match` in the Firebase console.
-3. Delete the local `pl-play-match-firebase-adminsdk-*.json` from the repo root (gitignored).
+Former manual items, all completed (details in `OPERATIONS.md`):
+1. ✅ Old Gemini API key **deleted** in Google AI Studio — it lived in public git history but
+   is now a dead, unusable credential.
+2. ✅ Firebase *services* (Auth/Firestore/Hosting/FCM/Storage) deleted. The underlying Google
+   Cloud project `pl-play-match` is **kept** — it hosts the Google OAuth client. **Do not
+   delete it** (deleting the Firebase project deletes the GCP project and breaks sign-in).
+3. ✅ Firebase Admin service account deleted from Google Cloud IAM; local
+   `pl-play-match-firebase-adminsdk-*.json` removed. No Firebase Admin credential remains.

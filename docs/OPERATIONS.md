@@ -31,12 +31,32 @@ The app is fully self-hosted. **Two vendors:** OVH (the VPS) and Porkbun (domain
 
 ## Deploying a change
 
-From your machine: push to `self-host-migration` (or `master` once merged). On the box:
+**Deploys are automatic (CI/CD).** Push/merge to `master` → GitHub Actions
+(`.github/workflows/ci.yml`) runs the `verify` job (typecheck/lint/test/build), then the
+gated `deploy` job SSHes to the VPS and runs `deploy/remote-deploy.sh`:
+
+> fetch → hard-reset to the pushed commit → `docker compose build app` → `up -d app` →
+> health-check `https://aiplaymatch.com/` → **auto-rollback** to the previous commit if the
+> new build fails to serve.
+
+The `deploy` job runs only on push to `master`, never on PRs, and is serialized (a
+concurrency group). Watch a deploy:
 
 ```bash
-ssh playmatch   # alias in ~/.ssh/config
-cd ~/app && git pull
-cd deploy && sudo docker compose build app && sudo docker compose up -d app
+gh run list  --repo BigX23/pl_play_match --branch master --limit 3
+gh run watch <run-id> --repo BigX23/pl_play_match --exit-status
+```
+
+Deploy secrets (`DEPLOY_SSH_KEY`, `VPS_HOST`, `VPS_USER`, `VPS_KNOWN_HOSTS`) are GitHub
+Actions secrets; a dedicated deploy key sits in the VPS `~/.ssh/authorized_keys`
+(`github-actions-deploy@pl_play_match`). Do **not** run a manual deploy concurrently.
+
+**Manual deploy (fallback only — normally unnecessary):**
+
+```bash
+ssh playmatch
+cd ~/app && git pull --ff-only
+cd deploy && docker compose build app && docker compose up -d app
 ```
 
 **Lockfile gotcha:** macOS npm and the build container's npm can disagree on optional
@@ -48,9 +68,6 @@ ssh playmatch 'cd ~/app && sudo docker run --rm -v "$PWD":/work -w /work node:24
   sh -c "npm install --package-lock-only && npm ci --dry-run"'
 scp playmatch:app/package-lock.json ./package-lock.json && git commit -am "lockfile" && git push
 ```
-
-For long builds, run detached so an SSH blip can't interrupt:
-`nohup sh -c "sudo docker compose build app && sudo docker compose up -d app" > /tmp/deploy.log 2>&1 &`
 
 ---
 
@@ -72,6 +89,29 @@ sudo docker exec deploy-ollama-1 ollama pull <model>
 df -h / ; free -h ; sudo docker system df
 sudo docker system prune -f            # reclaim dangling images/layers
 ```
+
+---
+
+## Incident runbook
+
+### Rally slow / app container pegging CPU — SSE zombie-stream leak
+**Symptom:** Rally replies crawl and/or the "typing" indicator times out; `docker stats`
+shows `deploy-app-1` burning most cores (~390%) and GBs of RAM, while `ollama` sits idle.
+**Cause:** disconnected SSE clients whose Postgres LISTEN/NOTIFY listeners never tore down,
+buffering forever (Next.js standalone doesn't reliably fire `req.signal` "abort").
+
+- **Immediate relief:** `ssh playmatch 'cd ~/app/deploy && docker compose restart app'`
+  (CPU drops to single digits, RAM resets; Rally is fast again within seconds).
+- **Root cause** is fixed in `src/server/sse.ts` (5-min max-lifetime cap + backpressure
+  teardown; the client `EventSource` reconnects seamlessly). If it recurs despite that,
+  re-check stream teardown before suspecting Ollama.
+- First observed 2026-07-28; it took ~10 days of traffic to build up to 2.4 GB / ~390% CPU.
+
+### Rally not responding at all
+Rally only replies to messages matching `shouldRallyRespond` (an `@rally` mention). Server
+trigger: `src/server/rally.ts`, run via `after()` in the message POST route; the client
+"typing" indicator uses the same gate. Confirm the model is warm:
+`ssh playmatch 'docker exec deploy-ollama-1 ollama ps'` (should show `UNTIL: Forever`).
 
 ---
 
