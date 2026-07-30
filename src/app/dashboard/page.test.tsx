@@ -96,11 +96,11 @@ describe("DashboardPage", () => {
     render(<DashboardPage />);
     expect(await screen.findByText("Your Top Matches")).toBeInTheDocument();
     expect(await screen.findByText("Other P.")).toBeInTheDocument();
-    const matchBtn = await screen.findByRole("button", { name: /Match/i });
+    const matchBtn = await screen.findByRole("button", { name: /Accept/i });
     const user = userEvent.setup();
     await user.click(matchBtn);
     // After sending, the row shows a "Requested" badge and creates a request.
-    await waitFor(() => expect(screen.getByText("Requested")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Accepted")).toBeInTheDocument());
     expect(createMatchRequest).toHaveBeenCalledWith(
       expect.objectContaining({ fromUserId: "u_self", toUserId: "u_other", status: "pending" })
     );
@@ -113,7 +113,7 @@ describe("DashboardPage", () => {
       { id: "mr1", fromUserId: "u_from", toUserId: "u_self", status: "pending", score: 88, createdAt: new Date().toISOString() },
     ];
     render(<DashboardPage />);
-    expect(await screen.findByText("New Match Requests")).toBeInTheDocument();
+    expect(await screen.findByText("New Matches")).toBeInTheDocument();
     expect(screen.getByText("From Guy")).toBeInTheDocument();
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: /Accept/i }));
@@ -134,7 +134,7 @@ describe("DashboardPage", () => {
     expect(addContact).toHaveBeenCalledWith("u_self", expect.objectContaining({ id: "u_from" }));
     expect(addContact).toHaveBeenCalledWith("u_from", expect.objectContaining({ id: "u_self" }));
     // The accepted request now renders in the Accepted Matches section.
-    expect(await screen.findByText("Accepted Matches")).toBeInTheDocument();
+    expect(await screen.findByText("Connected")).toBeInTheDocument();
   });
 
   it("declines a received request", async () => {
@@ -161,9 +161,9 @@ describe("DashboardPage", () => {
       { id: "acc1", fromUserId: "u_self", toUserId: "u_b", status: "accepted", score: 90, createdAt: new Date().toISOString(), conversationId: "direct_u_b_u_self" },
     ];
     render(<DashboardPage />);
-    expect(await screen.findByText("Pending Requests")).toBeInTheDocument();
+    expect(await screen.findByText("Awaiting Response")).toBeInTheDocument();
     expect(screen.getByText("Player A")).toBeInTheDocument();
-    expect(screen.getByText("Accepted Matches")).toBeInTheDocument();
+    expect(screen.getByText("Connected")).toBeInTheDocument();
     expect(screen.getByText("Player B")).toBeInTheDocument();
     // The accepted match with a conversationId renders a Chat link.
     expect(screen.getByRole("link", { name: /Chat/i })).toBeInTheDocument();

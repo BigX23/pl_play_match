@@ -438,7 +438,7 @@ export async function listMatchRequests(db: Db, me: string) {
 }
 
 export async function createMatchRequest(db: Db, me: string, toUserId: string, score: number) {
-  if (toUserId === me) throw new AuthzError("cannot request yourself");
+  if (toUserId === me) throw new AuthzError("cannot match with yourself");
   const [row] = await db
     .insert(matchRequests)
     .values({ fromUserId: me, toUserId, score, status: "pending" })
@@ -446,8 +446,8 @@ export async function createMatchRequest(db: Db, me: string, toUserId: string, s
   await db.insert(notifications).values({
     userId: toUserId,
     type: "match_request",
-    title: "New Match Request!",
-    body: `Someone wants to match with you! (${score}% compatible)`,
+    title: "It's a Match! 🎾",
+    body: `You've been matched with someone (${score}% compatible) — accept to connect!`,
     link: "/dashboard",
   });
   return { ...row, createdAt: row.createdAt.toISOString() };
