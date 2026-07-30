@@ -203,8 +203,8 @@ export default function OpenMatchesPage() {
       const joined = await joinOpenMatch(match.id, userId);
       if (!joined) {
         toast({
-          title: "Match no longer available",
-          description: "Someone else just joined this match. Try another one.",
+          title: "Game no longer available",
+          description: "Someone else just joined this game. Try another one.",
           variant: "destructive",
         });
       }
@@ -314,9 +314,9 @@ export default function OpenMatchesPage() {
     if (s === "open" && cr) {
       return (
         <div className="space-y-2">
-          <p className="text-xs text-center text-muted-foreground">Your open match — waiting for a partner</p>
+          <p className="text-xs text-center text-muted-foreground">Your open game — waiting for a partner</p>
           <Button variant="destructive" size="sm" className="w-full" disabled={busy} onClick={() => handleDeleteMatch(match)}>
-            <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete Match
+            <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete Game
           </Button>
         </div>
       );
@@ -326,12 +326,12 @@ export default function OpenMatchesPage() {
       const pn = findPlayer(match.acceptedBy || match.player2Id)?.name || "Someone";
       return (
         <div className="space-y-2">
-          <p className="text-xs text-center font-medium text-amber-700 dark:text-amber-400">{pn} wants to join this match!</p>
+          <p className="text-xs text-center font-medium text-amber-700 dark:text-amber-400">{pn} wants to join this game!</p>
           <div className="flex gap-2">
             <Button size="sm" className="flex-1" disabled={busy} onClick={() => handleAcceptPartner(match)}><Check className="h-3.5 w-3.5 mr-1" /> Accept</Button>
             <Button size="sm" variant="outline" className="flex-1" disabled={busy} onClick={() => handleDeclinePartner(match)}><X className="h-3.5 w-3.5 mr-1" /> Decline</Button>
           </div>
-          <Button variant="ghost" size="sm" className="w-full text-destructive" disabled={busy} onClick={() => handleDeleteMatch(match)}><Trash2 className="h-3 w-3 mr-1" /> Delete Match</Button>
+          <Button variant="ghost" size="sm" className="w-full text-destructive" disabled={busy} onClick={() => handleDeleteMatch(match)}><Trash2 className="h-3 w-3 mr-1" /> Delete Game</Button>
         </div>
       );
     }
@@ -354,7 +354,7 @@ export default function OpenMatchesPage() {
             <Button size="sm" className="flex-1" disabled={busy} onClick={() => handleMarkScheduled(match)}><CalendarCheck className="h-3.5 w-3.5 mr-1" /> Mark Scheduled</Button>
             {match.conversationId && <Link href={`/dashboard/messages/`}><Button size="sm" variant="outline"><MessageCircle className="h-3.5 w-3.5 mr-1" /> Chat</Button></Link>}
           </div>
-          <Button variant="ghost" size="sm" className="w-full text-destructive" disabled={busy} onClick={() => handleCancelMatch(match)}>Cancel Match</Button>
+          <Button variant="ghost" size="sm" className="w-full text-destructive" disabled={busy} onClick={() => handleCancelMatch(match)}>Cancel Game</Button>
         </div>
       );
     }
@@ -376,10 +376,10 @@ export default function OpenMatchesPage() {
         <div className="space-y-2">
           <p className="text-xs text-center text-purple-700 dark:text-purple-400 font-medium">Court reserved — ready to play!</p>
           <div className="flex gap-2">
-            <Button size="sm" className="flex-1" disabled={busy} onClick={() => handleStartMatch(match)}><Play className="h-3.5 w-3.5 mr-1" /> Start Match</Button>
+            <Button size="sm" className="flex-1" disabled={busy} onClick={() => handleStartMatch(match)}><Play className="h-3.5 w-3.5 mr-1" /> Start Game</Button>
             {match.conversationId && <Link href={`/dashboard/messages/`}><Button size="sm" variant="outline"><MessageCircle className="h-3.5 w-3.5 mr-1" /> Chat</Button></Link>}
           </div>
-          <Button variant="ghost" size="sm" className="w-full text-destructive" disabled={busy} onClick={() => handleCancelMatch(match)}>Cancel Match</Button>
+          <Button variant="ghost" size="sm" className="w-full text-destructive" disabled={busy} onClick={() => handleCancelMatch(match)}>Cancel Game</Button>
         </div>
       );
     }
@@ -399,7 +399,7 @@ export default function OpenMatchesPage() {
     if (s === "in_progress" && (cr || pt)) {
       return (
         <div className="space-y-2">
-          <p className="text-xs text-center text-orange-700 dark:text-orange-400 font-medium">Match in progress — good luck!</p>
+          <p className="text-xs text-center text-orange-700 dark:text-orange-400 font-medium">Game in progress — good luck!</p>
           <Button size="sm" className="w-full" disabled={busy} onClick={() => { setScoreDialog(match); setScoreInput(""); }}><Trophy className="h-3.5 w-3.5 mr-1" /> Report Score</Button>
         </div>
       );
@@ -497,18 +497,18 @@ export default function OpenMatchesPage() {
     <div className="p-4 md:p-6 space-y-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold">Matches</h1>
-          <p className="text-muted-foreground">Browse, create & manage your matches</p>
+          <h1 className="text-2xl md:text-3xl font-bold">Open Games</h1>
+          <p className="text-muted-foreground">Browse, create & manage pickup games</p>
         </div>
         <Button onClick={() => setShowCreate(!showCreate)} size="sm">
-          {showCreate ? <><X className="h-4 w-4 mr-1" /> Cancel</> : <><Plus className="h-4 w-4 mr-1" /> Create Match</>}
+          {showCreate ? <><X className="h-4 w-4 mr-1" /> Cancel</> : <><Plus className="h-4 w-4 mr-1" /> Create Game</>}
         </Button>
       </div>
 
       {showCreate && (
         <Card className="border-primary">
           <CardContent className="p-4 space-y-3">
-            <h3 className="font-semibold">Create Open Match</h3>
+            <h3 className="font-semibold">Create Open Game</h3>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Sport</Label>
@@ -521,7 +521,7 @@ export default function OpenMatchesPage() {
                 </Select>
               </div>
               <div>
-                <Label>Match Type</Label>
+                <Label>Format</Label>
                 <Select value={newType} onValueChange={(v) => setNewType(v as "singles" | "doubles")}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -535,7 +535,7 @@ export default function OpenMatchesPage() {
             </div>
             <div><Label>Location</Label><Input value={newLocation} onChange={(e) => setNewLocation(e.target.value)} placeholder="e.g. Lifetime Activities Pleasanton" /></div>
             <div><Label>Notes (optional)</Label><Textarea value={newNotes} onChange={(e) => setNewNotes(e.target.value)} placeholder="Any details about the match..." /></div>
-            <Button onClick={handleCreateMatch} disabled={!newDate || !newTime} className="w-full">Post Open Match</Button>
+            <Button onClick={handleCreateMatch} disabled={!newDate || !newTime} className="w-full">Post Open Game</Button>
           </CardContent>
         </Card>
       )}
@@ -557,15 +557,15 @@ export default function OpenMatchesPage() {
 
       <Tabs defaultValue="my-matches">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="my-matches">My Matches{myActiveMatches.length > 0 && <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-xs">{myActiveMatches.length}</Badge>}</TabsTrigger>
+          <TabsTrigger value="my-matches">My Games{myActiveMatches.length > 0 && <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-xs">{myActiveMatches.length}</Badge>}</TabsTrigger>
           <TabsTrigger value="browse">Browse Open{browseMatches.length > 0 && <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-xs">{browseMatches.length}</Badge>}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="my-matches" className="space-y-6 mt-4">
           {myActiveMatches.length === 0 && myPastMatches.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
-              <p className="text-lg">No matches yet.</p>
-              <p className="text-sm">Create one or browse open matches to get started!</p>
+              <p className="text-lg">No games yet.</p>
+              <p className="text-sm">Create one or browse open games to get started!</p>
             </div>
           ) : (
             <>
@@ -588,7 +588,7 @@ export default function OpenMatchesPage() {
         <TabsContent value="browse" className="space-y-4 mt-4">
           {browseMatches.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
-              <p className="text-lg">No open matches to join right now.</p>
+              <p className="text-lg">No open games to join right now.</p>
               <p className="text-sm">Create your own or check back later!</p>
             </div>
           ) : (

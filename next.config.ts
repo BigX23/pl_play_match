@@ -35,6 +35,13 @@ const nextConfig: NextConfig = {
     ],
   },
 
+  // ─── Redirect the old "Open Matches" route to "Open Games" (renamed) ────────
+  async redirects() {
+    return [
+      { source: "/dashboard/open-matches", destination: "/dashboard/open-games", permanent: true },
+    ];
+  },
+
   // ─── Alias "@/…" → "<projectRoot>/src" ──────────────────────────────────────
   webpack: (config) => {
     // Ensure an alias object exists

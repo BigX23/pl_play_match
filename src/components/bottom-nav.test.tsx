@@ -21,7 +21,7 @@ describe("BottomNav", () => {
 
   it("renders all nav items", () => {
     render(<BottomNav />);
-    for (const label of ["Home", "Matches", "Messages", "Alerts", "Profile"]) {
+    for (const label of ["Home", "Games", "Messages", "Alerts", "Profile"]) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
   });

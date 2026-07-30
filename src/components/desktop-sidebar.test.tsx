@@ -31,7 +31,7 @@ describe("DesktopSidebar", () => {
   it("renders the brand and all nav items", () => {
     render(<DesktopSidebar />);
     expect(screen.getByText("PlayMatch")).toBeInTheDocument();
-    for (const label of ["Dashboard", "Open Matches", "Messages", "Notifications", "My Profile", "Settings"]) {
+    for (const label of ["Dashboard", "Open Games", "Messages", "Notifications", "My Profile", "Settings"]) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
   });

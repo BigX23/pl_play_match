@@ -6,7 +6,7 @@ import { makePlayer, makeAuth } from "../../test-fixtures";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
-  usePathname: () => "/dashboard/open-matches",
+  usePathname: () => "/dashboard/open-games",
   useParams: () => ({}),
   useSearchParams: () => new URLSearchParams(),
 }));
@@ -108,21 +108,21 @@ beforeEach(() => {
 describe("OpenMatchesPage", () => {
   it("renders the empty my-matches state and browse empty state", async () => {
     render(<OpenMatchesPage />);
-    expect(await screen.findByText("Matches")).toBeInTheDocument();
-    expect(screen.getByText(/No matches yet/i)).toBeInTheDocument();
+    expect(await screen.findByText("Open Games")).toBeInTheDocument();
+    expect(screen.getByText(/No games yet/i)).toBeInTheDocument();
 
     const user = userEvent.setup();
     await user.click(screen.getByRole("tab", { name: /Browse Open/i }));
-    expect(await screen.findByText(/No open matches to join/i)).toBeInTheDocument();
+    expect(await screen.findByText(/No open games to join/i)).toBeInTheDocument();
   });
 
   it("opens the create form, fills date/time and posts a new match", async () => {
     render(<OpenMatchesPage />);
-    await screen.findByText("Matches");
+    await screen.findByText("Open Games");
     const user = userEvent.setup();
 
-    await user.click(screen.getByRole("button", { name: /Create Match/i }));
-    expect(await screen.findByText("Create Open Match")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Create Game/i }));
+    expect(await screen.findByText("Create Open Game")).toBeInTheDocument();
 
     const dateInput = document.querySelector('input[type="date"]') as HTMLInputElement;
     const timeInput = document.querySelector('input[type="time"]') as HTMLInputElement;
@@ -132,7 +132,7 @@ describe("OpenMatchesPage", () => {
     const notes = screen.getByPlaceholderText(/Any details about the match/i);
     await user.type(notes, "friendly hit");
 
-    await user.click(screen.getByRole("button", { name: /Post Open Match/i }));
+    await user.click(screen.getByRole("button", { name: /Post Open Game/i }));
 
     await waitFor(() => {
       expect(createMatch).toHaveBeenCalledWith(
@@ -150,10 +150,10 @@ describe("OpenMatchesPage", () => {
 
   it("does not create a match without date/time", async () => {
     render(<OpenMatchesPage />);
-    await screen.findByText("Matches");
+    await screen.findByText("Open Games");
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: /Create Match/i }));
-    const post = await screen.findByRole("button", { name: /Post Open Match/i });
+    await user.click(screen.getByRole("button", { name: /Create Game/i }));
+    const post = await screen.findByRole("button", { name: /Post Open Game/i });
     expect(post).toBeDisabled();
     expect(createMatch).not.toHaveBeenCalled();
   });
@@ -191,7 +191,7 @@ describe("OpenMatchesPage", () => {
 
     await waitFor(() => {
       expect(toastMock).toHaveBeenCalledWith(
-        expect.objectContaining({ title: "Match no longer available", variant: "destructive" })
+        expect.objectContaining({ title: "Game no longer available", variant: "destructive" })
       );
     });
   });
@@ -202,7 +202,7 @@ describe("OpenMatchesPage", () => {
     const user = userEvent.setup();
 
     expect(await screen.findByText(/waiting for a partner/i)).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /Delete Match/i }));
+    await user.click(screen.getByRole("button", { name: /Delete Game/i }));
 
     await waitFor(() => expect(deleteMatch).toHaveBeenCalledWith("mine_open"));
     await waitFor(() => expect(screen.queryByText(/waiting for a partner/i)).not.toBeInTheDocument());
@@ -222,7 +222,7 @@ describe("OpenMatchesPage", () => {
     render(<OpenMatchesPage />);
     const user = userEvent.setup();
 
-    expect(await screen.findByText(/wants to join this match/i)).toBeInTheDocument();
+    expect(await screen.findByText(/wants to join this game/i)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /Accept/i }));
 
     await waitFor(() => {
@@ -254,7 +254,7 @@ describe("OpenMatchesPage", () => {
     });
     render(<OpenMatchesPage />);
     const user = userEvent.setup();
-    await screen.findByText(/wants to join this match/i);
+    await screen.findByText(/wants to join this game/i);
     await user.click(screen.getByRole("button", { name: /Decline/i }));
     await waitFor(() =>
       expect(updateMatch).toHaveBeenCalledWith(
@@ -340,7 +340,7 @@ describe("OpenMatchesPage", () => {
     render(<OpenMatchesPage />);
     const user = userEvent.setup();
     expect(await screen.findByText(/Court reserved/i)).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /Start Match/i }));
+    await user.click(screen.getByRole("button", { name: /Start Game/i }));
     await waitFor(() => expect(updateMatch).toHaveBeenCalledWith("sched1", { status: "in_progress" }));
   });
 
@@ -372,7 +372,7 @@ describe("OpenMatchesPage", () => {
     render(<OpenMatchesPage />);
     const user = userEvent.setup();
 
-    expect(await screen.findByText(/Match in progress/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Game in progress/i)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /Report Score/i }));
 
     expect(await screen.findByText("Report Final Score")).toBeInTheDocument();
@@ -464,7 +464,7 @@ describe("OpenMatchesPage", () => {
     render(<OpenMatchesPage />);
     const user = userEvent.setup();
     await screen.findByText(/Partner confirmed/i);
-    await user.click(screen.getByRole("button", { name: "Cancel Match" }));
+    await user.click(screen.getByRole("button", { name: "Cancel Game" }));
     await waitFor(() =>
       expect(updateMatch).toHaveBeenCalledWith("conf_cancel", { status: "cancelled", cancelledBy: "me" })
     );
@@ -483,9 +483,9 @@ describe("OpenMatchesPage", () => {
     });
     render(<OpenMatchesPage />);
     const user = userEvent.setup();
-    await screen.findByText(/wants to join this match/i);
-    // The only "Delete Match" button in the pending-creator actions
-    await user.click(screen.getByRole("button", { name: /Delete Match/i }));
+    await screen.findByText(/wants to join this game/i);
+    // The only "Delete Game" button in the pending-creator actions
+    await user.click(screen.getByRole("button", { name: /Delete Game/i }));
     await waitFor(() => expect(deleteMatch).toHaveBeenCalledWith("pend_del"));
   });
 
@@ -502,7 +502,7 @@ describe("OpenMatchesPage", () => {
     render(<OpenMatchesPage />);
     const user = userEvent.setup();
     await screen.findByText(/Court reserved/i);
-    await user.click(screen.getByRole("button", { name: "Cancel Match" }));
+    await user.click(screen.getByRole("button", { name: "Cancel Game" }));
     await waitFor(() =>
       expect(updateMatch).toHaveBeenCalledWith("sched_cancel", { status: "cancelled", cancelledBy: "me" })
     );
@@ -525,10 +525,10 @@ describe("OpenMatchesPage", () => {
 
   it("changes sport and match-type in the create form", async () => {
     render(<OpenMatchesPage />);
-    await screen.findByText("Matches");
+    await screen.findByText("Open Games");
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: /Create Match/i }));
-    await screen.findByText("Create Open Match");
+    await user.click(screen.getByRole("button", { name: /Create Game/i }));
+    await screen.findByText("Create Open Game");
 
     // The create form has two Selects (sport, type). Change both.
     const combos = screen.getAllByRole("combobox");
@@ -548,7 +548,7 @@ describe("OpenMatchesPage", () => {
     const timeInput = document.querySelector('input[type="time"]') as HTMLInputElement;
     await user.type(dateInput, "2026-10-01");
     await user.type(timeInput, "09:00");
-    await user.click(screen.getByRole("button", { name: /Post Open Match/i }));
+    await user.click(screen.getByRole("button", { name: /Post Open Game/i }));
 
     await waitFor(() => {
       expect(createMatch).toHaveBeenCalledWith(
