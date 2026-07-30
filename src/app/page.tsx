@@ -123,7 +123,7 @@ export default function LandingPage() {
                 </div>
                 <div className="mt-3 flex items-center justify-center gap-1.5 rounded-lg border border-dashed py-2 text-xs text-muted-foreground">
                   <Send className="h-3 w-3" />
-                  Send a match request to start a chat
+                  Accept a match to start a chat
                 </div>
               </div>
             </div>

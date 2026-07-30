@@ -83,8 +83,8 @@ export async function pushMatchRequest(
   score: number
 ): Promise<void> {
   await sendPushToUser(db, toUserId, {
-    title: "New match request",
-    body: `${fromName} wants to play with you (${score}% compatible).`,
+    title: "It's a Match! 🎾",
+    body: `${fromName} matched with you (${score}% compatible) — accept to connect.`,
     url: "/dashboard",
   });
 }
@@ -96,8 +96,8 @@ export async function pushMatchAccepted(
   conversationId?: string
 ): Promise<void> {
   await sendPushToUser(db, toUserId, {
-    title: "Match accepted",
-    body: `${byName} accepted your match request. Open the chat to plan your game.`,
+    title: "You're connected! 🎾",
+    body: `${byName} accepted your match. Open the chat to plan your game.`,
     url: conversationId ? `/dashboard/messages/${conversationId}` : "/dashboard",
   });
 }

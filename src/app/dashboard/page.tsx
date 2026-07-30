@@ -165,13 +165,14 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* New Match Requests (received) */}
+      {/* New Matches — the other player accepted; accept back to connect */}
       {pendingReceived.length > 0 && (
         <Card className="border-primary">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg flex items-center gap-2">
-              <Bell className="h-5 w-5 text-primary" /> New Match Requests <Badge variant="destructive">{pendingReceived.length}</Badge>
+              <Bell className="h-5 w-5 text-primary" /> New Matches <Badge variant="destructive">{pendingReceived.length}</Badge>
             </CardTitle>
+            <p className="text-xs text-muted-foreground pt-1">Accept to connect and start chatting.</p>
           </CardHeader>
           <CardContent className="space-y-3">
             {pendingReceived.map((req) => {
@@ -206,7 +207,7 @@ export default function DashboardPage() {
       {pendingSent.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg flex items-center gap-2"><Clock className="h-5 w-5 text-muted-foreground" /> Pending Requests</CardTitle>
+            <CardTitle className="text-lg flex items-center gap-2"><Clock className="h-5 w-5 text-muted-foreground" /> Awaiting Response</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {pendingSent.map((req) => {
@@ -217,10 +218,10 @@ export default function DashboardPage() {
                     <div className="text-2xl">{toPlayer?.avatar || "👤"}</div>
                     <div>
                       <p className="font-medium">{toPlayer?.name}</p>
-                      <p className="text-xs text-muted-foreground">{req.score}% compatible · Awaiting response</p>
+                      <p className="text-xs text-muted-foreground">{req.score}% compatible · You accepted — waiting on them</p>
                     </div>
                   </div>
-                  <Badge variant="secondary">Pending</Badge>
+                  <Badge variant="secondary">Awaiting</Badge>
                 </div>
               );
             })}
@@ -232,7 +233,7 @@ export default function DashboardPage() {
       {acceptedRequests.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg flex items-center gap-2"><CircleCheck className="h-5 w-5 text-green-600" /> Accepted Matches</CardTitle>
+            <CardTitle className="text-lg flex items-center gap-2"><CircleCheck className="h-5 w-5 text-green-600" /> Connected</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {acceptedRequests.map((req) => {
@@ -293,7 +294,7 @@ export default function DashboardPage() {
                       <Progress value={score} className="h-1.5 w-14" />
                     </div>
                     {requested ? (
-                      <Badge variant="secondary" className="text-xs">Requested</Badge>
+                      <Badge variant="secondary" className="text-xs">Accepted</Badge>
                     ) : (
                       <Button
                         size="sm"
@@ -302,7 +303,7 @@ export default function DashboardPage() {
                         disabled={sendingTo === matchUser.id}
                       >
                         <Send className="h-3 w-3 mr-1" />
-                        {sendingTo === matchUser.id ? "..." : "Match"}
+                        {sendingTo === matchUser.id ? "..." : "Accept"}
                       </Button>
                     )}
                   </div>

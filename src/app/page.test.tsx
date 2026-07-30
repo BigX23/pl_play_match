@@ -27,7 +27,7 @@ describe("LandingPage", () => {
     expect(screen.getByText("Sam Tan")).toBeInTheDocument();
     expect(screen.getByText("92%")).toBeInTheDocument();
     expect(screen.getByText("78%")).toBeInTheDocument();
-    expect(screen.getByText(/Send a match request to start a chat/i)).toBeInTheDocument();
+    expect(screen.getByText(/Accept a match to start a chat/i)).toBeInTheDocument();
   });
 
   it("renders the footer", () => {
