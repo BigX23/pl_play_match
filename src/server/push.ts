@@ -89,6 +89,19 @@ export async function pushMatchRequest(
   });
 }
 
+export async function pushNewPlayer(
+  db: Db,
+  toUserId: string,
+  newPlayerName: string,
+  score: number
+): Promise<void> {
+  await sendPushToUser(db, toUserId, {
+    title: "New player joined 🎾",
+    body: `${newPlayerName} just joined and is ${score}% compatible with you.`,
+    url: "/dashboard",
+  });
+}
+
 export async function pushMatchAccepted(
   db: Db,
   toUserId: string,

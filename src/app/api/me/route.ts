@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
+import { after } from "next/server";
 import { eq } from "drizzle-orm";
 import { auth } from "@/auth";
 import { getDb } from "@/db";
 import { users, type DbUser } from "@/db/schema";
+import { notifyNewCompatiblePlayer } from "@/server/data";
+import { pushNewPlayer } from "@/server/push";
 
 /**
  * The signed-in user's profile.
@@ -112,11 +115,32 @@ export async function PATCH(req: Request) {
   }
 
   const db = getDb();
+  // Read the prior completion state so we can detect the false→true flip.
+  const completing = update.profileComplete === true;
+  const [before] = completing
+    ? await db
+        .select({ profileComplete: users.profileComplete })
+        .from(users)
+        .where(eq(users.id, session.user.id))
+        .limit(1)
+    : [undefined];
   const [row] = await db
     .update(users)
     .set(update)
     .where(eq(users.id, session.user.id))
     .returning();
   if (!row) return NextResponse.json({ error: "not found" }, { status: 404 });
+
+  // Onboarding just completed: tell this player's top matches someone
+  // compatible joined. After the response — must not slow onboarding.
+  if (completing && before && !before.profileComplete && row.profileComplete) {
+    const userId = session.user.id;
+    after(async () => {
+      const recipients = await notifyNewCompatiblePlayer(getDb(), userId).catch(() => []);
+      await Promise.all(
+        recipients.map((r) => pushNewPlayer(getDb(), r.userId, r.name, r.score).catch(() => {}))
+      );
+    });
+  }
   return NextResponse.json(toPlayer(row));
 }

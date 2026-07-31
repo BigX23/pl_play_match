@@ -193,6 +193,45 @@ export async function getMatchSuggestions(db: Db, me: string) {
   }));
 }
 
+/** Max players notified when a new compatible player completes onboarding. */
+export const NEW_PLAYER_NOTIFY_LIMIT = 5;
+
+/**
+ * Called when a user completes onboarding: tells their top matches a
+ * compatible new player joined. Inserts in-app notifications and returns the
+ * recipients so the route can additionally send web pushes (push.ts imports
+ * from this module, so the push itself can't live here).
+ */
+export async function notifyNewCompatiblePlayer(db: Db, newUserId: string) {
+  const [row] = await db.select().from(users).where(eq(users.id, newUserId)).limit(1);
+  const profile = row ? dbUserToProfile(row) : null;
+  if (!row || !profile) return [];
+
+  const others = await db
+    .select()
+    .from(users)
+    .where(and(eq(users.profileComplete, true), ne(users.id, newUserId), ne(users.id, RALLY_ID)));
+  const candidates = others.map(dbUserToProfile).filter((p): p is UserProfile => p !== null);
+
+  // Scores are symmetric, so the new player's best matches are exactly the
+  // players for whom the new player ranks highly too.
+  const top = findMatches(profile, candidates).slice(0, NEW_PLAYER_NOTIFY_LIMIT);
+  if (top.length === 0) return [];
+
+  const name = displayName(row.firstName, row.lastName);
+  const recipients = top.map((r) => ({ userId: r.user.id, score: r.score, name }));
+  await db.insert(notifications).values(
+    recipients.map((r) => ({
+      userId: r.userId,
+      type: "new_player",
+      title: "New player joined 🎾",
+      body: `${name} just joined and is ${r.score}% compatible with you — take a look!`,
+      link: "/dashboard",
+    }))
+  );
+  return recipients;
+}
+
 // ---------- compatibility breakdown (match-detail view) ----------
 
 export type FactorState = "match" | "partial" | "miss";
