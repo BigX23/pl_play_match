@@ -27,7 +27,11 @@ const NAMELESS = "user_nameless";
 
 async function applyMigrations() {
   const dir = path.resolve(__dirname, "../../drizzle");
-  for (const file of ["0000_auth-and-profile.sql", "0001_domain-tables.sql"]) {
+  for (const file of [
+    "0000_auth-and-profile.sql",
+    "0001_domain-tables.sql",
+    "0002_score-confirmation.sql",
+  ]) {
     const sqlText = readFileSync(path.join(dir, file), "utf8");
     for (const stmt of sqlText.split("--> statement-breakpoint")) {
       const trimmed = stmt.trim();
@@ -434,11 +438,22 @@ describe("matches", () => {
     expect(updated.notes).toBe("see you there");
   });
 
-  it("completing with a winner updates both players' stats exactly once", async () => {
+  it("report + opponent confirm applies both players' stats exactly once", async () => {
     const m = await data.createMatch(db, ALICE, { player2Id: BOB, status: "confirmed" });
-    await data.updateMatch(db, ALICE, m.id, { status: "completed", winnerId: ALICE, score: "6-4" });
+    const reported = await data.updateMatch(db, ALICE, m.id, {
+      status: "pending_confirmation",
+      winnerId: ALICE,
+      score: "6-4, 6-3",
+    });
+    expect(reported.status).toBe("pending_confirmation");
 
+    // No stats yet — the report alone must not count.
     let alice = await data.getPlayer(db, ALICE);
+    expect(alice.matchesPlayed).toBe(0);
+
+    // Bob (the opponent) confirms; the REPORTED winner is applied.
+    await data.updateMatch(db, BOB, m.id, { status: "completed" });
+    alice = await data.getPlayer(db, ALICE);
     let bob = await data.getPlayer(db, BOB);
     expect(alice.matchesPlayed).toBe(1);
     expect(alice.wins).toBe(1);
@@ -457,9 +472,63 @@ describe("matches", () => {
     expect(bob.losses).toBe(1);
   });
 
-  it("completing a tie increments matchesPlayed only", async () => {
+  it("the reporter cannot confirm their own report; a direct complete is rejected", async () => {
+    const m = await data.createMatch(db, ALICE, { player2Id: BOB, status: "in_progress" });
+    // Two-player games cannot skip the confirmation step.
+    await expect(
+      data.updateMatch(db, ALICE, m.id, { status: "completed", winnerId: ALICE })
+    ).rejects.toBeInstanceOf(AuthzError);
+
+    await data.updateMatch(db, ALICE, m.id, { status: "pending_confirmation", winnerId: ALICE, score: "6-4" });
+    await expect(data.updateMatch(db, ALICE, m.id, { status: "completed" })).rejects.toBeInstanceOf(
+      AuthzError
+    );
+  });
+
+  it("the confirmer cannot swap the reported winner", async () => {
+    const m = await data.createMatch(db, ALICE, { player2Id: BOB, status: "in_progress" });
+    await data.updateMatch(db, ALICE, m.id, { status: "pending_confirmation", winnerId: ALICE, score: "6-4" });
+    await data.updateMatch(db, BOB, m.id, { status: "completed", winnerId: BOB });
+    const alice = await data.getPlayer(db, ALICE);
+    const bob = await data.getPlayer(db, BOB);
+    expect(alice.wins).toBe(1); // reported winner stands
+    expect(bob.wins).toBe(0);
+  });
+
+  it("disputing clears the reported result and returns to in_progress", async () => {
+    const m = await data.createMatch(db, ALICE, { player2Id: BOB, status: "in_progress" });
+    await data.updateMatch(db, ALICE, m.id, { status: "pending_confirmation", winnerId: ALICE, score: "6-0" });
+    const disputed = await data.updateMatch(db, BOB, m.id, { status: "in_progress" });
+    expect(disputed.status).toBe("in_progress");
+    expect(disputed.score).toBeUndefined();
+    expect(disputed.winnerId).toBeNull();
+    expect(disputed.reportedBy).toBeNull();
+    const alice = await data.getPlayer(db, ALICE);
+    expect(alice.matchesPlayed).toBe(0);
+  });
+
+  it("reporting validates winner and set-score format, and notifies the opponent", async () => {
+    const m = await data.createMatch(db, ALICE, { player2Id: BOB, status: "in_progress" });
+    await expect(
+      data.updateMatch(db, ALICE, m.id, { status: "pending_confirmation", winnerId: CARA })
+    ).rejects.toBeInstanceOf(AuthzError);
+    await expect(
+      data.updateMatch(db, ALICE, m.id, { status: "pending_confirmation", score: "definitely won" })
+    ).rejects.toBeInstanceOf(AuthzError);
+
+    await data.updateMatch(db, ALICE, m.id, {
+      status: "pending_confirmation",
+      winnerId: "tie",
+      score: "6-4, 3-6, 7-6(5)",
+    });
+    const notifs = await data.listNotifications(db, BOB);
+    expect(notifs.some((n) => n.type === "score_reported")).toBe(true);
+  });
+
+  it("confirming a reported tie increments matchesPlayed only", async () => {
     const m = await data.createMatch(db, ALICE, { player2Id: BOB });
-    await data.updateMatch(db, BOB, m.id, { status: "completed", winnerId: "tie" });
+    await data.updateMatch(db, BOB, m.id, { status: "pending_confirmation", winnerId: "tie", score: "6-6" });
+    await data.updateMatch(db, ALICE, m.id, { status: "completed" });
     const alice = await data.getPlayer(db, ALICE);
     const bob = await data.getPlayer(db, BOB);
     for (const p of [alice, bob]) {
@@ -467,15 +536,6 @@ describe("matches", () => {
       expect(p.wins).toBe(0);
       expect(p.losses).toBe(0);
     }
-  });
-
-  it("completing without a winner increments matchesPlayed only", async () => {
-    const m = await data.createMatch(db, ALICE, { player2Id: BOB });
-    await data.updateMatch(db, ALICE, m.id, { status: "completed" });
-    const alice = await data.getPlayer(db, ALICE);
-    expect(alice.matchesPlayed).toBe(1);
-    expect(alice.wins).toBe(0);
-    expect(alice.losses).toBe(0);
   });
 
   it("completing a solo match only touches player1", async () => {

@@ -359,7 +359,7 @@ describe("OpenMatchesPage", () => {
     expect(await screen.findByText(/see you on the court/i)).toBeInTheDocument();
   });
 
-  it("in_progress match: report score, pick winner and complete with winnerId", async () => {
+  it("in_progress match: report structured sets → pending_confirmation with winnerId", async () => {
     seedPlayer("partner", "Partner Person");
     seedMatch({
       id: "prog1",
@@ -376,8 +376,10 @@ describe("OpenMatchesPage", () => {
     await user.click(screen.getByRole("button", { name: /Report Score/i }));
 
     expect(await screen.findByText("Report Final Score")).toBeInTheDocument();
-    const scoreInput = screen.getByPlaceholderText("6-4, 6-3");
-    await user.type(scoreInput, "6-4, 6-3");
+    await user.type(screen.getByLabelText("Set 1 — your games"), "6");
+    await user.type(screen.getByLabelText("Set 1 — opponent games"), "4");
+    await user.type(screen.getByLabelText("Set 2 — your games"), "6");
+    await user.type(screen.getByLabelText("Set 2 — opponent games"), "3");
 
     // Pick a winner via the Radix Select
     await user.click(screen.getByRole("combobox"));
@@ -386,14 +388,76 @@ describe("OpenMatchesPage", () => {
 
     await user.click(screen.getByRole("button", { name: /Submit Score/i }));
 
-    // The server records both players' stats; the client just sends winnerId.
+    // Two-player games await opponent confirmation before stats are applied.
     await waitFor(() => {
       expect(updateMatch).toHaveBeenCalledWith("prog1", {
-        status: "completed",
+        status: "pending_confirmation",
         score: "6-4, 6-3",
         winnerId: "me",
       });
     });
+  });
+
+  it("pending_confirmation: the opponent can confirm or dispute; the reporter waits", async () => {
+    seedPlayer("partner", "Partner Person");
+    seedMatch({
+      id: "conf1",
+      player1Id: "partner",
+      createdBy: "partner",
+      player2Id: "me",
+      status: "pending_confirmation",
+      score: "6-4, 6-3",
+      winnerId: "partner",
+      reportedBy: "partner",
+      participants: ["partner", "me"],
+    });
+    render(<OpenMatchesPage />);
+    const user = userEvent.setup();
+
+    expect(await screen.findByText(/opponent reported 6-4, 6-3/i)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Confirm/i }));
+    await waitFor(() => {
+      expect(updateMatch).toHaveBeenCalledWith("conf1", { status: "completed" });
+    });
+  });
+
+  it("pending_confirmation: disputing sends the game back to in_progress", async () => {
+    seedPlayer("partner", "Partner Person");
+    seedMatch({
+      id: "conf2",
+      player1Id: "partner",
+      createdBy: "partner",
+      player2Id: "me",
+      status: "pending_confirmation",
+      score: "6-0",
+      winnerId: "partner",
+      reportedBy: "partner",
+      participants: ["partner", "me"],
+    });
+    render(<OpenMatchesPage />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: /Dispute/i }));
+    await waitFor(() => {
+      expect(updateMatch).toHaveBeenCalledWith("conf2", { status: "in_progress" });
+    });
+  });
+
+  it("pending_confirmation: the reporter sees a waiting note, no confirm buttons", async () => {
+    seedPlayer("partner", "Partner Person");
+    seedMatch({
+      id: "conf3",
+      player1Id: "me",
+      createdBy: "me",
+      player2Id: "partner",
+      status: "pending_confirmation",
+      score: "6-2, 6-2",
+      winnerId: "me",
+      reportedBy: "me",
+      participants: ["me", "partner"],
+    });
+    render(<OpenMatchesPage />);
+    expect(await screen.findByText(/waiting for your opponent to confirm/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Confirm/i })).not.toBeInTheDocument();
   });
 
   it("closes the score dialog on Cancel", async () => {
@@ -580,7 +644,7 @@ describe("OpenMatchesPage", () => {
     await waitFor(() => expect(screen.queryByText("Report Final Score")).not.toBeInTheDocument());
   });
 
-  it("submits a score via Enter key in the score input", async () => {
+  it("keeps Submit disabled until at least one full set is entered", async () => {
     seedPlayer("partner", "Partner Person");
     seedMatch({
       id: "prog_enter",
@@ -593,11 +657,12 @@ describe("OpenMatchesPage", () => {
     render(<OpenMatchesPage />);
     const user = userEvent.setup();
     await user.click(await screen.findByRole("button", { name: /Report Score/i }));
-    const scoreInput = await screen.findByPlaceholderText("6-4, 6-3");
-    await user.type(scoreInput, "7-5{Enter}");
-    await waitFor(() =>
-      expect(updateMatch).toHaveBeenCalledWith("prog_enter", expect.objectContaining({ status: "completed", score: "7-5" }))
-    );
+    const submit = await screen.findByRole("button", { name: /Submit Score/i });
+    expect(submit).toBeDisabled();
+    await user.type(screen.getByLabelText("Set 1 — your games"), "7");
+    expect(submit).toBeDisabled(); // half a set isn't a score
+    await user.type(screen.getByLabelText("Set 1 — opponent games"), "5");
+    expect(submit).toBeEnabled();
   });
 
   it("filters by sport via the sport Select", async () => {
