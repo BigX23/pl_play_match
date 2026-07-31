@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, ne, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, lt, ne, or, sql } from "drizzle-orm";
 import type { getDb } from "@/db";
 import {
   contacts,
@@ -430,7 +430,24 @@ export async function joinOpenMatch(db: Db, me: string, matchId: string): Promis
 
 // ---------- match requests ----------
 
+/** Pending invites older than this flip to "expired" the next time they're read. */
+export const REQUEST_TTL_DAYS = 14;
+
 export async function listMatchRequests(db: Db, me: string) {
+  // Read-time expiry — there is no cron/scheduler in this stack. Expired
+  // requests stop cluttering the dashboard and no longer block a re-invite
+  // (the client only treats pending/accepted as blocking).
+  const cutoff = new Date(Date.now() - REQUEST_TTL_DAYS * 24 * 60 * 60 * 1000);
+  await db
+    .update(matchRequests)
+    .set({ status: "expired" })
+    .where(
+      and(
+        eq(matchRequests.status, "pending"),
+        or(eq(matchRequests.fromUserId, me), eq(matchRequests.toUserId, me)),
+        lt(matchRequests.createdAt, cutoff)
+      )
+    );
   const rows = await db
     .select()
     .from(matchRequests)

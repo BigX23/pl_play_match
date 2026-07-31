@@ -501,6 +501,30 @@ describe("match requests", () => {
     ).toBe(true);
   });
 
+  it("listMatchRequests expires pending requests older than the TTL", async () => {
+    const fresh = await data.createMatchRequest(db, ALICE, BOB, 80);
+    const stale = await data.createMatchRequest(db, CARA, ALICE, 60);
+    const accepted = await data.createMatchRequest(db, BOB, ALICE, 70);
+    await data.updateMatchRequest(db, ALICE, accepted.id, { status: "accepted" });
+
+    // Backdate two requests past the TTL; only the pending one may expire.
+    const past = new Date(Date.now() - (data.REQUEST_TTL_DAYS + 1) * 24 * 60 * 60 * 1000);
+    await rawDb
+      .update(schema.matchRequests)
+      .set({ createdAt: past })
+      .where(eq(schema.matchRequests.id, stale.id));
+    await rawDb
+      .update(schema.matchRequests)
+      .set({ createdAt: past })
+      .where(eq(schema.matchRequests.id, accepted.id));
+
+    const mine = await data.listMatchRequests(db, ALICE);
+    const byId = new Map(mine.map((r) => [r.id, r.status]));
+    expect(byId.get(fresh.id)).toBe("pending");
+    expect(byId.get(stale.id)).toBe("expired");
+    expect(byId.get(accepted.id)).toBe("accepted");
+  });
+
   it("updateMatchRequest lets the recipient accept or decline", async () => {
     const r1 = await data.createMatchRequest(db, ALICE, BOB, 80);
     const accepted = await data.updateMatchRequest(db, BOB, r1.id, { status: "accepted" });
