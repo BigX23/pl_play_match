@@ -308,6 +308,25 @@ export async function listMatches(db: Db, me: string, mineOnly = false) {
 
 export async function createMatch(db: Db, me: string, data: Record<string, unknown>) {
   const player2 = typeof data.player2Id === "string" && data.player2Id ? data.player2Id : null;
+  // Direct games (both players set at creation) are only allowed between
+  // accepted connections — open games go through the join endpoint instead.
+  if (player2) {
+    if (player2 === me) throw new AuthzError("cannot schedule a game with yourself");
+    const [conn] = await db
+      .select()
+      .from(matchRequests)
+      .where(
+        and(
+          eq(matchRequests.status, "accepted"),
+          or(
+            and(eq(matchRequests.fromUserId, me), eq(matchRequests.toUserId, player2)),
+            and(eq(matchRequests.fromUserId, player2), eq(matchRequests.toUserId, me))
+          )
+        )
+      )
+      .limit(1);
+    if (!conn) throw new AuthzError("player2 must be an accepted connection");
+  }
   const [row] = await db
     .insert(matches)
     .values({
@@ -326,6 +345,15 @@ export async function createMatch(db: Db, me: string, data: Record<string, unkno
       participants: [me, ...(player2 ? [player2] : [])],
     })
     .returning();
+  if (player2) {
+    await db.insert(notifications).values({
+      userId: player2,
+      type: "match_scheduled",
+      title: "Game scheduled 🎾",
+      body: `A game has been scheduled with you${row.date ? ` on ${row.date}` : ""}${row.time ? ` at ${row.time}` : ""}.`,
+      link: "/dashboard/open-games",
+    });
+  }
   return toMatch(row);
 }
 

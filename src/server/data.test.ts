@@ -311,6 +311,33 @@ describe("getCompatibility", () => {
 // ---------- matches ----------
 
 describe("matches", () => {
+  // Direct games (player2 set at creation) require an accepted connection.
+  async function connect(a: string, b: string) {
+    const r = await data.createMatchRequest(db, a, b, 75);
+    await data.updateMatchRequest(db, b, r.id, { status: "accepted" });
+  }
+  beforeEach(async () => {
+    await connect(ALICE, BOB);
+    await connect(BOB, CARA);
+    await connect(ALICE, CARA);
+  });
+
+  it("createMatch with player2 requires an accepted connection", async () => {
+    // NAMELESS has no connection with ALICE in either direction.
+    await expect(
+      data.createMatch(db, ALICE, { player2Id: NAMELESS })
+    ).rejects.toBeInstanceOf(AuthzError);
+    await expect(data.createMatch(db, ALICE, { player2Id: ALICE })).rejects.toBeInstanceOf(
+      AuthzError
+    );
+  });
+
+  it("createMatch with player2 notifies them of the scheduled game", async () => {
+    await data.createMatch(db, ALICE, { player2Id: BOB, date: "2026-08-01", time: "10:00" });
+    const notifs = await data.listNotifications(db, BOB);
+    expect(notifs.some((n) => n.type === "match_scheduled")).toBe(true);
+  });
+
   it("createMatch stamps player1Id from the session user and builds participants", async () => {
     const m = await data.createMatch(db, ALICE, {
       player1Id: BOB, // forged — must be ignored
