@@ -37,7 +37,7 @@ import {
   type GameType,
   type AgeRange,
 } from "@/lib/matching-engine";
-import { availabilityGrid, type AvailabilityGrid } from "@/lib/availability";
+import { availabilityGrid, sharedSlotsSummary, type AvailabilityGrid } from "@/lib/availability";
 
 export class AuthzError extends Error {}
 export class NotFoundError extends Error {}
@@ -794,12 +794,21 @@ export async function conversationContext(db: Db, conversationId: string) {
   const parts = await participantsOf(db, conversationId);
   const names: Record<string, string> = {};
   const humanIds = parts.map((p) => p.userId).filter((u) => u !== RALLY_ID);
+  let sharedTimes: string | null = null;
   if (humanIds.length) {
     const rows = await db.select().from(users).where(inArray(users.id, humanIds));
     for (const u of rows) names[u.id] = u.firstName || u.name || "Player";
+    // For two-player chats, precompute the real schedule overlap so Rally can
+    // propose concrete times instead of guessing. Raw schedules stay server-side.
+    if (humanIds.length === 2) {
+      const [a, b] = humanIds.map((id) => rows.find((r) => r.id === id));
+      if (a?.weeklyAvailability && b?.weeklyAvailability) {
+        sharedTimes = sharedSlotsSummary(a.weeklyAvailability, b.weeklyAvailability) || null;
+      }
+    }
   }
   const hasRally = parts.some((p) => p.userId === RALLY_ID);
-  return { messages: msgs.map(toMessage), names, hasRally };
+  return { messages: msgs.map(toMessage), names, hasRally, sharedTimes };
 }
 
 // ---------- contacts ----------

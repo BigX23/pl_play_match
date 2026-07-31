@@ -88,6 +88,16 @@ describe("clampWords", () => {
   });
 });
 
+describe("buildRallyPrompt scheduling context", () => {
+  it("injects shared times when provided and omits the block otherwise", () => {
+    const withTimes = buildRallyPrompt([msg("hi")], { u1: "Alex" }, "Mon morning, Wed evening");
+    expect(withTimes).toContain("Mon morning, Wed evening");
+    expect(withTimes).toContain("Scheduling context");
+    const without = buildRallyPrompt([msg("hi")], { u1: "Alex" }, null);
+    expect(without).not.toContain("Scheduling context");
+  });
+});
+
 describe("getStaticResponse", () => {
   it("answers time questions", () => {
     expect(getStaticResponse("what time works?").toLowerCase()).toContain("availability");
@@ -107,8 +117,14 @@ describe("getStaticResponse", () => {
   it("has a generic fallback", () => {
     expect(getStaticResponse("random text")).toMatch(/help/i);
   });
+  it("proposes real shared times for scheduling questions when provided", () => {
+    const r = getStaticResponse("what time works for you?", "Mon morning, Wed evening");
+    expect(r).toContain("Mon morning, Wed evening");
+    // Non-scheduling questions ignore the overlap context.
+    expect(getStaticResponse("where is the court", "Mon morning")).toContain("925");
+  });
   it("uses a calm voice (no ALL-CAPS shouting)", () => {
-    const responses = ["what time", "where", "score", "cancel", "thanks", "xyz"].map(getStaticResponse);
+    const responses = ["what time", "where", "score", "cancel", "thanks", "xyz"].map((t) => getStaticResponse(t));
     for (const r of responses) {
       expect(r).not.toMatch(/LET'S GO|GAME ON|CHAMPION/);
     }

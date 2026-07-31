@@ -57,10 +57,10 @@ export async function maybeReplyAsRally(
 ): Promise<void> {
   if (!shouldRallyRespond(humanText)) return;
   try {
-    const { messages, names, hasRally } = await conversationContext(db, conversationId);
+    const { messages, names, hasRally, sharedTimes } = await conversationContext(db, conversationId);
     if (!hasRally) return;
-    const prompt = buildRallyPrompt(messages, names);
-    const reply = (await askOllama(prompt)) ?? getStaticResponse(humanText);
+    const prompt = buildRallyPrompt(messages, names, sharedTimes);
+    const reply = (await askOllama(prompt)) ?? getStaticResponse(humanText, sharedTimes);
     if (reply) await insertRallyMessage(db, conversationId, reply);
   } catch (err) {
     console.error("[rally] reply generation failed:", err);

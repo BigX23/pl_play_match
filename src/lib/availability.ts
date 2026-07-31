@@ -55,6 +55,25 @@ function byDay(av: DayAvailability[] | undefined): Map<string, DayAvailability> 
 }
 
 /**
+ * Human-readable list of the day+period slots where both players are free —
+ * "Mon morning, Wed evening" — used by Rally to propose concrete game times.
+ * Returns "" when there is no overlap.
+ */
+export function sharedSlotsSummary(
+  mine: DayAvailability[] | undefined,
+  theirs: DayAvailability[] | undefined
+): string {
+  const grid = availabilityGrid(mine, theirs);
+  const parts: string[] = [];
+  WEEK_DAYS.forEach((day, i) => {
+    for (const p of PERIODS) {
+      if (grid.cells[p.key][i] === "both") parts.push(`${day} ${p.label.toLowerCase()}`);
+    }
+  });
+  return parts.join(", ");
+}
+
+/**
  * Build the two-player heatmap. For each weekday + period the cell is:
  * `both` (green), `you`/`them` (one side, amber), or `none`.
  */

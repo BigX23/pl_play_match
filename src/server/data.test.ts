@@ -838,6 +838,22 @@ describe("insertRallyMessage / conversationContext", () => {
     expect(ctx.names[ALICE]).toBe("Alice");
     expect(ctx.names[RALLY_ID]).toBeUndefined(); // Rally excluded from name map
     expect(ctx.messages.some((m) => m.text.includes("where do we play"))).toBe(true);
+    expect(ctx.sharedTimes).toBeNull(); // neither player has availability set
+  });
+
+  it("conversationContext computes the two players' shared availability", async () => {
+    const avail = (day: string, start: number, end: number) => ({ day, enabled: true, slots: [{ start, end }] });
+    await rawDb
+      .update(schema.users)
+      .set({ weeklyAvailability: [avail("Mon", 8, 11), avail("Wed", 18, 21)] })
+      .where(eq(schema.users.id, ALICE));
+    await rawDb
+      .update(schema.users)
+      .set({ weeklyAvailability: [avail("Mon", 9, 12), avail("Sat", 8, 10)] })
+      .where(eq(schema.users.id, BOB));
+    const c = await data.createGroupConversation(db, ALICE, [ALICE, BOB], "", "G", "intro");
+    const ctx = await data.conversationContext(db, c.id);
+    expect(ctx.sharedTimes).toBe("Mon morning");
   });
 });
 
