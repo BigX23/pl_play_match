@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   availabilityGrid,
   periodsForDay,
+  sharedSlotsSummary,
   PERIODS,
   WEEK_DAYS,
   type Period,
@@ -95,5 +96,18 @@ describe("availabilityGrid", () => {
     const empty = availabilityGrid(undefined, theirs);
     expect(empty.sharedCount).toBe(0);
     expect(empty.cells.evening.every((c) => c === "them" || c === "none")).toBe(true);
+  });
+});
+
+describe("sharedSlotsSummary", () => {
+  it("lists shared day+period slots in week order", () => {
+    const mine = [day("Mon", 8, 11), day("Wed", 18, 21)];
+    const theirs = [day("Mon", 9, 12), day("Wed", 17, 20), day("Sat", 8, 10)];
+    expect(sharedSlotsSummary(mine, theirs)).toBe("Mon morning, Wed evening");
+  });
+
+  it("returns an empty string when nothing overlaps", () => {
+    expect(sharedSlotsSummary([day("Mon", 8, 11)], [day("Tue", 8, 11)])).toBe("");
+    expect(sharedSlotsSummary(undefined, [day("Mon", 8, 11)])).toBe("");
   });
 });

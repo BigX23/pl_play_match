@@ -90,10 +90,16 @@ export function buildHistory(
 /** Compose the full prompt sent to the model. */
 export function buildRallyPrompt(
   msgs: Message[],
-  names: Record<string, string>
+  names: Record<string, string>,
+  sharedTimes?: string | null
 ): string {
   const history = buildHistory(msgs, names);
-  return `${history}\n\n--- Reply as Rally (under 80 words) ---`;
+  // Overlap is computed server-side from real schedules — the model must not
+  // invent times, only pick from this list.
+  const context = sharedTimes
+    ? `\n\n[Scheduling context: both players are free ${sharedTimes}. When scheduling comes up, suggest options from this list only.]`
+    : "";
+  return `${history}${context}\n\n--- Reply as Rally (under 80 words) ---`;
 }
 
 /** Clamp a reply to at most `maxWords`, trimming on a sentence boundary if possible. */
@@ -110,10 +116,12 @@ export function clampWords(text: string, maxWords = 80): string {
  * Deterministic keyword response used when the model is unavailable.
  * Calm, concrete voice — matches the system prompt.
  */
-export function getStaticResponse(text: string): string {
+export function getStaticResponse(text: string, sharedTimes?: string | null): string {
   const lower = text.toLowerCase();
   if (lower.includes("what time") || lower.includes("when"))
-    return "Based on your shared availability, weekday evenings or Saturday mornings tend to work best. Want me to pencil in a time?";
+    return sharedTimes
+      ? `Looking at both your schedules, you're both free ${sharedTimes}. Pick one that works and I can help with court details.`
+      : "Based on your shared availability, weekday evenings or Saturday mornings tend to work best. Want me to pencil in a time?";
   if (lower.includes("where") || lower.includes("court") || lower.includes("address"))
     return "Lifetime Activities Pleasanton is the usual spot — call (925) 460-8600 to reserve a court.";
   if (lower.includes("score") || lower.includes("won") || lower.includes("lost"))
