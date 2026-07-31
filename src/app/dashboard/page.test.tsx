@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Match, MatchRequest, Player } from "@/lib/mock-data";
@@ -16,6 +16,7 @@ vi.mock("@/lib/data", () => ({
   updateMatchRequest: vi.fn(),
   createGroupConversation: vi.fn(),
   addContact: vi.fn(),
+  createMatch: vi.fn(),
 }));
 
 import {
@@ -27,6 +28,7 @@ import {
   updateMatchRequest,
   createGroupConversation,
   addContact,
+  createMatch,
 } from "@/lib/data";
 import DashboardPage from "./page";
 
@@ -60,6 +62,7 @@ beforeEach(() => {
   });
   vi.mocked(createGroupConversation).mockResolvedValue("conv_new");
   vi.mocked(addContact).mockResolvedValue(undefined);
+  vi.mocked(createMatch).mockResolvedValue("m_new");
 });
 
 describe("DashboardPage", () => {
@@ -167,6 +170,37 @@ describe("DashboardPage", () => {
     expect(screen.getByText("Player B")).toBeInTheDocument();
     // The accepted match with a conversationId renders a Chat link.
     expect(screen.getByRole("link", { name: /Chat/i })).toBeInTheDocument();
+  });
+
+  it("schedules a game with a connected player from the dashboard", async () => {
+    const b = makePlayer({ id: "u_b", name: "Player B", firstName: "PB" });
+    playersData = [self, b];
+    requestsData = [
+      { id: "acc1", fromUserId: "u_self", toUserId: "u_b", status: "accepted", score: 90, createdAt: new Date().toISOString(), conversationId: "conv1" },
+    ];
+    render(<DashboardPage />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: /Schedule/i }));
+    expect(await screen.findByText(/Schedule a game with/i)).toBeInTheDocument();
+
+    // Schedule Game stays disabled until date and time are filled.
+    const submit = screen.getByRole("button", { name: /Schedule Game/i });
+    expect(submit).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Date"), { target: { value: "2026-08-01" } });
+    fireEvent.change(screen.getByLabelText("Time"), { target: { value: "10:00" } });
+    await user.click(submit);
+
+    await waitFor(() => {
+      expect(createMatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          player1Id: "u_self",
+          player2Id: "u_b",
+          date: "2026-08-01",
+          time: "10:00",
+          status: "confirmed",
+        })
+      );
+    });
   });
 
   it("renders upcoming and completed matches", async () => {

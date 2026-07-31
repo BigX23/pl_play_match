@@ -5,9 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Trophy, Calendar, TrendingUp, Users, Send, Check, X, MessageCircle, Bell, Clock, CircleCheck, Target } from "lucide-react";
+import { Trophy, Calendar, TrendingUp, Users, Send, Check, X, MessageCircle, Bell, Clock, CircleCheck, Target, CalendarPlus } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/lib/auth-context";
-import { getMatches, getPlayers, getMatchSuggestions, getMatchRequests, createMatchRequest, updateMatchRequest, createGroupConversation, addContact } from "@/lib/data";
+import { getMatches, getPlayers, getMatchSuggestions, getMatchRequests, createMatchRequest, updateMatchRequest, createGroupConversation, addContact, createMatch } from "@/lib/data";
 import { type Match, type Player, type MatchRequest, getPlayerById } from "@/lib/mock-data";
 import { buildMatchIntro } from "@/lib/ai-assistant";
 import Link from "next/link";
@@ -33,6 +37,13 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [sendingTo, setSendingTo] = useState<string | null>(null);
   const [actingOn, setActingOn] = useState<string | null>(null);
+  // Schedule-a-game dialog (from an accepted connection)
+  const [scheduleWith, setScheduleWith] = useState<{ id: string; name: string; score: number } | null>(null);
+  const [schedDate, setSchedDate] = useState("");
+  const [schedTime, setSchedTime] = useState("");
+  const [schedLocation, setSchedLocation] = useState("");
+  const [schedSport, setSchedSport] = useState<"tennis" | "pickleball">("tennis");
+  const [scheduling, setScheduling] = useState(false);
 
   const displayUser = user;
 
@@ -115,6 +126,35 @@ export default function DashboardPage() {
       await loadData();
     } finally {
       setActingOn(null);
+    }
+  };
+
+  const handleScheduleGame = async () => {
+    if (!scheduleWith || !schedDate || !schedTime) return;
+    setScheduling(true);
+    try {
+      // Both players are set up front — no open→join→approve dance for an
+      // already-accepted connection.
+      await createMatch({
+        player1Id: displayUser.id,
+        player2Id: scheduleWith.id,
+        date: schedDate,
+        time: schedTime,
+        location: schedLocation,
+        sport: schedSport,
+        status: "confirmed",
+        compatibilityScore: scheduleWith.score,
+        matchExplanation: `Scheduled from your match connection`,
+        matchType: "singles",
+        createdBy: displayUser.id,
+      } as Omit<Match, "id">);
+      setScheduleWith(null);
+      setSchedDate("");
+      setSchedTime("");
+      setSchedLocation("");
+      await loadData();
+    } finally {
+      setScheduling(false);
     }
   };
 
@@ -248,11 +288,19 @@ export default function DashboardPage() {
                       <p className="text-xs text-muted-foreground">{req.score}% compatible</p>
                     </div>
                   </div>
-                  {req.conversationId && (
-                    <Link href={`/dashboard/messages/${req.conversationId}`}>
-                      <Button size="sm" variant="outline"><MessageCircle className="h-4 w-4 mr-1" /> Chat</Button>
-                    </Link>
-                  )}
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => setScheduleWith({ id: otherId, name: other?.name || "your match", score: req.score })}
+                    >
+                      <CalendarPlus className="h-4 w-4 mr-1" /> Schedule
+                    </Button>
+                    {req.conversationId && (
+                      <Link href={`/dashboard/messages/${req.conversationId}`}>
+                        <Button size="sm" variant="outline"><MessageCircle className="h-4 w-4 mr-1" /> Chat</Button>
+                      </Link>
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -313,6 +361,47 @@ export default function DashboardPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Schedule-a-game dialog (from an accepted connection) */}
+      <Dialog open={scheduleWith !== null} onOpenChange={(open) => { if (!open) setScheduleWith(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Schedule a game with {scheduleWith?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="sched-date">Date</Label>
+                <Input id="sched-date" type="date" value={schedDate} onChange={(e) => setSchedDate(e.target.value)} />
+              </div>
+              <div>
+                <Label htmlFor="sched-time">Time</Label>
+                <Input id="sched-time" type="time" value={schedTime} onChange={(e) => setSchedTime(e.target.value)} />
+              </div>
+            </div>
+            <div>
+              <Label>Sport</Label>
+              <Select value={schedSport} onValueChange={(v) => setSchedSport(v as "tennis" | "pickleball")}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="tennis">Tennis</SelectItem>
+                  <SelectItem value="pickleball">Pickleball</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="sched-location">Location</Label>
+              <Input id="sched-location" value={schedLocation} onChange={(e) => setSchedLocation(e.target.value)} placeholder="e.g. Lifetime Activities Pleasanton" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setScheduleWith(null)} disabled={scheduling}>Cancel</Button>
+            <Button onClick={handleScheduleGame} disabled={!schedDate || !schedTime || scheduling}>
+              {scheduling ? "Scheduling…" : "Schedule Game"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Upcoming Matches */}
       <Card>
