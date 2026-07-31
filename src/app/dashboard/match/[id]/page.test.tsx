@@ -71,7 +71,7 @@ describe("MatchDetailPage", () => {
     render(<MatchDetailPage />);
     await screen.findByText("Jill W.");
 
-    await user.click(screen.getByRole("button", { name: /Accept Match/i }));
+    await user.click(screen.getByRole("button", { name: /Invite to Play/i }));
     await waitFor(() =>
       expect(createMatchRequest).toHaveBeenCalledWith(
         expect.objectContaining({ fromUserId: "me", toUserId: "u_jill", status: "pending", score: 68 })
@@ -85,7 +85,7 @@ describe("MatchDetailPage", () => {
     render(<MatchDetailPage />);
     await screen.findByText("Jill W.");
 
-    await user.click(screen.getByRole("button", { name: /Decline/i }));
+    await user.click(screen.getByRole("button", { name: /Not Now/i }));
     expect(pushMock).toHaveBeenCalledWith("/dashboard");
     expect(createMatchRequest).not.toHaveBeenCalled();
   });

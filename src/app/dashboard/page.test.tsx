@@ -96,11 +96,11 @@ describe("DashboardPage", () => {
     render(<DashboardPage />);
     expect(await screen.findByText("Your Top Matches")).toBeInTheDocument();
     expect(await screen.findByText("Other P.")).toBeInTheDocument();
-    const matchBtn = await screen.findByRole("button", { name: /Accept/i });
+    const matchBtn = await screen.findByRole("button", { name: /Invite to play/i });
     const user = userEvent.setup();
     await user.click(matchBtn);
-    // After sending, the row shows a "Requested" badge and creates a request.
-    await waitFor(() => expect(screen.getByText("Accepted")).toBeInTheDocument());
+    // After sending, the row shows an "Invited" badge and creates a request.
+    await waitFor(() => expect(screen.getByText("Invited")).toBeInTheDocument());
     expect(createMatchRequest).toHaveBeenCalledWith(
       expect.objectContaining({ fromUserId: "u_self", toUserId: "u_other", status: "pending" })
     );

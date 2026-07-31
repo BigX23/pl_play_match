@@ -83,15 +83,15 @@ describe("MatchComparison", () => {
     const user = userEvent.setup();
     render(<MatchComparison data={makeData()} onAccept={onAccept} onDecline={onDecline} />);
 
-    await user.click(screen.getByRole("button", { name: /Accept Match/i }));
+    await user.click(screen.getByRole("button", { name: /Invite to Play/i }));
     expect(onAccept).toHaveBeenCalledTimes(1);
-    await user.click(screen.getByRole("button", { name: /Decline/i }));
+    await user.click(screen.getByRole("button", { name: /Not Now/i }));
     expect(onDecline).toHaveBeenCalledTimes(1);
   });
 
   it("disables the actions and shows a busy label while accepting", () => {
     render(<MatchComparison data={makeData()} onAccept={vi.fn()} onDecline={vi.fn()} busy />);
-    expect(screen.getByRole("button", { name: /Decline/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Not Now/i })).toBeDisabled();
     const accept = screen.getByRole("button", { name: "…" });
     expect(accept).toBeDisabled();
   });

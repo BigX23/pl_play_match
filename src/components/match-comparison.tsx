@@ -217,10 +217,10 @@ export default function MatchComparison({
         {/* Actions */}
         <div className="flex gap-3">
           <Button variant="outline" className="flex-1" onClick={onDecline} disabled={busy}>
-            <X className="h-4 w-4 mr-1.5" /> Decline
+            <X className="h-4 w-4 mr-1.5" /> Not Now
           </Button>
           <Button className="flex-1" onClick={onAccept} disabled={busy}>
-            <Check className="h-4 w-4 mr-1.5" /> {busy ? "…" : "Accept Match"}
+            <Check className="h-4 w-4 mr-1.5" /> {busy ? "…" : "Invite to Play"}
           </Button>
         </div>
       </div>
