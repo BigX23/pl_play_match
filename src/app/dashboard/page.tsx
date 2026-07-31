@@ -165,7 +165,7 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* New Matches — the other player accepted; accept back to connect */}
+      {/* New Matches — invitations received; accepting connects the pair */}
       {pendingReceived.length > 0 && (
         <Card className="border-primary">
           <CardHeader className="pb-2">
@@ -218,7 +218,7 @@ export default function DashboardPage() {
                     <div className="text-2xl">{toPlayer?.avatar || "👤"}</div>
                     <div>
                       <p className="font-medium">{toPlayer?.name}</p>
-                      <p className="text-xs text-muted-foreground">{req.score}% compatible · You accepted — waiting on them</p>
+                      <p className="text-xs text-muted-foreground">{req.score}% compatible · Invite sent — waiting for their reply</p>
                     </div>
                   </div>
                   <Badge variant="secondary">Awaiting</Badge>
@@ -294,7 +294,7 @@ export default function DashboardPage() {
                       <Progress value={score} className="h-1.5 w-14" />
                     </div>
                     {requested ? (
-                      <Badge variant="secondary" className="text-xs">Accepted</Badge>
+                      <Badge variant="secondary" className="text-xs">Invited</Badge>
                     ) : (
                       <Button
                         size="sm"
@@ -303,7 +303,7 @@ export default function DashboardPage() {
                         disabled={sendingTo === matchUser.id}
                       >
                         <Send className="h-3 w-3 mr-1" />
-                        {sendingTo === matchUser.id ? "..." : "Accept"}
+                        {sendingTo === matchUser.id ? "..." : "Invite to play"}
                       </Button>
                     )}
                   </div>
