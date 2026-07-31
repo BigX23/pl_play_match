@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, ne, or, sql } from "drizzle-orm";
 import type { getDb } from "@/db";
 import {
   contacts,
@@ -170,13 +170,18 @@ export async function getPlayer(db: Db, id: string) {
  * preferences never leave the server.
  */
 export async function getMatchSuggestions(db: Db, me: string) {
-  const rows = await db.select().from(users);
-  const meRow = rows.find((u) => u.id === me);
+  const [meRow] = await db.select().from(users).where(eq(users.id, me)).limit(1);
   const myProfile = meRow ? dbUserToProfile(meRow) : null;
   if (!myProfile) return [];
 
+  // Candidate pool filtered in SQL — only complete profiles can ever match,
+  // so incomplete rows never need to leave the database.
+  const rows = await db
+    .select()
+    .from(users)
+    .where(and(eq(users.profileComplete, true), ne(users.id, me), ne(users.id, RALLY_ID)));
+
   const others = rows
-    .filter((u) => u.id !== me && u.id !== RALLY_ID)
     .map(dbUserToProfile)
     .filter((p): p is UserProfile => p !== null);
 
