@@ -362,6 +362,9 @@ const MATCH_PATCHABLE = new Set([
   "player2Id", "acceptedBy", "participants", "cancelledBy", "cancelReason",
 ]);
 
+/** Canonical set-score format: "6-4", "6-4, 3-6, 7-6(5)". */
+const SET_SCORE_RE = /^\d{1,2}-\d{1,2}(\(\d{1,2}\))?(,\s*\d{1,2}-\d{1,2}(\(\d{1,2}\))?)*$/;
+
 export async function updateMatch(
   db: Db,
   me: string,
@@ -395,22 +398,74 @@ export async function updateMatch(
     }
   }
 
-  // Completing a match with a winner updates both players' stats server-side.
-  // The winner must actually be one of the match's players (or a tie).
   const winnerId = typeof data.winnerId === "string" && data.winnerId ? data.winnerId : null;
+  const isPlayer = me === m.player1Id || me === m.player2Id;
+  const twoPlayer = Boolean(m.player2Id);
+
+  // Reporting a result: a player proposes score+winner; the opponent must
+  // confirm before any stats are applied (one player's report can't silently
+  // mutate both records).
+  if (data.status === "pending_confirmation") {
+    if (!twoPlayer) throw new AuthzError("solo matches complete directly");
+    if (!isPlayer) throw new AuthzError("only a player can report the result");
+    if (m.status === "completed") throw new AuthzError("match already completed");
+    if (winnerId && winnerId !== "tie" && winnerId !== m.player1Id && winnerId !== m.player2Id) {
+      throw new AuthzError("winner must be one of the match players");
+    }
+    if (typeof data.score === "string" && data.score && !SET_SCORE_RE.test(data.score.trim())) {
+      throw new AuthzError("score must be set scores like 6-4, 3-6, 7-6(5)");
+    }
+    update.winnerId = winnerId;
+    update.reportedBy = me;
+  }
+
+  // Dispute: the opponent rejects the reported result — back to in_progress
+  // with the report cleared so it can be re-entered.
+  if (data.status === "in_progress" && m.status === "pending_confirmation") {
+    update.score = null;
+    update.winnerId = null;
+    update.reportedBy = null;
+  }
+
   const completing = data.status === "completed" && m.status !== "completed";
-  if (completing && winnerId && winnerId !== "tie" &&
-      winnerId !== m.player1Id && winnerId !== m.player2Id) {
-    throw new AuthzError("winner must be one of the match players");
+  // The winner applied to stats: for a confirmation it is the REPORTED winner
+  // stored on the row — the confirmer can't swap it.
+  let statsWinner = winnerId;
+  if (completing) {
+    if (twoPlayer) {
+      if (m.status !== "pending_confirmation") {
+        throw new AuthzError("report the score first — the opponent confirms it");
+      }
+      if (!isPlayer || me === m.reportedBy) {
+        throw new AuthzError("only the other player can confirm the result");
+      }
+      statsWinner = m.winnerId;
+      if (update.score === undefined) update.score = m.score;
+    } else if (winnerId && winnerId !== "tie" && winnerId !== m.player1Id) {
+      throw new AuthzError("winner must be one of the match players");
+    }
   }
 
   const [row] = await db.update(matches).set(update).where(eq(matches.id, matchId)).returning();
 
+  if (data.status === "pending_confirmation" && row.reportedBy) {
+    const opponent = row.reportedBy === m.player1Id ? m.player2Id : m.player1Id;
+    if (opponent) {
+      await db.insert(notifications).values({
+        userId: opponent,
+        type: "score_reported",
+        title: "Confirm your match result 🎾",
+        body: `Your opponent reported ${row.score || "a result"} — confirm or dispute it.`,
+        link: "/dashboard/open-games",
+      });
+    }
+  }
+
   if (completing) {
     const ids = [m.player1Id, m.player2Id].filter((x): x is string => Boolean(x));
     for (const id of ids) {
-      const win = winnerId === id ? 1 : 0;
-      const loss = winnerId && winnerId !== "tie" && winnerId !== id ? 1 : 0;
+      const win = statsWinner === id ? 1 : 0;
+      const loss = statsWinner && statsWinner !== "tie" && statsWinner !== id ? 1 : 0;
       await db
         .update(users)
         .set({

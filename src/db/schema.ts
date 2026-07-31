@@ -110,6 +110,10 @@ export const matches = pgTable("matches", {
   sport: text("sport").notNull().default("tennis"),
   status: text("status").notNull().default("open"),
   score: text("score"),
+  // Score confirmation: who reported the result and who they said won.
+  // Stats are applied only when the opponent confirms (see updateMatch).
+  winnerId: text("winner_id"),
+  reportedBy: text("reported_by"),
   compatibilityScore: integer("compatibility_score").notNull().default(0),
   matchExplanation: text("match_explanation").notNull().default(""),
   matchType: text("match_type"),

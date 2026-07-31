@@ -60,6 +60,7 @@ const STATUS_CONFIG: Record<
   confirmed: { label: "Confirmed", color: "bg-green-500/10 text-green-700 border-green-300", variant: "default", icon: "✅" },
   scheduled: { label: "Scheduled", color: "bg-purple-500/10 text-purple-700 border-purple-300", variant: "secondary", icon: "📅" },
   in_progress: { label: "In Progress", color: "bg-orange-500/10 text-orange-700 border-orange-300", variant: "default", icon: "🏃" },
+  pending_confirmation: { label: "Confirm Score", color: "bg-amber-500/10 text-amber-700 border-amber-300", variant: "secondary", icon: "🤝" },
   completed: { label: "Completed", color: "bg-emerald-500/10 text-emerald-700 border-emerald-300", variant: "outline", icon: "🏆" },
   cancelled: { label: "Cancelled", color: "bg-red-500/10 text-red-700 border-red-300", variant: "destructive", icon: "❌" },
 };
@@ -87,10 +88,17 @@ export default function OpenMatchesPage() {
   const [newLocation, setNewLocation] = useState("Lifetime Activities Pleasanton");
   const [newNotes, setNewNotes] = useState("");
 
-  // Score dialog
+  // Score dialog — structured set entry ("6-4, 3-6, 7-5")
   const [scoreDialog, setScoreDialog] = useState<Match | null>(null);
-  const [scoreInput, setScoreInput] = useState("");
+  const [sets, setSets] = useState<[string, string][]>([["", ""], ["", ""], ["", ""]]);
   const [winnerId, setWinnerId] = useState("");
+
+  /** Canonical score string from the filled set rows; null if none complete. */
+  const setsToScore = (): string | null => {
+    const done = sets.filter(([a, b]) => a !== "" && b !== "");
+    if (done.length === 0) return null;
+    return done.map(([a, b]) => `${a}-${b}`).join(", ");
+  };
 
   async function load() {
     try {
@@ -162,7 +170,7 @@ export default function OpenMatchesPage() {
   const myActiveMatches = allMatches
     .filter((m) => isInvolved(m) && !["completed", "cancelled"].includes(m.status) && applyFilters(m))
     .sort((a, b) => {
-      const order: Record<string, number> = { pending: 0, confirmed: 1, open: 2, scheduled: 3, in_progress: 4 };
+      const order: Record<string, number> = { pending_confirmation: 0, pending: 1, confirmed: 2, open: 3, scheduled: 4, in_progress: 5 };
       return (order[a.status] ?? 5) - (order[b.status] ?? 5);
     });
 
@@ -286,20 +294,37 @@ export default function OpenMatchesPage() {
     });
 
   const handleReportScore = () => {
-    if (!scoreDialog || !scoreInput.trim()) return;
+    const score = setsToScore();
+    if (!scoreDialog || !score) return;
     const match = scoreDialog;
     withLoading(match.id, async () => {
-      // The server updates both players' stats when a match completes with a winner.
+      // Two-player games go to pending_confirmation — stats are applied only
+      // after the opponent confirms. Solo games complete directly.
       await updateMatch(match.id, {
-        status: "completed" as MatchStatus,
-        score: scoreInput.trim(),
+        status: (match.player2Id ? "pending_confirmation" : "completed") as MatchStatus,
+        score,
         winnerId,
       });
       setScoreDialog(null);
-      setScoreInput("");
+      setSets([["", ""], ["", ""], ["", ""]]);
       setWinnerId("");
     });
   };
+
+  const handleConfirmScore = (match: Match) =>
+    withLoading(match.id, async () => {
+      // The server applies the REPORTED winner; stats update on confirmation.
+      await updateMatch(match.id, { status: "completed" as MatchStatus });
+    });
+
+  const handleDisputeScore = (match: Match) =>
+    withLoading(match.id, async () => {
+      await updateMatch(match.id, { status: "in_progress" as MatchStatus });
+      toast({
+        title: "Score disputed",
+        description: "The reported result was cleared — report the score again together.",
+      });
+    });
 
   /* ──────────────────── action buttons component ──────────────────── */
   function MatchActions({ match, iAmCreator: cr, iAmPartner: pt, busy }: {
@@ -400,7 +425,37 @@ export default function OpenMatchesPage() {
       return (
         <div className="space-y-2">
           <p className="text-xs text-center text-orange-700 dark:text-orange-400 font-medium">Game in progress — good luck!</p>
-          <Button size="sm" className="w-full" disabled={busy} onClick={() => { setScoreDialog(match); setScoreInput(""); }}><Trophy className="h-3.5 w-3.5 mr-1" /> Report Score</Button>
+          <Button size="sm" className="w-full" disabled={busy} onClick={() => { setScoreDialog(match); setSets([["", ""], ["", ""], ["", ""]]); }}><Trophy className="h-3.5 w-3.5 mr-1" /> Report Score</Button>
+        </div>
+      );
+    }
+
+    if (s === "pending_confirmation" && (cr || pt)) {
+      const iReported = match.reportedBy === userId;
+      const winnerName =
+        match.winnerId === "tie" || !match.winnerId
+          ? "Tie / no result"
+          : findPlayer(match.winnerId)?.name || "Unknown";
+      if (iReported) {
+        return (
+          <p className="text-xs text-center text-amber-700 dark:text-amber-400 font-medium">
+            Reported {match.score} ({winnerName} won) — waiting for your opponent to confirm.
+          </p>
+        );
+      }
+      return (
+        <div className="space-y-2">
+          <p className="text-xs text-center text-amber-700 dark:text-amber-400 font-medium">
+            Your opponent reported {match.score} — winner: {winnerName}. Confirm?
+          </p>
+          <div className="flex gap-2">
+            <Button size="sm" className="flex-1" disabled={busy} onClick={() => handleConfirmScore(match)}>
+              <Check className="h-3.5 w-3.5 mr-1" /> Confirm
+            </Button>
+            <Button size="sm" variant="outline" className="flex-1" disabled={busy} onClick={() => handleDisputeScore(match)}>
+              <X className="h-3.5 w-3.5 mr-1" /> Dispute
+            </Button>
+          </div>
         </div>
       );
     }
@@ -601,8 +656,27 @@ export default function OpenMatchesPage() {
         <DialogContent>
           <DialogHeader><DialogTitle>Report Final Score</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">Enter the final score (e.g. &ldquo;6-4, 3-6, 7-5&rdquo;)</p>
-            <Input placeholder="6-4, 6-3" value={scoreInput} onChange={(e) => setScoreInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") handleReportScore(); }} />
+            <p className="text-sm text-muted-foreground">
+              Enter games won per set (your side first). Your opponent will confirm before it counts.
+            </p>
+            {sets.map(([a, b], i) => (
+              <div key={i} className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground w-10">Set {i + 1}</span>
+                <Input
+                  type="number" min={0} max={99} className="w-20" placeholder="6"
+                  aria-label={`Set ${i + 1} — your games`}
+                  value={a}
+                  onChange={(e) => setSets((prev) => prev.map((s, j) => (j === i ? [e.target.value, s[1]] : s)) as [string, string][])}
+                />
+                <span className="text-muted-foreground">–</span>
+                <Input
+                  type="number" min={0} max={99} className="w-20" placeholder="4"
+                  aria-label={`Set ${i + 1} — opponent games`}
+                  value={b}
+                  onChange={(e) => setSets((prev) => prev.map((s, j) => (j === i ? [s[0], e.target.value] : s)) as [string, string][])}
+                />
+              </div>
+            ))}
             {scoreDialog && (
               <div>
                 <Label>Winner</Label>
@@ -619,7 +693,7 @@ export default function OpenMatchesPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setScoreDialog(null)}>Cancel</Button>
-            <Button onClick={handleReportScore} disabled={!scoreInput.trim() || actionLoading !== null}><Trophy className="h-4 w-4 mr-1" /> Submit Score</Button>
+            <Button onClick={handleReportScore} disabled={!setsToScore() || actionLoading !== null}><Trophy className="h-4 w-4 mr-1" /> Submit Score</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

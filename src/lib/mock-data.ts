@@ -34,7 +34,7 @@ export interface Player {
   matchScore?: number;
 }
 
-export type MatchStatus = "open" | "pending" | "confirmed" | "scheduled" | "in_progress" | "completed" | "cancelled";
+export type MatchStatus = "open" | "pending" | "confirmed" | "scheduled" | "in_progress" | "pending_confirmation" | "completed" | "cancelled";
 
 export interface Match {
   id: string;
@@ -48,6 +48,9 @@ export interface Match {
   sport: "tennis" | "pickleball";
   status: MatchStatus;
   score?: string;
+  /** Reported result awaiting the opponent's confirmation. */
+  winnerId?: string;
+  reportedBy?: string;
   compatibilityScore: number;
   matchExplanation: string;
   matchType?: "singles" | "doubles";
