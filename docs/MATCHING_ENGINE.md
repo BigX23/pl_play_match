@@ -1,13 +1,13 @@
 # Matching Engine
 
 > Full reference for any human or AI agent working on the partner matching system.
-> Last updated: 2026-02-24
+> Last updated: 2026-07-30
 
 ---
 
 ## Overview
 
-The matching engine is a **pure-function, client-side scoring algorithm**. When the dashboard loads, it fetches all player profiles from Firestore, converts them into a canonical `UserProfile` shape, and ranks every other player against the current user using a weighted multi-factor score (0–100). No cloud function or server-side computation is involved — the math happens entirely in the browser.
+The matching engine is a **pure-function scoring algorithm that runs server-side**. When the dashboard loads, the client fetches `GET /api/matches/suggestions`; the server loads all player rows from **Postgres (Drizzle ORM)**, converts them into a canonical `UserProfile` shape via `dbUserToProfile()`, and ranks every other player against the current user using a weighted multi-factor score (0–100). Results are returned as **privacy-minimized public cards** (`toPublicPlayer` — first name + last initial, a 5-year `ageBracket`, no email/exact age/availability/partner preferences) plus a `matchScore`. The scoring math itself (`src/lib/matching-engine.ts`) is pure and dependency-free, so it is unit-testable in isolation.
 
 The engine scores gender preference (weight 0.10) and applies a **hard exclusion**: if neither player accepts the other's NTRP band (`mutualNtrpReject`), the pair is dropped from `findMatches` entirely regardless of other factors. Partner sport/format preferences also refine the sport and match-format sub-scores. Availability is scored **symmetrically** — the value shown to both players is `min(score(A→B), score(B→A))`, and overlapping time slots within a day are merged before intersecting.
 
@@ -18,12 +18,14 @@ The engine scores gender preference (weight 0.10) and applies a **hard exclusion
 | File | Role |
 |---|---|
 | [src/lib/matching-engine.ts](../src/lib/matching-engine.ts) | **Core algorithm** — all types, scoring functions, `calculateMatchScore`, `findMatches`, weight constants |
-| [src/lib/matching-engine.test.ts](../src/lib/matching-engine.test.ts) | Unit tests for every scoring sub-function |
-| [src/lib/mock-data.ts](../src/lib/mock-data.ts) | `playerToUserProfile()` adapter — maps Firestore Player docs → `UserProfile` shape consumed by the engine |
-| [src/app/dashboard/page.tsx](../src/app/dashboard/page.tsx) | **Only call site** — fetches players, converts profiles, calls `findMatches`, renders ranked results + send-request flow |
+| [src/lib/matching-engine.test.ts](../src/lib/matching-engine.test.ts) | Unit tests for every scoring sub-function (Vitest) |
+| [src/server/data.ts](../src/server/data.ts) | **Server call sites** — `dbUserToProfile()` adapter (DB row → `UserProfile`), `getMatchSuggestions()` (ranked suggestions), `getCompatibility()` (you-vs-them factor breakdown), `toPublicPlayer()` (privacy-minimized card) |
+| [src/app/api/matches/suggestions/route.ts](../src/app/api/matches/suggestions/route.ts) | `GET /api/matches/suggestions` — the dashboard's entry point |
+| [src/app/api/matches/compatibility/[id]/route.ts](../src/app/api/matches/compatibility/%5Bid%5D/route.ts) | `GET /api/matches/compatibility/:id` — powers the match-detail comparison view |
+| [src/app/dashboard/page.tsx](../src/app/dashboard/page.tsx) | Renders ranked suggestion cards + the invite/request flow (no scoring happens client-side) |
 | [src/app/onboarding/page.tsx](../src/app/onboarding/page.tsx) | Collects all preference data that feeds the engine (step 4 = Partner Prefs) |
 | [src/app/dashboard/profile/page.tsx](../src/app/dashboard/profile/page.tsx) | Allows editing of own preferences and partner preferences post-onboarding |
-| [src/lib/firestore.ts](../src/lib/firestore.ts) | `getPlayers()` — reads `users` collection that provides the candidate pool |
+| [src/db/schema.ts](../src/db/schema.ts) | `users` table — the candidate pool (`ntrpRating`, `sports`, `weeklyAvailability`, `partnerPreferences`, …) |
 
 ---
 
@@ -60,7 +62,7 @@ interface PartnerPreferences {
   genderPreference:  "Male" | "Female" | "No Preference";
 }
 
-// The shape the engine operates on — built from Firestore via playerToUserProfile()
+// The shape the engine operates on — built from a users row via dbUserToProfile()
 interface UserProfile {
   id:                 string;
   firstName:          string;
@@ -73,7 +75,7 @@ interface UserProfile {
   sports:             SportType[];
   matchFormats:       MatchFormat[];
   gameType:           GameType;
-  availability:       DayAvailability[];  // weeklyAvailability from Firestore
+  availability:       DayAvailability[];  // users.weeklyAvailability (jsonb)
   partnerPreferences: PartnerPreferences;
   profileComplete:    boolean;
 }
@@ -94,11 +96,11 @@ interface MatchResult {
 
 ---
 
-## Firestore Fields Read by the Engine
+## Database Fields Read by the Engine
 
-The engine operates on `UserProfile` objects built by `playerToUserProfile()` in `src/lib/mock-data.ts`. The following fields are read from each user's document in the `users` Firestore collection:
+The engine operates on `UserProfile` objects built by `dbUserToProfile()` in `src/server/data.ts`. The following columns are read from each row of the Postgres `users` table (see `src/db/schema.ts`):
 
-| Firestore Field | Maps To | Used In |
+| users Column | Maps To | Used In |
 |---|---|---|
 | `id` | `UserProfile.id` | Deduplication (`u.id !== currentUser.id`) |
 | `firstName` | `UserProfile.firstName` | Guard: profile skipped if missing |
@@ -119,7 +121,7 @@ The engine operates on `UserProfile` objects built by `playerToUserProfile()` in
 | `partnerPreferences.genderPreference` | `PartnerPreferences.genderPreference` | Gender score |
 | `profileComplete` | `UserProfile.profileComplete` | Guard: `false` → excluded from pool |
 
-> **Note:** `playerToUserProfile()` returns `null` if any of `profileComplete`, `firstName`, `weeklyAvailability`, or `partnerPreferences` are missing, and that candidate is silently excluded from the pool.
+> **Note:** `dbUserToProfile()` returns `null` if any of `profileComplete`, `firstName`, `weeklyAvailability`, or `partnerPreferences` are missing, and that candidate is silently excluded from the pool. The Rally AI user (`RALLY_ID`) is also excluded.
 
 ---
 
@@ -280,39 +282,27 @@ This ensures that a user who sets `"Female"` is never ranked highly against a ma
 ## Data Flow (Dashboard)
 
 ```
-Firestore users collection
-  └─ getPlayers()                            src/lib/firestore.ts
-       └─ Player[]
-            └─ playerToUserProfile(p)        src/lib/mock-data.ts
-                 └─ UserProfile | null
-                      └─ findMatches(me, others, 50)   src/lib/matching-engine.ts
-                           └─ MatchResult[]  (sorted desc by score)
-                                └─ Rendered as ranked player cards
-                                     └─ "Send Match Request" → matchRequests collection
+Postgres users table (Drizzle)
+  └─ getMatchSuggestions(db, me)             src/server/data.ts  (server-side)
+       └─ dbUserToProfile(row)               → UserProfile | null
+            └─ findMatches(me, others, 50)   src/lib/matching-engine.ts
+                 └─ MatchResult[]  (sorted desc by score)
+                      └─ toPublicPlayer(row) + matchScore   (privacy-minimized)
+                           └─ GET /api/matches/suggestions  → dashboard cards
+                                └─ "Invite to play" → POST /api/match-requests
 ```
 
 ---
 
 ## Dashboard Integration Detail
 
-Location: `src/app/dashboard/page.tsx` lines ~47–60.
+The dashboard (`src/app/dashboard/page.tsx`) calls `getMatchSuggestions()` from `src/lib/data.ts`, which fetches `GET /api/matches/suggestions`. All conversion and scoring happens server-side in `getMatchSuggestions(db, me)` (`src/server/data.ts`); the client receives ready-to-render public cards with a `matchScore` and never sees exact ages, availability grids, or partner preferences of other players. The match-detail page (`/dashboard/match/[id]`) uses `getCompatibility()` for the factor-by-factor breakdown and shared availability grid.
 
-```ts
-const myProfile = playerToUserProfile(displayUser as Player);
-if (myProfile) {
-  const otherProfiles = p
-    .filter((pl) => pl.id !== displayUser.id)
-    .map(playerToUserProfile)
-    .filter(Boolean);
-  setMatchResults(findMatches(myProfile, otherProfiles));
-}
-```
-
-Each `MatchResult` card in the UI shows:
-- Player name, avatar, NTRP rating, sports
-- `result.score` rendered as a percentage with a `<Progress>` bar
+Each suggestion card in the UI shows:
+- Player display name ("First L."), avatar, NTRP rating, sports, 5-year age bracket
+- `matchScore` rendered as a percentage with a `<Progress>` bar
 - Score color: green (≥ 80), yellow (≥ 60), orange (< 60)
-- A score `breakdown` object is available on every result for debugging (not currently displayed in the UI but accessible via `result.breakdown`)
+- A per-factor breakdown is shown on the match-detail page (`getCompatibility` → `MatchComparison`)
 
 ---
 
@@ -336,7 +326,7 @@ Each `MatchResult` card in the UI shows:
 ## Running the Tests
 
 ```bash
-npx jest src/lib/matching-engine.test.ts
+npx vitest run src/lib/matching-engine.test.ts   # or: npm test
 ```
 
 The test suite covers: perfect-match high score, no sport overlap, no availability overlap, `findMatches` min-score filtering, and game type step function values.
