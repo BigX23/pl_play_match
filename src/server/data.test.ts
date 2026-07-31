@@ -222,6 +222,31 @@ describe("getMatchSuggestions", () => {
   it("returns [] for an unknown user id", async () => {
     expect(await data.getMatchSuggestions(db, "nobody")).toEqual([]);
   });
+
+  it("notifyNewCompatiblePlayer notifies top matches and returns the recipients", async () => {
+    await makeComplete(ALICE);
+    await makeComplete(BOB);
+    // CARA stays incomplete → never notified.
+
+    const recipients = await data.notifyNewCompatiblePlayer(db, ALICE);
+    expect(recipients.map((r) => r.userId)).toEqual([BOB]);
+    expect(recipients[0].name).toBe("Alice S."); // privacy-safe display name
+    expect(recipients[0].score).toBeGreaterThan(0);
+
+    const notifs = await data.listNotifications(db, BOB);
+    const n = notifs.find((x) => x.type === "new_player");
+    expect(n).toBeDefined();
+    expect(n!.body).toContain("Alice S.");
+  });
+
+  it("notifyNewCompatiblePlayer is a no-op for incomplete or unknown users", async () => {
+    await makeComplete(BOB);
+    // ALICE incomplete → no notifications sent.
+    expect(await data.notifyNewCompatiblePlayer(db, ALICE)).toEqual([]);
+    expect(await data.notifyNewCompatiblePlayer(db, "nobody")).toEqual([]);
+    const notifs = await data.listNotifications(db, BOB);
+    expect(notifs.some((x) => x.type === "new_player")).toBe(false);
+  });
 });
 
 describe("getCompatibility", () => {
