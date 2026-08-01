@@ -403,15 +403,15 @@ export default function DashboardPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Upcoming Matches */}
+      {/* Upcoming Games */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-lg">Upcoming Matches</CardTitle>
+          <CardTitle className="text-lg">Upcoming Games</CardTitle>
           <Link href="/dashboard/open-games"><Button variant="ghost" size="sm">View All</Button></Link>
         </CardHeader>
         <CardContent className="space-y-3">
           {upcoming.length === 0 ? (
-            <p className="text-muted-foreground text-sm">No upcoming matches. <Link href="/dashboard/open-games" className="text-primary hover:underline">Find one!</Link></p>
+            <p className="text-muted-foreground text-sm">No upcoming games. <Link href="/dashboard/open-games" className="text-primary hover:underline">Find one!</Link></p>
           ) : (
             upcoming.map((match) => {
               const opp = getOpponentFromPlayers(match);
