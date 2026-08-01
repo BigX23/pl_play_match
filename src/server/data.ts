@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, lt, ne, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, lt, ne, notInArray, or, sql } from "drizzle-orm";
 import type { getDb } from "@/db";
 import {
   contacts,
@@ -9,6 +9,7 @@ import {
   messages,
   notifications,
   pushSubscriptions,
+  suggestionMutes,
   users,
   type DbConversation,
   type DbMatch,
@@ -174,12 +175,26 @@ export async function getMatchSuggestions(db: Db, me: string) {
   const myProfile = meRow ? dbUserToProfile(meRow) : null;
   if (!myProfile) return [];
 
+  const muted = await db
+    .select({ id: suggestionMutes.mutedUserId })
+    .from(suggestionMutes)
+    .where(eq(suggestionMutes.userId, me));
+  const mutedIds = muted.map((m) => m.id);
+
   // Candidate pool filtered in SQL — only complete profiles can ever match,
-  // so incomplete rows never need to leave the database.
+  // so incomplete rows never need to leave the database. Muted players are
+  // excluded from suggestions entirely (see muteSuggestion).
   const rows = await db
     .select()
     .from(users)
-    .where(and(eq(users.profileComplete, true), ne(users.id, me), ne(users.id, RALLY_ID)));
+    .where(
+      and(
+        eq(users.profileComplete, true),
+        ne(users.id, me),
+        ne(users.id, RALLY_ID),
+        ...(mutedIds.length ? [notInArray(users.id, mutedIds)] : [])
+      )
+    );
 
   const others = rows
     .map(dbUserToProfile)
@@ -191,6 +206,37 @@ export async function getMatchSuggestions(db: Db, me: string) {
     ...toPublicPlayer(byId.get(r.user.id)!),
     matchScore: r.score,
   }));
+}
+
+/**
+ * Silence a suggestion: the muted player stops appearing in my Top Matches.
+ * One-directional and reversible; the other player is never told.
+ */
+export async function muteSuggestion(db: Db, me: string, mutedUserId: string) {
+  if (mutedUserId === me) throw new AuthzError("cannot mute yourself");
+  const [target] = await db.select({ id: users.id }).from(users).where(eq(users.id, mutedUserId)).limit(1);
+  if (!target || mutedUserId === RALLY_ID) throw new NotFoundError("player");
+  await db
+    .insert(suggestionMutes)
+    .values({ userId: me, mutedUserId })
+    .onConflictDoNothing();
+}
+
+/** Un-silence a suggestion. Idempotent. */
+export async function unmuteSuggestion(db: Db, me: string, mutedUserId: string) {
+  await db
+    .delete(suggestionMutes)
+    .where(and(eq(suggestionMutes.userId, me), eq(suggestionMutes.mutedUserId, mutedUserId)));
+}
+
+/** The players I've silenced, as privacy-safe public cards (for the manage UI). */
+export async function listMutedSuggestions(db: Db, me: string) {
+  const rows = await db
+    .select({ user: users })
+    .from(suggestionMutes)
+    .innerJoin(users, eq(users.id, suggestionMutes.mutedUserId))
+    .where(eq(suggestionMutes.userId, me));
+  return rows.map((r) => toPublicPlayer(r.user));
 }
 
 /** Max players notified when a new compatible player completes onboarding. */

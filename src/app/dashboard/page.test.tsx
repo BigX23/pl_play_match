@@ -17,6 +17,9 @@ vi.mock("@/lib/data", () => ({
   createGroupConversation: vi.fn(),
   addContact: vi.fn(),
   createMatch: vi.fn(),
+  getMutedSuggestions: vi.fn(),
+  muteSuggestion: vi.fn(),
+  unmuteSuggestion: vi.fn(),
 }));
 
 import {
@@ -29,6 +32,9 @@ import {
   createGroupConversation,
   addContact,
   createMatch,
+  getMutedSuggestions,
+  muteSuggestion,
+  unmuteSuggestion,
 } from "@/lib/data";
 import DashboardPage from "./page";
 
@@ -63,6 +69,9 @@ beforeEach(() => {
   vi.mocked(createGroupConversation).mockResolvedValue("conv_new");
   vi.mocked(addContact).mockResolvedValue(undefined);
   vi.mocked(createMatch).mockResolvedValue("m_new");
+  vi.mocked(getMutedSuggestions).mockResolvedValue([]);
+  vi.mocked(muteSuggestion).mockResolvedValue(undefined);
+  vi.mocked(unmuteSuggestion).mockResolvedValue(undefined);
 });
 
 describe("DashboardPage", () => {
@@ -170,6 +179,25 @@ describe("DashboardPage", () => {
     expect(screen.getByText("Player B")).toBeInTheDocument();
     // The accepted match with a conversationId renders a Chat link.
     expect(screen.getByRole("link", { name: /Chat/i })).toBeInTheDocument();
+  });
+
+  it("hides a suggestion and unhides it from the hidden-players list", async () => {
+    const other = { ...makePlayer({ id: "u_other", name: "Other P.", firstName: "Other" }), matchScore: 80 } as Player;
+    playersData = [self, other];
+    suggestionsData = [other];
+    render(<DashboardPage />);
+    expect(await screen.findByText("Other P.")).toBeInTheDocument();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /Hide Other P\. from suggestions/i }));
+    await waitFor(() => expect(muteSuggestion).toHaveBeenCalledWith("u_other"));
+    // The card moves out of the list and into the hidden section.
+    expect(screen.queryByRole("button", { name: /Invite to play/i })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Hidden players \(1\)/i }));
+    expect(screen.getByText("Other P.")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Unhide/i }));
+    await waitFor(() => expect(unmuteSuggestion).toHaveBeenCalledWith("u_other"));
   });
 
   it("schedules a game with a connected player from the dashboard", async () => {

@@ -187,6 +187,17 @@ export const contacts = pgTable(
   (c) => [primaryKey({ columns: [c.userId, c.contactId] })]
 );
 
+/** Suggestions a user has silenced — excluded from their Top Matches list. */
+export const suggestionMutes = pgTable(
+  "suggestion_mutes",
+  {
+    userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    mutedUserId: text("muted_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (m) => [primaryKey({ columns: [m.userId, m.mutedUserId] })]
+);
+
 export const notifications = pgTable("notifications", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),

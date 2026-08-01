@@ -5,13 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Trophy, Calendar, TrendingUp, Users, Send, Check, X, MessageCircle, Bell, Clock, CircleCheck, Target, CalendarPlus } from "lucide-react";
+import { Trophy, Calendar, TrendingUp, Users, Send, Check, X, MessageCircle, Bell, Clock, CircleCheck, Target, CalendarPlus, EyeOff, Eye } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/lib/auth-context";
-import { getMatches, getPlayers, getMatchSuggestions, getMatchRequests, createMatchRequest, updateMatchRequest, createGroupConversation, addContact, createMatch } from "@/lib/data";
+import { getMatches, getPlayers, getMatchSuggestions, getMatchRequests, createMatchRequest, updateMatchRequest, createGroupConversation, addContact, createMatch, getMutedSuggestions, muteSuggestion, unmuteSuggestion } from "@/lib/data";
 import { type Match, type Player, type MatchRequest, getPlayerById } from "@/lib/mock-data";
 import { buildMatchIntro } from "@/lib/ai-assistant";
 import Link from "next/link";
@@ -33,6 +33,8 @@ export default function DashboardPage() {
   const [userMatches, setUserMatches] = useState<Match[]>([]);
   const [allPlayers, setAllPlayers] = useState<Player[]>([]);
   const [suggestions, setSuggestions] = useState<Player[]>([]);
+  const [mutedSuggestions, setMutedSuggestions] = useState<Player[]>([]);
+  const [showHidden, setShowHidden] = useState(false);
   const [requests, setRequests] = useState<MatchRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [sendingTo, setSendingTo] = useState<string | null>(null);
@@ -50,16 +52,18 @@ export default function DashboardPage() {
   const loadData = useCallback(async () => {
     if (!displayUser) return;
     try {
-      const [m, p, r, s] = await Promise.all([
+      const [m, p, r, s, muted] = await Promise.all([
         getMatches(displayUser.id),
         getPlayers(),
         getMatchRequests(displayUser.id),
         getMatchSuggestions(),
+        getMutedSuggestions(),
       ]);
       setUserMatches(m);
       setAllPlayers(p);
       setRequests(r);
       setSuggestions(s); // scored server-side; privacy-safe (name + ageBracket)
+      setMutedSuggestions(muted);
     } catch (e) {
       console.error("Failed to load dashboard data:", e);
     } finally {
@@ -156,6 +160,22 @@ export default function DashboardPage() {
     } finally {
       setScheduling(false);
     }
+  };
+
+  const handleMuteSuggestion = async (id: string) => {
+    await muteSuggestion(id);
+    // Optimistic: move the card out of the list without a full reload.
+    setSuggestions((prev) => {
+      const hidden = prev.find((p) => p.id === id);
+      if (hidden) setMutedSuggestions((m) => [...m, hidden]);
+      return prev.filter((p) => p.id !== id);
+    });
+  };
+
+  const handleUnmuteSuggestion = async (id: string) => {
+    await unmuteSuggestion(id);
+    setMutedSuggestions((prev) => prev.filter((p) => p.id !== id));
+    await loadData(); // restored player re-enters ranked suggestions
   };
 
   const handleDeclineRequest = async (req: MatchRequest) => {
@@ -354,10 +374,40 @@ export default function DashboardPage() {
                         {sendingTo === matchUser.id ? "..." : "Invite to play"}
                       </Button>
                     )}
+                    {!requested && (
+                      <button
+                        type="button"
+                        aria-label={`Hide ${matchUser.name} from suggestions`}
+                        title="Hide from suggestions"
+                        className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                        onClick={() => handleMuteSuggestion(matchUser.id)}
+                      >
+                        <EyeOff className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
               );
             })
+          )}
+          {mutedSuggestions.length > 0 && (
+            <div className="pt-1">
+              <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setShowHidden((v) => !v)}>
+                <Eye className="h-3.5 w-3.5 mr-1" />
+                {showHidden ? "Hide" : `Hidden players (${mutedSuggestions.length})`}
+              </Button>
+              {showHidden && mutedSuggestions.map((p) => (
+                <div key={p.id} className="flex items-center justify-between p-2 pl-3 rounded-lg border border-dashed mt-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="text-xl">{p.avatar || "👤"}</div>
+                    <p className="text-sm text-muted-foreground truncate">{p.name}</p>
+                  </div>
+                  <Button size="sm" variant="ghost" onClick={() => handleUnmuteSuggestion(p.id)}>
+                    Unhide
+                  </Button>
+                </div>
+              ))}
+            </div>
           )}
         </CardContent>
       </Card>
