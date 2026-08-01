@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
-import { getNotifications, markNotificationRead } from "@/lib/data";
+import { getNotifications, markNotificationRead, deleteNotification, clearNotifications } from "@/lib/data";
 import { type Notification } from "@/lib/mock-data";
 import NotificationCard from "@/components/notification-card";
 import { Bell } from "lucide-react";
@@ -25,6 +25,16 @@ export default function NotificationsPage() {
     notifs.filter((n) => !n.read).forEach((n) => handleMarkRead(n.id));
   };
 
+  const handleDelete = async (id: string) => {
+    await deleteNotification(id);
+    setNotifs((prev) => prev.filter((n) => n.id !== id));
+  };
+
+  const handleClearAll = async () => {
+    await clearNotifications();
+    setNotifs([]);
+  };
+
   const unreadCount = notifs.filter((n) => !n.read).length;
 
   return (
@@ -33,11 +43,18 @@ export default function NotificationsPage() {
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <Bell className="h-6 w-6" /> Notifications
         </h1>
-        {unreadCount > 0 && (
-          <Button variant="ghost" size="sm" onClick={markAllRead}>
-            Mark all read
-          </Button>
-        )}
+        <div className="flex gap-1">
+          {unreadCount > 0 && (
+            <Button variant="ghost" size="sm" onClick={markAllRead}>
+              Mark all read
+            </Button>
+          )}
+          {notifs.length > 0 && (
+            <Button variant="ghost" size="sm" onClick={handleClearAll}>
+              Clear all
+            </Button>
+          )}
+        </div>
       </div>
       {notifs.length === 0 ? (
         <div className="p-8 text-center text-muted-foreground">
@@ -46,7 +63,7 @@ export default function NotificationsPage() {
         </div>
       ) : (
         notifs.map((n) => (
-          <NotificationCard key={n.id} notification={n} onMarkRead={handleMarkRead} />
+          <NotificationCard key={n.id} notification={n} onMarkRead={handleMarkRead} onDelete={handleDelete} />
         ))
       )}
     </div>

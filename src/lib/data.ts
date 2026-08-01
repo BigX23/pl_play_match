@@ -319,3 +319,11 @@ export async function getNotifications(_userId: string): Promise<Notification[]>
 export async function markNotificationRead(notificationId: string): Promise<void> {
   await send("PATCH", `/api/notifications/${encodeURIComponent(notificationId)}`);
 }
+
+export async function deleteNotification(notificationId: string): Promise<void> {
+  await send("DELETE", `/api/notifications/${encodeURIComponent(notificationId)}`);
+}
+
+export async function clearNotifications(): Promise<void> {
+  await send("DELETE", "/api/notifications");
+}

@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { type Notification } from "@/lib/mock-data";
-import { MessageSquare, UserPlus, CheckCircle, Clock, Bot } from "lucide-react";
+import { MessageSquare, UserPlus, CheckCircle, Clock, Bot, X } from "lucide-react";
 import Link from "next/link";
 
 const icons: Record<string, typeof MessageSquare> = {
@@ -30,9 +30,10 @@ const colors: Record<string, string> = {
 interface Props {
   notification: Notification;
   onMarkRead?: (id: string) => void;
+  onDelete?: (id: string) => void;
 }
 
-export default function NotificationCard({ notification, onMarkRead }: Props) {
+export default function NotificationCard({ notification, onMarkRead, onDelete }: Props) {
   const Icon = icons[notification.type] || MessageSquare;
   const color = colors[notification.type] || "text-muted-foreground";
 
@@ -73,6 +74,21 @@ export default function NotificationCard({ notification, onMarkRead }: Props) {
         <p className="text-sm text-muted-foreground mt-0.5">{notification.body}</p>
         <p className="text-xs text-muted-foreground mt-1">{timeAgo(notification.createdAt)}</p>
       </div>
+      {onDelete && (
+        <button
+          type="button"
+          aria-label="Delete notification"
+          className="flex-shrink-0 mt-0.5 p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+          onClick={(e) => {
+            // Don't trigger the card's mark-read click or follow its link.
+            e.preventDefault();
+            e.stopPropagation();
+            onDelete(notification.id);
+          }}
+        >
+          <X className="h-4 w-4" />
+        </button>
+      )}
     </div>
   );
 

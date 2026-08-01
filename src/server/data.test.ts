@@ -1011,4 +1011,34 @@ describe("notifications", () => {
       NotFoundError
     );
   });
+
+  it("deleteNotification removes own notifications and 404s on others'", async () => {
+    await rawDb.insert(schema.notifications).values([
+      { id: "n1", userId: ALICE, type: "generic", title: "t1" },
+      { id: "n2", userId: BOB, type: "generic", title: "t2" },
+    ]);
+
+    // Bob can't delete Alice's; missing ids 404 too.
+    await expect(data.deleteNotification(db, BOB, "n1")).rejects.toBeInstanceOf(NotFoundError);
+    await expect(data.deleteNotification(db, ALICE, "missing")).rejects.toBeInstanceOf(
+      NotFoundError
+    );
+
+    await data.deleteNotification(db, ALICE, "n1");
+    expect(await data.listNotifications(db, ALICE)).toHaveLength(0);
+    expect(await data.listNotifications(db, BOB)).toHaveLength(1); // Bob's untouched
+  });
+
+  it("clearNotifications deletes only my notifications and returns the count", async () => {
+    await rawDb.insert(schema.notifications).values([
+      { id: "n1", userId: ALICE, type: "generic", title: "t1" },
+      { id: "n2", userId: ALICE, type: "generic", title: "t2" },
+      { id: "n3", userId: BOB, type: "generic", title: "t3" },
+    ]);
+
+    expect(await data.clearNotifications(db, ALICE)).toBe(2);
+    expect(await data.listNotifications(db, ALICE)).toHaveLength(0);
+    expect(await data.listNotifications(db, BOB)).toHaveLength(1);
+    expect(await data.clearNotifications(db, ALICE)).toBe(0); // idempotent
+  });
 });

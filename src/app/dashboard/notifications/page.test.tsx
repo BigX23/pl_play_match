@@ -9,9 +9,13 @@ vi.mock("@/lib/auth-context", () => ({ useAuth: () => authValue }));
 
 const getNotifications = vi.fn();
 const markNotificationRead = vi.fn();
+const deleteNotification = vi.fn();
+const clearNotifications = vi.fn();
 vi.mock("@/lib/data", () => ({
   getNotifications: (...a: unknown[]) => getNotifications(...a),
   markNotificationRead: (...a: unknown[]) => markNotificationRead(...a),
+  deleteNotification: (...a: unknown[]) => deleteNotification(...a),
+  clearNotifications: (...a: unknown[]) => clearNotifications(...a),
 }));
 
 import NotificationsPage from "./page";
@@ -25,6 +29,8 @@ const notif = (over: Partial<Notification>): Notification => ({
 beforeEach(() => {
   getNotifications.mockReset().mockResolvedValue([]);
   markNotificationRead.mockReset().mockResolvedValue(undefined);
+  deleteNotification.mockReset().mockResolvedValue(undefined);
+  clearNotifications.mockReset().mockResolvedValue(undefined);
   authValue = makeAuth(self);
 });
 
@@ -54,5 +60,36 @@ describe("NotificationsPage", () => {
     await waitFor(() =>
       expect(screen.queryByRole("button", { name: /Mark all read/i })).not.toBeInTheDocument()
     );
+  });
+
+  it("deletes a single notification without marking it read", async () => {
+    getNotifications.mockResolvedValue([
+      notif({ id: "n1", title: "Keep", body: "stays" }),
+      notif({ id: "n2", title: "Trash", body: "goes" }),
+    ]);
+    render(<NotificationsPage />);
+    expect(await screen.findByText("Trash")).toBeInTheDocument();
+
+    const user = userEvent.setup();
+    const deleteButtons = screen.getAllByRole("button", { name: /Delete notification/i });
+    await user.click(deleteButtons[1]); // second card = "Trash"
+    await waitFor(() => expect(deleteNotification).toHaveBeenCalledWith("n2"));
+    await waitFor(() => expect(screen.queryByText("Trash")).not.toBeInTheDocument());
+    expect(screen.getByText("Keep")).toBeInTheDocument();
+    expect(markNotificationRead).not.toHaveBeenCalled(); // delete must not mark-read
+  });
+
+  it("clears all notifications and shows the empty state", async () => {
+    getNotifications.mockResolvedValue([
+      notif({ id: "n1", title: "One" }),
+      notif({ id: "n2", title: "Two" }),
+    ]);
+    render(<NotificationsPage />);
+    expect(await screen.findByText("One")).toBeInTheDocument();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /Clear all/i }));
+    await waitFor(() => expect(clearNotifications).toHaveBeenCalled());
+    expect(await screen.findByText("No notifications")).toBeInTheDocument();
   });
 });
