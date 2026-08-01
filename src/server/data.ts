@@ -927,6 +927,23 @@ export async function markNotificationRead(db: Db, me: string, notificationId: s
   if (!row) throw new NotFoundError("notification");
 }
 
+export async function deleteNotification(db: Db, me: string, notificationId: string) {
+  const [row] = await db
+    .delete(notifications)
+    .where(and(eq(notifications.id, notificationId), eq(notifications.userId, me)))
+    .returning();
+  if (!row) throw new NotFoundError("notification");
+}
+
+/** Delete all of the signed-in user's notifications. Returns how many were removed. */
+export async function clearNotifications(db: Db, me: string) {
+  const rows = await db
+    .delete(notifications)
+    .where(eq(notifications.userId, me))
+    .returning({ id: notifications.id });
+  return rows.length;
+}
+
 // ---------- push subscriptions (Phase 6) ----------
 
 export async function addPushSubscription(
