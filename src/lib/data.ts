@@ -120,6 +120,19 @@ export async function getMatchSuggestions(): Promise<Player[]> {
   return get<Player[]>("/api/matches/suggestions");
 }
 
+/** Players I've silenced from my suggestions. */
+export async function getMutedSuggestions(): Promise<Player[]> {
+  return get<Player[]>("/api/matches/suggestions/mutes");
+}
+
+export async function muteSuggestion(userId: string): Promise<void> {
+  await send("POST", "/api/matches/suggestions/mutes", { userId });
+}
+
+export async function unmuteSuggestion(userId: string): Promise<void> {
+  await send("DELETE", `/api/matches/suggestions/mutes/${encodeURIComponent(userId)}`);
+}
+
 /** One row of the You-vs-them compatibility table. */
 export interface CompatFactor {
   key: string;

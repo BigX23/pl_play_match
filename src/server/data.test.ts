@@ -31,6 +31,7 @@ async function applyMigrations() {
     "0000_auth-and-profile.sql",
     "0001_domain-tables.sql",
     "0002_score-confirmation.sql",
+    "0003_suggestion-mutes.sql",
   ]) {
     const sqlText = readFileSync(path.join(dir, file), "utf8");
     for (const stmt of sqlText.split("--> statement-breakpoint")) {
@@ -86,7 +87,7 @@ beforeEach(async () => {
   await client.exec(`
     TRUNCATE TABLE
       contacts, notifications, messages, conversation_participants,
-      conversations, match_requests, matches, users
+      conversations, match_requests, matches, suggestion_mutes, users
     CASCADE;
   `);
   await seedUsers();
@@ -225,6 +226,37 @@ describe("getMatchSuggestions", () => {
 
   it("returns [] for an unknown user id", async () => {
     expect(await data.getMatchSuggestions(db, "nobody")).toEqual([]);
+  });
+
+  it("muted players are excluded from suggestions and restored on unmute", async () => {
+    await makeComplete(ALICE);
+    await makeComplete(BOB);
+
+    await data.muteSuggestion(db, ALICE, BOB);
+    expect((await data.getMatchSuggestions(db, ALICE)).map((s) => s.id)).not.toContain(BOB);
+    // One-directional: Bob still sees Alice.
+    expect((await data.getMatchSuggestions(db, BOB)).map((s) => s.id)).toContain(ALICE);
+
+    const muted = await data.listMutedSuggestions(db, ALICE);
+    expect(muted.map((p) => p.id)).toEqual([BOB]);
+    expect(muted[0].email).toBe(""); // privacy-safe card
+
+    await data.unmuteSuggestion(db, ALICE, BOB);
+    expect((await data.getMatchSuggestions(db, ALICE)).map((s) => s.id)).toContain(BOB);
+    expect(await data.listMutedSuggestions(db, ALICE)).toEqual([]);
+  });
+
+  it("muteSuggestion is idempotent and rejects self/rally/missing targets", async () => {
+    await makeComplete(ALICE);
+    await makeComplete(BOB);
+    await data.muteSuggestion(db, ALICE, BOB);
+    await data.muteSuggestion(db, ALICE, BOB); // no conflict error
+    expect(await data.listMutedSuggestions(db, ALICE)).toHaveLength(1);
+
+    await expect(data.muteSuggestion(db, ALICE, ALICE)).rejects.toBeInstanceOf(AuthzError);
+    await expect(data.muteSuggestion(db, ALICE, RALLY_ID)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(data.muteSuggestion(db, ALICE, "ghost")).rejects.toBeInstanceOf(NotFoundError);
+    await data.unmuteSuggestion(db, ALICE, "ghost"); // idempotent no-op
   });
 
   it("notifyNewCompatiblePlayer notifies top matches and returns the recipients", async () => {
