@@ -211,7 +211,7 @@ describe("DashboardPage", () => {
       { id: "m2", player1Id: "u_self", player2Id: "u_opp", date: "2026-07-01", time: "10:00", location: "Court 2", sport: "tennis", status: "completed", score: "6-4", compatibilityScore: 0, matchExplanation: "" },
     ];
     render(<DashboardPage />);
-    expect(await screen.findByText("Upcoming Matches")).toBeInTheDocument();
+    expect(await screen.findByText("Upcoming Games")).toBeInTheDocument();
     expect(screen.getAllByText("Opponent X").length).toBeGreaterThan(0);
     expect(screen.getByText("6-4")).toBeInTheDocument();
   });
