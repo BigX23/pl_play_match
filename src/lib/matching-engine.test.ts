@@ -3,6 +3,8 @@ import {
   calculateMatchScore,
   findMatches,
   mutualNtrpReject,
+  genderPrefReject,
+  sportPrefReject,
   WEIGHTS,
   MIN_MATCH_SCORE,
   OPEN_MATCH_MIN_SCORE,
@@ -223,5 +225,55 @@ describe("findMatches", () => {
     const weak = makeUser({ id: "weak", age: 34, availability: avail({ Mon: [[9, 10]] }) });
     const results = findMatches(me, [weak, strong], 0);
     expect(results[0].score).toBeGreaterThanOrEqual(results[1].score);
+  });
+
+  it("hard-excludes a one-sided gender-preference mismatch (issue #40)", () => {
+    // me wants women only; other is a man with No Preference — previously a
+    // 0.5 gender score, now never suggested (either direction).
+    const me = makeUser({ id: "me", gender: "Female", partnerPreferences: { ...makeUser().partnerPreferences, genderPreference: "Female" } });
+    const other = makeUser({ id: "other", gender: "Male" });
+    expect(genderPrefReject(me, other)).toBe(true);
+    expect(findMatches(me, [other])).toHaveLength(0);
+    expect(findMatches(other, [me])).toHaveLength(0);
+  });
+
+  it("keeps pairs whose gender preferences are mutually satisfied", () => {
+    const me = makeUser({ id: "me", gender: "Female", partnerPreferences: { ...makeUser().partnerPreferences, genderPreference: "Male" } });
+    const other = makeUser({ id: "other", gender: "Male" }); // No Preference
+    expect(genderPrefReject(me, other)).toBe(false);
+    expect(findMatches(me, [other]).map((r) => r.user.id)).toEqual(["other"]);
+  });
+
+  it("hard-excludes a partner-sport preference mismatch (issue #40)", () => {
+    // me wants pickleball partners; other plays tennis only.
+    const me = makeUser({
+      id: "me",
+      sports: ["both"],
+      partnerPreferences: { ...makeUser().partnerPreferences, sports: ["pickleball"] },
+    });
+    const other = makeUser({ id: "other", sports: ["tennis"] });
+    expect(sportPrefReject(me, other)).toBe(true);
+    expect(findMatches(me, [other])).toHaveLength(0);
+    expect(findMatches(other, [me])).toHaveLength(0);
+  });
+
+  it('"both" on either side keeps a sport pairing eligible', () => {
+    const me = makeUser({
+      id: "me",
+      sports: ["pickleball"],
+      partnerPreferences: { ...makeUser().partnerPreferences, sports: ["pickleball"] },
+    });
+    const other = makeUser({ id: "other", sports: ["both"], partnerPreferences: { ...makeUser().partnerPreferences, sports: [] } });
+    expect(sportPrefReject(me, other)).toBe(false);
+    expect(findMatches(me, [other]).map((r) => r.user.id)).toEqual(["other"]);
+  });
+
+  it("hides matches at or below the threshold — strictly above shows (issue #40)", () => {
+    const me = makeUser({ id: "me" });
+    const other = makeUser({ id: "other" });
+    const { score } = calculateMatchScore(me, other);
+    // At exactly the pair's score the match is hidden; one below, it shows.
+    expect(findMatches(me, [other], score)).toHaveLength(0);
+    expect(findMatches(me, [other], score - 1)).toHaveLength(1);
   });
 });

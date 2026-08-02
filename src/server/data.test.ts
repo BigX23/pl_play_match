@@ -228,6 +228,45 @@ describe("getMatchSuggestions", () => {
     expect(await data.getMatchSuggestions(db, "nobody")).toEqual([]);
   });
 
+  it("gender-preference mismatches are hard-excluded and reappear immediately after widening prefs", async () => {
+    // Alice (Female) wants women only; Bob is male → excluded both ways.
+    await makeComplete(ALICE, { partnerPreferences: { ...prefs, genderPreference: "Female" } });
+    await makeComplete(BOB, { gender: "Male" });
+
+    expect((await data.getMatchSuggestions(db, ALICE)).map((s) => s.id)).not.toContain(BOB);
+    expect((await data.getMatchSuggestions(db, BOB)).map((s) => s.id)).not.toContain(ALICE);
+    // The detail page hides the pair too — stale links can't reach them.
+    await expect(data.getCompatibility(db, ALICE, BOB)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(data.getCompatibility(db, BOB, ALICE)).rejects.toBeInstanceOf(NotFoundError);
+
+    // Alice widens her preference — the very next read shows the pair on both
+    // dashboards (suggestions are recomputed from live rows on every request).
+    await rawDb
+      .update(schema.users)
+      .set({ partnerPreferences: { ...prefs, genderPreference: "No Preference" } } as never)
+      .where(eq(schema.users.id, ALICE));
+    expect((await data.getMatchSuggestions(db, ALICE)).map((s) => s.id)).toContain(BOB);
+    expect((await data.getMatchSuggestions(db, BOB)).map((s) => s.id)).toContain(ALICE);
+    await expect(data.getCompatibility(db, ALICE, BOB)).resolves.toBeDefined();
+  });
+
+  it("partner-sport mismatches are hard-excluded from suggestions and the detail view", async () => {
+    // Alice wants pickleball partners; Bob plays tennis only.
+    await makeComplete(ALICE, {
+      sports: ["both"],
+      partnerPreferences: { ...prefs, sports: ["pickleball"] },
+    });
+    await makeComplete(BOB, { sports: ["tennis"] });
+
+    expect((await data.getMatchSuggestions(db, ALICE)).map((s) => s.id)).not.toContain(BOB);
+    expect((await data.getMatchSuggestions(db, BOB)).map((s) => s.id)).not.toContain(ALICE);
+    await expect(data.getCompatibility(db, ALICE, BOB)).rejects.toBeInstanceOf(NotFoundError);
+
+    // "Both" on Bob's side makes the pair eligible again.
+    await rawDb.update(schema.users).set({ sports: ["both"] }).where(eq(schema.users.id, BOB));
+    expect((await data.getMatchSuggestions(db, ALICE)).map((s) => s.id)).toContain(BOB);
+  });
+
   it("muted players are excluded from suggestions and restored on unmute", async () => {
     await makeComplete(ALICE);
     await makeComplete(BOB);

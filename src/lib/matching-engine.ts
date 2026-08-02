@@ -188,6 +188,24 @@ export function mutualNtrpReject(userA: UserProfile, userB: UserProfile): boolea
   return calcNtrpScore(userA, userB) === 0;
 }
 
+/**
+ * Hard exclusion: either player's partner-gender preference is unmet by the
+ * other. "No Preference" always passes; anything less than full mutual
+ * satisfaction removes the pair from suggestions entirely (issue #40).
+ */
+export function genderPrefReject(userA: UserProfile, userB: UserProfile): boolean {
+  return calcGenderScore(userA, userB) !== 1;
+}
+
+/**
+ * Hard exclusion: no shared sport, or either player's partner-sport preference
+ * is unmet (e.g. wants pickleball partners but the other plays tennis only).
+ * "both" — as an own sport or as a preference — keeps the pair eligible.
+ */
+export function sportPrefReject(userA: UserProfile, userB: UserProfile): boolean {
+  return calcSportScore(userA, userB) !== 1;
+}
+
 const GAME_TYPE_ORDER: GameType[] = ["recreational", "slightly-competitive", "hardcore-competitive"];
 
 function calcGameTypeScore(a: GameType, b: GameType): number {
@@ -275,9 +293,13 @@ export function findMatches(
 ): MatchResult[] {
   return allUsers
     .filter((u) => u.id !== currentUser.id && u.profileComplete)
-    // Hard exclusion: if neither player accepts the other's NTRP band, never suggest.
+    // Hard exclusions: NTRP band mutually rejected, a gender preference unmet,
+    // or a sport/partner-sport mismatch → never suggest (issue #40).
     .filter((u) => !mutualNtrpReject(currentUser, u))
+    .filter((u) => !genderPrefReject(currentUser, u))
+    .filter((u) => !sportPrefReject(currentUser, u))
     .map((u) => calculateMatchScore(currentUser, u))
-    .filter((r) => r.score >= minScore)
+    // Strictly above the threshold: a score of exactly 50 is not shown.
+    .filter((r) => r.score > minScore)
     .sort((a, b) => b.score - a.score);
 }

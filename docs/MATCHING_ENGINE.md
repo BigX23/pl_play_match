@@ -9,7 +9,12 @@
 
 The matching engine is a **pure-function scoring algorithm that runs server-side**. When the dashboard loads, the client fetches `GET /api/matches/suggestions`; the server loads all player rows from **Postgres (Drizzle ORM)**, converts them into a canonical `UserProfile` shape via `dbUserToProfile()`, and ranks every other player against the current user using a weighted multi-factor score (0–100). Results are returned as **privacy-minimized public cards** (`toPublicPlayer` — first name + last initial, a 5-year `ageBracket`, no email/exact age/availability/partner preferences) plus a `matchScore`. The scoring math itself (`src/lib/matching-engine.ts`) is pure and dependency-free, so it is unit-testable in isolation.
 
-The engine scores gender preference (weight 0.10) and applies a **hard exclusion**: if neither player accepts the other's NTRP band (`mutualNtrpReject`), the pair is dropped from `findMatches` entirely regardless of other factors. Partner sport/format preferences also refine the sport and match-format sub-scores. Availability is scored **symmetrically** — the value shown to both players is `min(score(A→B), score(B→A))`, and overlapping time slots within a day are merged before intersecting.
+The engine applies **three hard exclusions** in `findMatches` — a pair is dropped entirely, regardless of other factors, when any of these hold (issue #40):
+- `mutualNtrpReject` — neither player accepts the other's NTRP band
+- `genderPrefReject` — either player's partner-gender preference is unmet ("No Preference" always passes; anything less than full mutual satisfaction excludes)
+- `sportPrefReject` — no shared sport, or either player's partner-sport preference is unmet ("both", as an own sport or a preference, keeps the pair eligible)
+
+Hard-excluded pairs are also hidden from the match-detail view (`getCompatibility` → 404), so stale links can't reach them. Existing invites/connections are unaffected — exclusions only stop future suggestions. Gender and sport remain weighted sub-scores (0.10 / 0.20), but any pair that survives the hard filters necessarily scores 1.0 on both. Partner format preferences refine the match-format sub-score. Availability is scored **symmetrically** — the value shown to both players is `min(score(A→B), score(B→A))`, and overlapping time slots within a day are merged before intersecting.
 
 ---
 
@@ -274,7 +279,7 @@ This ensures that a user who sets `"Female"` is never ranked highly against a ma
 
 | Constant | Value | Usage |
 |---|---|---|
-| `MIN_MATCH_SCORE` | `50` | Default minimum for `findMatches()` — dashboard suggested matches |
+| `MIN_MATCH_SCORE` | `50` | `findMatches()` keeps only scores **strictly above** this — a 50 is hidden (issue #40) |
 | `OPEN_MATCH_MIN_SCORE` | `40` | Lower threshold available for open-match context (not yet wired to UI) |
 
 ---
