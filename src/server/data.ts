@@ -91,12 +91,17 @@ function dbUserToProfile(u: DbUser): UserProfile | null {
   if (!u.profileComplete || !u.firstName || !u.weeklyAvailability || !u.partnerPreferences) {
     return null;
   }
+  // Gender is strictly Male/Female (#42); anything else (legacy/corrupt rows)
+  // is unmatchable rather than silently failing every gender-preference check.
+  if (u.gender !== "Male" && u.gender !== "Female") {
+    return null;
+  }
   return {
     id: u.id,
     firstName: u.firstName,
     lastName: u.lastName ?? "",
     age: u.age ?? 30,
-    gender: u.gender ?? "Prefer not to say",
+    gender: u.gender,
     avatar: u.avatar ?? "",
     aboutMe: u.aboutMe ?? u.bio ?? undefined,
     ntrpRating: u.ntrpRating ?? 0,

@@ -113,6 +113,11 @@ export async function PATCH(req: Request) {
   if (Object.keys(update).length === 0) {
     return NextResponse.json({ error: "no valid fields" }, { status: 400 });
   }
+  // Gender is strictly Male/Female (#42) — matching hard-excludes anything
+  // else, so reject removed/unknown values even from stale clients.
+  if (update.gender !== undefined && update.gender !== "Male" && update.gender !== "Female") {
+    return NextResponse.json({ error: "gender must be Male or Female" }, { status: 400 });
+  }
 
   const db = getDb();
   // Read the prior completion state so we can detect the false→true flip.
