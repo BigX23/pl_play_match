@@ -31,6 +31,9 @@ import { displayName, ageBracket } from "@/lib/privacy";
 import {
   findMatches,
   calculateMatchScore,
+  mutualNtrpReject,
+  genderPrefReject,
+  sportPrefReject,
   WEIGHTS,
   type UserProfile,
   type SportType,
@@ -351,6 +354,16 @@ export async function getCompatibility(db: Db, me: string, otherId: string): Pro
   const myProfile = meRow ? dbUserToProfile(meRow) : null;
   const otherProfile = dbUserToProfile(otherRow);
   if (!myProfile || !otherProfile) throw new NotFoundError("match");
+
+  // Hard-excluded pairs (issue #40) are hidden here too, so a stale link or
+  // old notification can't reach — and invite — an excluded player.
+  if (
+    mutualNtrpReject(myProfile, otherProfile) ||
+    genderPrefReject(myProfile, otherProfile) ||
+    sportPrefReject(myProfile, otherProfile)
+  ) {
+    throw new NotFoundError("match");
+  }
 
   const { score, breakdown } = calculateMatchScore(myProfile, otherProfile);
   const factors: CompatFactor[] = FACTOR_META.map((f) => ({
