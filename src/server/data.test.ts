@@ -228,6 +228,20 @@ describe("getMatchSuggestions", () => {
     expect(await data.getMatchSuggestions(db, "nobody")).toEqual([]);
   });
 
+  it("profiles without a strict Male/Female gender are unmatchable (#42)", async () => {
+    await makeComplete(ALICE);
+    await makeComplete(BOB, { gender: "Prefer not to say" }); // legacy value
+
+    // Bob is excluded as a candidate AND gets no suggestions himself.
+    expect((await data.getMatchSuggestions(db, ALICE)).map((s) => s.id)).not.toContain(BOB);
+    expect(await data.getMatchSuggestions(db, BOB)).toEqual([]);
+    await expect(data.getCompatibility(db, ALICE, BOB)).rejects.toBeInstanceOf(NotFoundError);
+
+    // Picking a real gender makes him matchable immediately.
+    await rawDb.update(schema.users).set({ gender: "Male" }).where(eq(schema.users.id, BOB));
+    expect((await data.getMatchSuggestions(db, ALICE)).map((s) => s.id)).toContain(BOB);
+  });
+
   it("gender-preference mismatches are hard-excluded and reappear immediately after widening prefs", async () => {
     // Alice (Female) wants women only; Bob is male → excluded both ways.
     await makeComplete(ALICE, { partnerPreferences: { ...prefs, genderPreference: "Female" } });
