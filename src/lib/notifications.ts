@@ -77,6 +77,23 @@ export function isPushSupported(): boolean {
   return typeof window !== "undefined" && "Notification" in window && "serviceWorker" in navigator;
 }
 
+/** iPhone/iPad detection (iPadOS 13+ reports as MacIntel but has touch). */
+export function isIos(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return (
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+  );
+}
+
+/** True when running as an installed (Home Screen / standalone) app. */
+export function isStandalone(): boolean {
+  if (typeof window === "undefined") return false;
+  if (window.matchMedia?.("(display-mode: standalone)")?.matches) return true;
+  // Legacy iOS Safari flag, set only when launched from the Home Screen.
+  return (navigator as unknown as { standalone?: boolean }).standalone === true;
+}
+
 /** Get current notification permission status. */
 export function getPushPermission(): NotificationPermission | "unsupported" {
   if (!isPushSupported()) return "unsupported";
