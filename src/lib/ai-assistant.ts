@@ -140,6 +140,11 @@ export function getRallyFallbackResponse(msgs: Message[]): string | null {
 }
 
 // ---------- Match intro (calm voice) ----------
+/** How-to line appended to every intro so new pairs know how to summon Rally. */
+const INTRO_HOWTO =
+  ` Just type @Rally before any message and I will respond.` +
+  ` Also feel free to swap phone numbers here if it's easier for you to communicate over text.`;
+
 export function buildMatchIntro(
   name1: string,
   name2: string,
@@ -156,5 +161,5 @@ export function buildMatchIntro(
   } else {
     line += ` When you're ready, pick a time and I can help with court details — Lifetime Activities Pleasanton, (925) 460-8600.`;
   }
-  return line;
+  return line + INTRO_HOWTO;
 }
