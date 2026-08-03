@@ -158,4 +158,13 @@ describe("buildMatchIntro", () => {
     const out = buildMatchIntro("Maya", "Sam", { score: 82 });
     expect(out).toContain("82%");
   });
+  it("always explains how to summon Rally and suggests swapping numbers (#44)", () => {
+    for (const details of [undefined, { score: 82 }, { sport: "tennis", matchType: "singles", date: "2026-03-01", time: "10:00", location: "Court A" }]) {
+      const out = buildMatchIntro("Maya", "Sam", details);
+      expect(out).toContain("@Rally");
+      expect(out.toLowerCase()).toContain("phone numbers");
+      // The instruction must actually match Rally's trigger.
+      expect(shouldRallyRespond("@Rally when should we play?")).toBe(true);
+    }
+  });
 });
