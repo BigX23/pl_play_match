@@ -12,7 +12,7 @@ import { useTheme } from "next-themes";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
 import { Sun, Bell, Shield, LogOut, Bot, Smartphone, Check, AlertTriangle } from "lucide-react";
-import { loadPreferences, savePreferences, type NotificationPreferences, enablePushNotifications, getPushPermission } from "@/lib/notifications";
+import { loadPreferences, savePreferences, type NotificationPreferences, enablePushNotifications, getPushPermission, isIos, isStandalone } from "@/lib/notifications";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -32,7 +32,7 @@ export default function SettingsPage() {
   const { toast } = useToast();
   const router = useRouter();
   const [prefs, setPrefs] = useState<NotificationPreferences>(loadPreferences());
-  const [pushStatus, setPushStatus] = useState<"idle" | "loading" | "enabled" | "denied" | "unsupported">("idle");
+  const [pushStatus, setPushStatus] = useState<"idle" | "loading" | "enabled" | "denied" | "unsupported" | "ios-install">("idle");
 
   const handleDeleteAccount = async () => {
     try {
@@ -47,7 +47,10 @@ export default function SettingsPage() {
     setPrefs(loadPreferences());
     // Check current push permission status
     const perm = getPushPermission();
-    if (perm === "unsupported") setPushStatus("unsupported");
+    // iOS only exposes the Notification API inside an installed (Home Screen)
+    // app — in plain Safari the Enable button would silently do nothing, so
+    // show install instructions instead (#47).
+    if (perm === "unsupported") setPushStatus(isIos() && !isStandalone() ? "ios-install" : "unsupported");
     else if (perm === "granted") setPushStatus("enabled");
     else if (perm === "denied") setPushStatus("denied");
   }, []);
@@ -104,7 +107,20 @@ export default function SettingsPage() {
           <CardDescription>Get notified on your phone when you have new matches, messages, and more</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {pushStatus === "unsupported" ? (
+          {pushStatus === "ios-install" ? (
+            <div className="flex items-start gap-3 p-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
+              <Smartphone className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium">Install PlayMatch first</p>
+                <p className="text-xs text-muted-foreground">
+                  On iPhone and iPad, notifications only work once the app is on your Home Screen:
+                  tap the <span className="font-medium">Share</span> button in Safari, choose{" "}
+                  <span className="font-medium">&ldquo;Add to Home Screen&rdquo;</span>, then open PlayMatch
+                  from your Home Screen and enable notifications here. Requires iOS 16.4 or newer.
+                </p>
+              </div>
+            </div>
+          ) : pushStatus === "unsupported" ? (
             <div className="flex items-center gap-3 p-3 rounded-lg bg-orange-500/10 border border-orange-500/30">
               <AlertTriangle className="h-5 w-5 text-orange-500 flex-shrink-0" />
               <div>

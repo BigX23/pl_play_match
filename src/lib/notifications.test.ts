@@ -6,6 +6,8 @@ import {
   isPushSupported,
   getPushPermission,
   enablePushNotifications,
+  isIos,
+  isStandalone,
 } from "./notifications";
 
 beforeEach(() => {
@@ -49,6 +51,40 @@ describe("push support helpers", () => {
   it("getPushPermission returns unsupported or a permission", () => {
     const result = getPushPermission();
     expect(["unsupported", "granted", "denied", "default"]).toContain(result);
+  });
+});
+
+describe("platform detection (#47)", () => {
+  const setNav = (props: Record<string, unknown>) => {
+    for (const [k, v] of Object.entries(props)) {
+      Object.defineProperty(navigator, k, { value: v, configurable: true });
+    }
+  };
+  afterEach(() => {
+    // Remove instance overrides so jsdom's prototype getters take over again.
+    for (const k of ["userAgent", "platform", "maxTouchPoints", "standalone"]) {
+      // @ts-expect-error test cleanup
+      delete navigator[k];
+    }
+  });
+
+  it("isIos detects iPhones and iPadOS-masquerading-as-Mac", () => {
+    setNav({ userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)", platform: "iPhone", maxTouchPoints: 5 });
+    expect(isIos()).toBe(true);
+    setNav({ userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)", platform: "MacIntel", maxTouchPoints: 5 });
+    expect(isIos()).toBe(true); // iPadOS reports as Mac but has touch
+    setNav({ userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)", platform: "MacIntel", maxTouchPoints: 0 });
+    expect(isIos()).toBe(false); // a real Mac
+  });
+
+  it("isStandalone honors display-mode standalone and the legacy iOS flag", () => {
+    expect(isStandalone()).toBe(false); // plain jsdom: neither signal
+    setNav({ standalone: true }); // legacy iOS home-screen flag
+    expect(isStandalone()).toBe(true);
+    // @ts-expect-error test cleanup
+    delete navigator.standalone;
+    vi.stubGlobal("matchMedia", (q: string) => ({ matches: q === "(display-mode: standalone)" }));
+    expect(isStandalone()).toBe(true);
   });
 });
 

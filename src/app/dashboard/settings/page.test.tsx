@@ -41,6 +41,28 @@ describe("SettingsPage", () => {
     expect(screen.getByText("Account")).toBeInTheDocument();
   });
 
+  it("shows iOS install instructions in Safari when not installed (#47)", async () => {
+    // Simulate iPhone Safari: iOS user agent, and no Notification API (iOS
+    // only exposes it inside an installed Home Screen app).
+    Object.defineProperty(navigator, "userAgent", {
+      value: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15",
+      configurable: true,
+    });
+    const savedNotification = (window as unknown as Record<string, unknown>).Notification;
+    delete (window as unknown as Record<string, unknown>).Notification;
+    try {
+      render(<SettingsPage />);
+      expect(await screen.findByText(/Install PlayMatch first/i)).toBeInTheDocument();
+      expect(screen.getByText(/Add to Home Screen/i)).toBeInTheDocument();
+      // The dead Enable button is replaced by the instructions.
+      expect(screen.queryByRole("button", { name: /Enable Push Notifications/i })).not.toBeInTheDocument();
+    } finally {
+      if (savedNotification !== undefined) (window as unknown as Record<string, unknown>).Notification = savedNotification;
+      // @ts-expect-error restore jsdom's prototype getter
+      delete navigator.userAgent;
+    }
+  });
+
   it("toggles a notification preference switch", async () => {
     render(<SettingsPage />);
     const user = userEvent.setup();
