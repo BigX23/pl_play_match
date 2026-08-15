@@ -10,7 +10,7 @@ jobs:
     name: Typecheck, lint, test, build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v4
         with:
@@ -55,7 +55,7 @@ jobs:
       group: production-deploy # serialize deploys; don't race two pushes
       cancel-in-progress: false # let an in-flight deploy finish rather than kill it
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Deploy over SSH
         env:
