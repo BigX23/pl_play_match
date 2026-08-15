@@ -70,11 +70,11 @@
     "drizzle-kit": "^0.31.10",
     "eslint": "^8.57.1",
     "eslint-config-next": "^15.2.3",
-    "jsdom": "^25.0.1",
+    "jsdom": "^30.0.1",
     "postcss": "^8.5.26",
     "tailwindcss": "^3.4.1",
     "typescript": "^5",
-    "vitest": "^2.1.9"
+    "vitest": "^4.1.10"
   },
   "overrides": {
     "sharp": "^0.35.0",
