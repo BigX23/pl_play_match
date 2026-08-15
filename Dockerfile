@@ -2,7 +2,10 @@
 FROM node:24-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci --no-audit --no-fund
+# --ignore-scripts blocks package install/postinstall hooks, a standard
+# supply-chain attack vector (a compromised maintainer account ships a release
+# whose postinstall runs arbitrary code at build time).
+RUN npm ci --no-audit --no-fund --ignore-scripts
 
 FROM node:24-alpine AS builder
 WORKDIR /app

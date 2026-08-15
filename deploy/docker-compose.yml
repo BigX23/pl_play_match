@@ -12,6 +12,14 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
+      - caddy_logs:/var/log/caddy
+    # /tmp is noexec so a dropped payload can't be run from it.
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE] # needs to bind :80/:443
+    security_opt:
+      - no-new-privileges:true
     depends_on:
       - app
 
@@ -28,6 +36,13 @@ services:
       OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma2:2b}
     volumes:
       - uploads:/app/uploads
+    # The 2026-08-10 compromise wrote every payload to /tmp and executed it
+    # there (miner, watchdogs, dropper). noexec breaks that whole chain.
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    cap_drop: [ALL] # the Node server needs no Linux capabilities
+    security_opt:
+      - no-new-privileges:true
     expose:
       - "3000"
     depends_on:
@@ -50,6 +65,15 @@ services:
       resources:
         limits:
           memory: 6g
+    # Larger than the others: model loading is temp-file heavy. If Rally ever
+    # stops responding after a change here, check whether the Ollama version
+    # extracts and execs its runner from a temp dir — set OLLAMA_TMPDIR to a
+    # writable, exec-permitted path if so. (Current version runs the runner
+    # from /usr/lib/ollama, so noexec is fine.)
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=256m
+    security_opt:
+      - no-new-privileges:true
     expose:
       - "11434"
 
@@ -62,6 +86,12 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - pg_data:/var/lib/postgresql/data
+    # Postgres uses /var/run/postgresql for its socket, not /tmp, so noexec here
+    # is safe and does not affect pg_dump backups.
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    security_opt:
+      - no-new-privileges:true
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U playmatch -d playmatch"]
       interval: 5s
@@ -71,6 +101,7 @@ services:
 volumes:
   caddy_data:
   caddy_config:
+  caddy_logs:
   pg_data:
   uploads:
   ollama_models:

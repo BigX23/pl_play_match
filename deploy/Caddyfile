@@ -1,4 +1,16 @@
 aiplaymatch.com {
+	# Access logging. Caddy 2 logs NOTHING per-request by default — that gap is
+	# why the source IP of the 2026-08-10 RCE could never be recovered. Cookies
+	# and Authorization headers are redacted by Caddy automatically.
+	log {
+		output file /var/log/caddy/access.log {
+			roll_size 100mb
+			roll_keep 20
+			roll_keep_for 2160h # 90 days
+		}
+		format json
+	}
+
 	# Don't gzip SSE — buffering would delay events. Stream them unbuffered.
 	@sse path /api/conversations/stream /api/conversations/*/messages/stream
 	reverse_proxy @sse app:3000 {
