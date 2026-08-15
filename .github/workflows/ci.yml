@@ -20,6 +20,19 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Blocking gate: nothing with a known high/critical CVE may reach
+      # production. Scoped with --omit=dev because dev tooling (vitest, vite,
+      # esbuild) never ships — the Dockerfile runner stage copies only the
+      # standalone build output. This gate is what makes it structurally
+      # impossible to repeat the eight-month-unpatched React2Shell exposure.
+      - name: Security audit (production dependencies)
+        run: npm audit --omit=dev --audit-level=high
+
+      # Visibility only — dev-dependency CVEs are tracked but don't block.
+      - name: Security audit (full tree, informational)
+        run: npm audit || true
+        continue-on-error: true
+
       - name: Typecheck
         run: npm run typecheck
 

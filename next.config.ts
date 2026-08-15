@@ -9,6 +9,12 @@ import type { NextConfig } from 'next';
 const nextConfig: NextConfig = {
   // ─── Server build for self-hosted VPS (Docker standalone) ───────────────────
   output: 'standalone',
+
+  // Don't advertise the framework in an "x-powered-by" header. This reduces the
+  // fingerprint mass scanners match on — though it is not a real control:
+  // "Vary: RSC" and /_next/static/ paths still identify this as Next.js App
+  // Router. Patch cadence is the defence; this just raises the noise floor.
+  poweredByHeader: false,
   // trailingSlash removed with the static export: it 308-redirects API routes,
   // which breaks the exact-match OAuth callback URL. Old trailing-slash links
   // still resolve via Next's built-in redirect.
@@ -23,16 +29,9 @@ const nextConfig: NextConfig = {
 
   images: {
     unoptimized: true,
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "firebasestorage.googleapis.com",
-      },
-      {
-        protocol: "https",
-        hostname: "*.firebasestorage.app",
-      },
-    ],
+    // remotePatterns for firebasestorage removed — Firebase was fully removed
+    // from this stack; profile photos are served from /api/photos/[file].
+    remotePatterns: [],
   },
 
   // ─── Redirect the old "Open Matches" route to "Open Games" (renamed) ────────

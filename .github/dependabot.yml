@@ -1,0 +1,42 @@
+# Automated dependency updates.
+#
+# Context: the 2026-08-10 compromise exploited CVE-2025-66478 (React2Shell,
+# CVSS 10.0), which had been public and patched for EIGHT MONTHS before it was
+# used against this app. Nothing was watching for it. This file is the control
+# that closes that gap.
+#
+# Also enable, in repo Settings -> Code security:
+#   - Dependabot alerts
+#   - Dependabot security updates   <- opens a PR the moment a CVE is published
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 10
+    labels: ["dependencies"]
+    # Group the noisy, low-risk families into single PRs so security-relevant
+    # updates don't get lost in a wall of Radix bumps.
+    groups:
+      radix-ui:
+        patterns: ["@radix-ui/*"]
+      types:
+        patterns: ["@types/*"]
+      testing:
+        patterns: ["vitest", "@vitest/*", "@testing-library/*", "jsdom"]
+      dev-minor-patch:
+        dependency-type: "development"
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels: ["dependencies", "docker"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels: ["dependencies", "ci"]
