@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useTheme } from "next-themes";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
-import { Sun, Bell, Shield, LogOut, Bot, Smartphone, Check, AlertTriangle } from "lucide-react";
+import { Sun, Bell, Shield, LogOut, Bot, Smartphone, Check, AlertTriangle, MessageSquareHeart } from "lucide-react";
 import { loadPreferences, savePreferences, type NotificationPreferences, enablePushNotifications, getPushPermission, isIos, isStandalone } from "@/lib/notifications";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -196,6 +196,26 @@ export default function SettingsPage() {
               <Input type="time" value={prefs.quietHoursEnd} onChange={(e) => updatePref("quietHoursEnd", e.target.value)} className="w-32" />
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><MessageSquareHeart className="h-5 w-5" />Feedback &amp; Support</CardTitle>
+          <CardDescription>PlayMatch is new — tell us what&apos;s working and what isn&apos;t</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Found a bug, have an idea, or just want to say hi? We read every message.
+          </p>
+          <Button asChild variant="outline" className="w-full">
+            <a href="mailto:feedback@aiplaymatch.com?subject=PlayMatch%20feedback">
+              <MessageSquareHeart className="h-4 w-4 mr-2" />Send Feedback
+            </a>
+          </Button>
+          <p className="text-xs text-muted-foreground text-center">
+            or email <a href="mailto:feedback@aiplaymatch.com" className="text-primary hover:underline">feedback@aiplaymatch.com</a>
+          </p>
         </CardContent>
       </Card>
 
