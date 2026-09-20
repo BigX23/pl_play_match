@@ -60,3 +60,10 @@ logs_*/
 
 # VPS credentials (never commit)
 ovh.env
+
+# Capacitor native build artifacts
+ios/App/Pods/
+ios/App/build/
+android/.gradle/
+android/app/build/
+android/build/
