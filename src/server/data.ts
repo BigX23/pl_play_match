@@ -49,6 +49,9 @@ export class NotFoundError extends Error {}
 type Db = ReturnType<typeof getDb>;
 
 export const RALLY_ID = "rally";
+/** Placeholder that inherits a deleted account's messages and match history. */
+export const DELETED_USER_ID = "deleted-user";
+export const DELETED_USER_NAME = "Deleted player";
 
 // ---------- serialization ----------
 
@@ -163,7 +166,7 @@ function toMessage(m: DbMessage) {
 
 export async function listPlayers(db: Db) {
   const rows = await db.select().from(users);
-  return rows.filter((u) => u.id !== RALLY_ID).map(toPublicPlayer);
+  return rows.filter((u) => u.id !== RALLY_ID && u.id !== DELETED_USER_ID).map(toPublicPlayer);
 }
 
 export async function getPlayer(db: Db, id: string) {
@@ -1041,4 +1044,63 @@ export async function otherHumanParticipants(
   return parts
     .map((p) => p.userId)
     .filter((u) => u !== RALLY_ID && u !== exceptUserId);
+}
+
+// ---------- account deletion ----------
+
+/**
+ * Delete an account while keeping other players' history intact: the user's
+ * messages and matches are reassigned to the "Deleted player" placeholder
+ * (messages.sender_id / matches.player1_id have no ON DELETE action, so a bare
+ * delete would fail), unfinished games are cancelled, and everything else
+ * (sessions, accounts, requests, contacts, notifications, push subscriptions,
+ * conversation memberships) goes with the users row via FK cascades.
+ */
+export async function deleteAccount(db: Db, me: string): Promise<void> {
+  if (me === RALLY_ID || me === DELETED_USER_ID) throw new AuthzError("system account");
+  await db.transaction(async (tx) => {
+    await tx
+      .insert(users)
+      .values({ id: DELETED_USER_ID, name: DELETED_USER_NAME, firstName: DELETED_USER_NAME, profileComplete: false })
+      .onConflictDoNothing();
+
+    const mine = or(
+      eq(matches.player1Id, me),
+      eq(matches.player2Id, me),
+      sql`${matches.participants} @> ${JSON.stringify([me])}`
+    );
+    await tx
+      .update(matches)
+      .set({ status: "cancelled", cancelledBy: DELETED_USER_ID, cancelReason: "A player deleted their account", updatedAt: new Date() })
+      .where(and(mine, notInArray(matches.status, ["completed", "cancelled"])));
+
+    // Every column of matches that can hold a user id.
+    const idColumns = {
+      player1Id: matches.player1Id,
+      player2Id: matches.player2Id,
+      winnerId: matches.winnerId,
+      reportedBy: matches.reportedBy,
+      createdBy: matches.createdBy,
+      acceptedBy: matches.acceptedBy,
+      cancelledBy: matches.cancelledBy,
+    };
+    for (const [key, column] of Object.entries(idColumns)) {
+      await tx.update(matches).set({ [key]: DELETED_USER_ID }).where(eq(column, me));
+    }
+    await tx
+      .update(matches)
+      .set({
+        participants: sql`(SELECT coalesce(jsonb_agg(CASE WHEN p = ${me} THEN ${DELETED_USER_ID} ELSE p END), '[]'::jsonb)
+                           FROM jsonb_array_elements_text(${matches.participants}) AS p)`,
+      })
+      .where(sql`${matches.participants} @> ${JSON.stringify([me])}`);
+
+    await tx
+      .update(messages)
+      .set({ senderId: DELETED_USER_ID, senderName: DELETED_USER_NAME })
+      .where(eq(messages.senderId, me));
+    await tx.update(conversations).set({ createdBy: DELETED_USER_ID }).where(eq(conversations.createdBy, me));
+
+    await tx.delete(users).where(eq(users.id, me));
+  });
 }

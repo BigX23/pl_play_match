@@ -177,6 +177,10 @@ boot by `src/instrumentation.ts`. Tables:
 - `push_subscriptions` — userId, endpoint (unique), p256dh, auth (Web Push keys).
 
 `rally` is a reserved system user id (seeded at boot) that owns all AI messages.
+`deleted-user` ("Deleted player") is a second reserved id, created on first use by
+`deleteAccount` in `src/server/data.ts`: deleting an account reassigns that user's
+messages and match history to it, cancels their unfinished games, and removes their
+uploaded photo, so other players' threads and records stay intact.
 
 To change the schema: edit `schema.ts`, run `npx drizzle-kit generate --name <desc>`,
 commit the new `drizzle/*.sql`. It applies on the next deploy's boot.
