@@ -6,7 +6,14 @@ import { useAuth } from "@/lib/auth-context";
 import { getCompatibility, createMatchRequest, type Compatibility } from "@/lib/data";
 import MatchComparison from "@/components/match-comparison";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { BlockUserDialog, ReportDialog } from "@/components/safety-dialogs";
+import { ArrowLeft, Ban, Flag, MoreVertical } from "lucide-react";
 
 export default function MatchDetailPage() {
   const pathname = usePathname();
@@ -19,6 +26,8 @@ export default function MatchDetailPage() {
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [blockOpen, setBlockOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -71,5 +80,48 @@ export default function MatchDetailPage() {
     );
   }
 
-  return <MatchComparison data={data} onAccept={handleAccept} onDecline={handleDecline} busy={busy} />;
+  const { player } = data;
+  const name = player.name || "this player";
+  const backToDashboard = () => router.push("/dashboard");
+
+  return (
+    <>
+      <MatchComparison
+        data={data}
+        onAccept={handleAccept}
+        onDecline={handleDecline}
+        busy={busy}
+        headerActions={
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" aria-label="Player options">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setReportOpen(true)}>
+                <Flag className="h-4 w-4 mr-2" />Report {name}
+              </DropdownMenuItem>
+              <DropdownMenuItem className="text-red-600" onClick={() => setBlockOpen(true)}>
+                <Ban className="h-4 w-4 mr-2" />Block {name}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        }
+      />
+      <BlockUserDialog
+        open={blockOpen}
+        onOpenChange={setBlockOpen}
+        userId={player.id}
+        name={name}
+        onBlocked={backToDashboard}
+      />
+      <ReportDialog
+        open={reportOpen}
+        onOpenChange={setReportOpen}
+        target={{ name, context: "profile", reportedUserId: player.id, blockUserId: player.id }}
+        onReported={({ blocked }) => { if (blocked) backToDashboard(); }}
+      />
+    </>
+  );
 }

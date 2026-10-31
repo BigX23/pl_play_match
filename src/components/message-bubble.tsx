@@ -1,14 +1,23 @@
 "use client";
 
+import { Flag, MoreHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { type Message, RALLY_USER } from "@/lib/mock-data";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface Props {
   message: Message;
   isOwn: boolean;
+  /** When set (others' messages only), shows a "Report message" menu. */
+  onReport?: (message: Message) => void;
 }
 
-export default function MessageBubble({ message, isOwn }: Props) {
+export default function MessageBubble({ message, isOwn, onReport }: Props) {
   const isRally = message.isAI || message.senderId === RALLY_USER.id || message.senderId === "ai";
 
   return (
@@ -37,9 +46,31 @@ export default function MessageBubble({ message, isOwn }: Props) {
         )}>
           {message.text}
         </div>
-        <p className="text-[10px] text-muted-foreground mt-1">
-          {new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-        </p>
+        <div className="flex items-center gap-1 mt-1">
+          <p className="text-[10px] text-muted-foreground">
+            {new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+          </p>
+          {!isOwn && onReport && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                {/* Always visible (no hover-only affordance) so it works on touch. */}
+                <button
+                  type="button"
+                  aria-label="Message options"
+                  className="h-6 w-6 -my-1 inline-flex items-center justify-center rounded-full text-muted-foreground/70 hover:text-foreground hover:bg-muted"
+                >
+                  <MoreHorizontal className="h-3.5 w-3.5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuItem className="text-red-600" onClick={() => onReport(message)}>
+                  <Flag className="h-4 w-4 mr-2" />
+                  {isRally ? "Report Rally reply" : "Report message"}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
       </div>
     </div>
   );

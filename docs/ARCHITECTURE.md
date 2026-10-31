@@ -175,6 +175,13 @@ boot by `src/instrumentation.ts`. Tables:
 - `contacts` — (userId, contactId) PK, denormalized name/email/avatar.
 - `notifications` — userId, type, title, body, read, link.
 - `push_subscriptions` — userId, endpoint (unique), p256dh, auth (Web Push keys).
+- `suggestion_mutes` — (userId, mutedUserId) PK; hides a player from *my suggestions only*.
+- `user_blocks` — (blockerId, blockedId) PK, both FKs cascade. Stored one-way (only the
+  blocker can lift it) but **enforced symmetrically** in `data.ts`: see "Blocking" in §7.
+- `user_reports` — reporterId (SET NULL on delete), reportedUserId (cascade), messageId
+  (SET NULL) + `message_text` snapshot, conversationId, context
+  (`profile|message|rally|conversation`), reason, details, status
+  (`open|reviewed|actioned`), reviewedBy/At. Admins = `ADMIN_EMAILS` allow-list.
 
 `rally` is a reserved system user id (seeded at boot) that owns all AI messages.
 
@@ -218,7 +225,18 @@ security-rule logic now lives). Examples of the rules it enforces:
   must be one of the two players.
 - Public player shape omits `email` and other private fields.
 
-It throws `AuthzError` (→ 403) and `NotFoundError` (→ 404).
+It throws `AuthzError` (→ 403), `NotFoundError` (→ 404) and `BadRequestError` (→ 400).
+
+**Blocking** (`user_blocks`, `blockedIdsFor` / `isBlockedBetween`): if either user blocked
+the other, then for both of them — players list, player detail, email lookup,
+suggestions, compatibility detail, new-player notifications, match list (open games and
+scheduled games involving the other), match requests and contacts all omit the other;
+creating a match request / direct game / direct or group conversation / contact, joining
+their open game, and accepting their request are refused. A 1:1 thread (direct, or a
+group whose only other human is them) is hidden from the conversation list and 404s on
+get / messages / send / delete / SSE open; in larger groups their messages are filtered
+out and neither side can post. Message push skips blocked recipients. Blocking expires
+pending requests between the two. Unblocking restores everything (nothing is deleted).
 
 **Route handlers** — `src/app/api/**/route.ts`. Thin. Almost all wrap the shared
 `withUser()` helper (`src/server/route-helpers.ts`), which resolves the session (401 if
@@ -256,6 +274,10 @@ code is backend-agnostic. `subscribe*` use SSE (§8) with a polling fallback.
 | GET/PATCH | `/api/notifications` · `/api/notifications/[id]` | List / mark read |
 | GET/POST | `/api/contacts` · DELETE `/api/contacts/[id]` | List / add / remove |
 | POST | `/api/push/subscribe` · `/api/push/unsubscribe` | Register / drop a Web Push subscription |
+| GET/POST | `/api/blocks` · DELETE `/api/blocks/[id]` | List my blocks / block (idempotent) / unblock |
+| POST | `/api/reports` | Report a player, message, or Rally reply; notifies + pushes admins |
+| GET | `/api/admin/reports?status=` | Admin-only report queue (`open` default, `reviewed`, `actioned`, `all`) |
+| PATCH | `/api/admin/reports/[id]` | Admin-only: set report status |
 | GET | `/api/push/vapid` | Public VAPID key (for PushManager.subscribe) |
 
 ---
@@ -362,6 +384,7 @@ container runtime (`env_file`) and `${VAR}` interpolation.
 | `OLLAMA_URL` / `OLLAMA_MODEL` | `http://ollama:11434` / `gemma3:4b` |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | Web Push keys + `mailto:` contact |
 | `UPLOAD_DIR` | Profile-photo dir (`/app/uploads`, a mounted volume) |
+| `ADMIN_EMAILS` | Comma-separated moderator emails (report queue + report notifications) |
 | `NEXT_PUBLIC_MOCK_AUTH` | Dev only: `true` for the localStorage fake user |
 
 The **Google OAuth redirect URI** must be

@@ -14,6 +14,7 @@ import { useRouter } from "next/navigation";
 import { Sun, Bell, Shield, LogOut, Bot, Smartphone, Check, AlertTriangle, MessageSquareHeart } from "lucide-react";
 import { loadPreferences, savePreferences, type NotificationPreferences, enablePushNotifications, getPushPermission, isIos, isStandalone } from "@/lib/notifications";
 import { useToast } from "@/hooks/use-toast";
+import BlockedUsersCard from "@/components/blocked-users-card";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -218,6 +219,9 @@ export default function SettingsPage() {
           </p>
         </CardContent>
       </Card>
+
+      {/* Safety: players I've blocked (U1 — App Store 1.2 / Play UGC) */}
+      <BlockedUsersCard />
 
       <Card>
         <CardHeader>

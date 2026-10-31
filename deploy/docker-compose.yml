@@ -34,6 +34,9 @@ services:
       UPLOAD_DIR: /app/uploads
       OLLAMA_URL: http://ollama:11434
       OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma2:2b}
+      # Moderation: comma-separated emails allowed to see /dashboard/admin/reports
+      # and receive report notifications. Set in deploy/.env (not committed).
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
     volumes:
       - uploads:/app/uploads
     # The 2026-08-10 compromise wrote every payload to /tmp and executed it

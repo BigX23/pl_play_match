@@ -17,7 +17,8 @@ import { shouldRallyRespond } from "@/lib/ai-assistant";
 import MessageBubble from "@/components/message-bubble";
 import RallyTyping from "@/components/rally-typing";
 import ChatInput from "@/components/chat-input";
-import { ArrowLeft, Users, User, Trash2, UserPlus, MoreVertical } from "lucide-react";
+import { ArrowLeft, Users, User, Trash2, UserPlus, MoreVertical, Ban, Flag } from "lucide-react";
+import { BlockUserDialog, ReportDialog, type ReportTarget } from "@/components/safety-dialogs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -60,6 +61,8 @@ export default function ChatPage() {
   const [msgs, setMsgs] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [blockTarget, setBlockTarget] = useState<{ id: string; name: string } | null>(null);
+  const [reportTarget, setReportTarget] = useState<ReportTarget | null>(null);
   const [rallyTyping, setRallyTyping] = useState(false);
   const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -173,6 +176,24 @@ export default function ChatPage() {
     });
   };
 
+  const nameOf = (id: string) => participantNames[id] || "this player";
+
+  const handleReportMessage = (msg: Message) => {
+    const rally = msg.isAI || msg.senderId === RALLY_USER.id || msg.senderId === "ai";
+    setReportTarget({
+      name: rally ? "Rally" : msg.senderName || nameOf(msg.senderId),
+      context: rally ? "rally" : "message",
+      messageId: msg.id,
+      blockUserId: rally ? undefined : msg.senderId,
+    });
+  };
+
+  // After a block the 1:1 thread is hidden server-side — leave it. In a larger
+  // group, stay; the blocked member's messages drop out on the next refresh.
+  const afterBlock = () => {
+    if (otherHumanIds.length <= 1) router.push("/dashboard/messages");
+  };
+
   if (conversationId === "placeholder") return null;
 
   if (loading) {
@@ -228,6 +249,19 @@ export default function ChatPage() {
                 <UserPlus className="h-4 w-4 mr-2" />Add {participantNames[id] || "user"} to contacts
               </DropdownMenuItem>
             ))}
+            {otherHumanIds.map((id) => (
+              <DropdownMenuItem
+                key={`report-${id}`}
+                onClick={() => setReportTarget({ name: nameOf(id), context: "conversation", reportedUserId: id, blockUserId: id })}
+              >
+                <Flag className="h-4 w-4 mr-2" />Report {nameOf(id)}
+              </DropdownMenuItem>
+            ))}
+            {otherHumanIds.map((id) => (
+              <DropdownMenuItem key={`block-${id}`} className="text-red-600" onClick={() => setBlockTarget({ id, name: nameOf(id) })}>
+                <Ban className="h-4 w-4 mr-2" />Block {nameOf(id)}
+              </DropdownMenuItem>
+            ))}
             <DropdownMenuItem className="text-red-600" onClick={() => setConfirmDelete(true)}>
               <Trash2 className="h-4 w-4 mr-2" />Delete conversation
             </DropdownMenuItem>
@@ -253,7 +287,7 @@ export default function ChatPage() {
                   </span>
                 </div>
               )}
-              <MessageBubble message={msg} isOwn={msg.senderId === user?.id} />
+              <MessageBubble message={msg} isOwn={msg.senderId === user?.id} onReport={handleReportMessage} />
             </div>
           );
         })}
@@ -263,6 +297,20 @@ export default function ChatPage() {
 
       {/* Input */}
       <ChatInput onSend={handleSend} />
+
+      <BlockUserDialog
+        open={!!blockTarget}
+        onOpenChange={(o) => { if (!o) setBlockTarget(null); }}
+        userId={blockTarget?.id ?? ""}
+        name={blockTarget?.name ?? ""}
+        onBlocked={afterBlock}
+      />
+      <ReportDialog
+        open={!!reportTarget}
+        onOpenChange={(o) => { if (!o) setReportTarget(null); }}
+        target={reportTarget}
+        onReported={({ blocked }) => { if (blocked) afterBlock(); }}
+      />
 
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>

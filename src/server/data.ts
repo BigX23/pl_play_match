@@ -10,6 +10,8 @@ import {
   notifications,
   pushSubscriptions,
   suggestionMutes,
+  userBlocks,
+  userReports,
   users,
   type DbConversation,
   type DbMatch,
@@ -45,6 +47,8 @@ import { availabilityGrid, sharedSlotsSummary, type AvailabilityGrid } from "@/l
 
 export class AuthzError extends Error {}
 export class NotFoundError extends Error {}
+/** Malformed input (routes map to 400). */
+export class BadRequestError extends Error {}
 
 type Db = ReturnType<typeof getDb>;
 
@@ -161,14 +165,110 @@ function toMessage(m: DbMessage) {
 
 // ---------- players ----------
 
-export async function listPlayers(db: Db) {
-  const rows = await db.select().from(users);
-  return rows.filter((u) => u.id !== RALLY_ID).map(toPublicPlayer);
+// ---------- blocks (symmetric in effect) ----------
+
+/**
+ * Everyone with a block relation to `me` in EITHER direction. Blocking is
+ * stored one-way (only the blocker can lift it) but enforced both ways: neither
+ * side sees or can contact the other. Every read/write path that surfaces or
+ * reaches another user filters through this.
+ */
+export async function blockedIdsFor(db: Db, me: string): Promise<Set<string>> {
+  const rows = await db
+    .select({ blocker: userBlocks.blockerId, blocked: userBlocks.blockedId })
+    .from(userBlocks)
+    .where(or(eq(userBlocks.blockerId, me), eq(userBlocks.blockedId, me)));
+  return new Set(rows.map((r) => (r.blocker === me ? r.blocked : r.blocker)));
 }
 
-export async function getPlayer(db: Db, id: string) {
+/** True when either user has blocked the other. */
+export async function isBlockedBetween(db: Db, a: string, b: string): Promise<boolean> {
+  const [row] = await db
+    .select({ x: userBlocks.blockerId })
+    .from(userBlocks)
+    .where(
+      or(
+        and(eq(userBlocks.blockerId, a), eq(userBlocks.blockedId, b)),
+        and(eq(userBlocks.blockerId, b), eq(userBlocks.blockedId, a))
+      )
+    )
+    .limit(1);
+  return Boolean(row);
+}
+
+/** Write-path guard. The message is deliberately vague (doesn't say who blocked whom). */
+async function assertNotBlocked(db: Db, me: string, other: string) {
+  if (await isBlockedBetween(db, me, other)) throw new AuthzError("this player is unavailable");
+}
+
+/**
+ * A conversation is hidden from `me` when every OTHER human in it is on the
+ * other side of a block — i.e. a 1:1 thread (direct, or a 2-player group with
+ * Rally). Larger groups stay visible; the blocked member's messages are
+ * filtered out instead and neither side can post.
+ */
+function hiddenByBlock(participantIds: string[], me: string, blocked: Set<string>): boolean {
+  if (blocked.size === 0) return false;
+  const others = participantIds.filter((u) => u !== me && u !== RALLY_ID);
+  return others.length > 0 && others.every((u) => blocked.has(u));
+}
+
+export async function blockUser(db: Db, me: string, targetId: string) {
+  if (targetId === me) throw new AuthzError("cannot block yourself");
+  if (!targetId || targetId === RALLY_ID) throw new NotFoundError("player");
+  const [target] = await db.select({ id: users.id }).from(users).where(eq(users.id, targetId)).limit(1);
+  if (!target) throw new NotFoundError("player");
+  await db.insert(userBlocks).values({ blockerId: me, blockedId: targetId }).onConflictDoNothing();
+  // Pending invites in either direction can no longer be acted on.
+  await db
+    .update(matchRequests)
+    .set({ status: "expired" })
+    .where(
+      and(
+        eq(matchRequests.status, "pending"),
+        or(
+          and(eq(matchRequests.fromUserId, me), eq(matchRequests.toUserId, targetId)),
+          and(eq(matchRequests.fromUserId, targetId), eq(matchRequests.toUserId, me))
+        )
+      )
+    );
+  // Wake both users' conversation lists so the shared thread disappears live.
+  await notifyChange(db, { participants: [me, targetId] });
+}
+
+/** Lift a block I placed. Idempotent; can't lift a block the other side placed. */
+export async function unblockUser(db: Db, me: string, targetId: string) {
+  await db
+    .delete(userBlocks)
+    .where(and(eq(userBlocks.blockerId, me), eq(userBlocks.blockedId, targetId)));
+  await notifyChange(db, { participants: [me, targetId] });
+}
+
+/** Players I have blocked (not those who blocked me), for the Settings list. */
+export async function listBlockedUsers(db: Db, me: string) {
+  const rows = await db
+    .select({ user: users, createdAt: userBlocks.createdAt })
+    .from(userBlocks)
+    .innerJoin(users, eq(users.id, userBlocks.blockedId))
+    .where(eq(userBlocks.blockerId, me))
+    .orderBy(desc(userBlocks.createdAt));
+  return rows.map((r) => ({ ...toPublicPlayer(r.user), blockedAt: r.createdAt.toISOString() }));
+}
+
+// ---------- players ----------
+
+/** Public player list. With `me`, players on either side of a block are omitted. */
+export async function listPlayers(db: Db, me?: string) {
+  const rows = await db.select().from(users);
+  const blocked = me ? await blockedIdsFor(db, me) : new Set<string>();
+  return rows.filter((u) => u.id !== RALLY_ID && !blocked.has(u.id)).map(toPublicPlayer);
+}
+
+/** One public player. With `me`, a blocked counterpart 404s (indistinguishable from missing). */
+export async function getPlayer(db: Db, id: string, me?: string) {
   const [row] = await db.select().from(users).where(eq(users.id, id)).limit(1);
   if (!row) throw new NotFoundError("player");
+  if (me && me !== id && (await isBlockedBetween(db, me, id))) throw new NotFoundError("player");
   return toPublicPlayer(row);
 }
 
@@ -187,11 +287,12 @@ export async function getMatchSuggestions(db: Db, me: string) {
     .select({ id: suggestionMutes.mutedUserId })
     .from(suggestionMutes)
     .where(eq(suggestionMutes.userId, me));
-  const mutedIds = muted.map((m) => m.id);
+  const blocked = await blockedIdsFor(db, me);
+  const mutedIds = [...new Set([...muted.map((m) => m.id), ...blocked])];
 
   // Candidate pool filtered in SQL — only complete profiles can ever match,
-  // so incomplete rows never need to leave the database. Muted players are
-  // excluded from suggestions entirely (see muteSuggestion).
+  // so incomplete rows never need to leave the database. Muted and blocked
+  // players are excluded from suggestions entirely (see muteSuggestion).
   const rows = await db
     .select()
     .from(users)
@@ -265,7 +366,11 @@ export async function notifyNewCompatiblePlayer(db: Db, newUserId: string) {
     .select()
     .from(users)
     .where(and(eq(users.profileComplete, true), ne(users.id, newUserId), ne(users.id, RALLY_ID)));
-  const candidates = others.map(dbUserToProfile).filter((p): p is UserProfile => p !== null);
+  const blocked = await blockedIdsFor(db, newUserId);
+  const candidates = others
+    .filter((u) => !blocked.has(u.id))
+    .map(dbUserToProfile)
+    .filter((p): p is UserProfile => p !== null);
 
   // Scores are symmetric, so the new player's best matches are exactly the
   // players for whom the new player ranks highly too.
@@ -355,6 +460,7 @@ export async function getCompatibility(db: Db, me: string, otherId: string): Pro
   const meRow = rows.find((u) => u.id === me);
   const otherRow = rows.find((u) => u.id === otherId);
   if (!otherRow) throw new NotFoundError("match");
+  if (await isBlockedBetween(db, me, otherId)) throw new NotFoundError("match");
 
   const myProfile = meRow ? dbUserToProfile(meRow) : null;
   const otherProfile = dbUserToProfile(otherRow);
@@ -390,13 +496,16 @@ export async function getCompatibility(db: Db, me: string, otherId: string): Pro
 }
 
 /** Exact-email lookup for explicit contact adds; returns email on match. */
-export async function lookupPlayerByEmail(db: Db, email: string) {
+export async function lookupPlayerByEmail(db: Db, email: string, me?: string) {
   const [row] = await db
     .select()
     .from(users)
     .where(sql`lower(${users.email}) = ${email.toLowerCase()}`)
     .limit(1);
   if (!row || row.id === RALLY_ID) throw new NotFoundError("player");
+  if (me && row.id !== me && (await isBlockedBetween(db, me, row.id))) {
+    throw new NotFoundError("player");
+  }
   return { ...toPublicPlayer(row), email: row.email ?? "" };
 }
 
@@ -406,7 +515,15 @@ export async function listMatches(db: Db, me: string, mineOnly = false) {
   const rows = mineOnly
     ? await db.select().from(matches).where(sql`${matches.participants} @> ${JSON.stringify([me])}`)
     : await db.select().from(matches);
-  return rows.map(toMatch);
+  const blocked = await blockedIdsFor(db, me);
+  if (blocked.size === 0) return rows.map(toMatch);
+  // Hide any game involving a player on the other side of a block — open games
+  // they created or joined, and games scheduled between the two of us.
+  const involvesBlocked = (m: DbMatch) =>
+    [m.player1Id, m.player2Id, m.createdBy, ...(m.participants ?? [])].some(
+      (id) => !!id && blocked.has(id)
+    );
+  return rows.filter((m) => !involvesBlocked(m)).map(toMatch);
 }
 
 export async function createMatch(db: Db, me: string, data: Record<string, unknown>) {
@@ -415,6 +532,7 @@ export async function createMatch(db: Db, me: string, data: Record<string, unkno
   // accepted connections — open games go through the join endpoint instead.
   if (player2) {
     if (player2 === me) throw new AuthzError("cannot schedule a game with yourself");
+    await assertNotBlocked(db, me, player2);
     const [conn] = await db
       .select()
       .from(matchRequests)
@@ -591,6 +709,7 @@ export async function deleteMatch(db: Db, me: string, matchId: string) {
 
 /** Transactional join — fails cleanly if the match is no longer open. */
 export async function joinOpenMatch(db: Db, me: string, matchId: string): Promise<boolean> {
+  const blocked = await blockedIdsFor(db, me);
   return db.transaction(async (tx) => {
     const [m] = await tx
       .select()
@@ -600,6 +719,10 @@ export async function joinOpenMatch(db: Db, me: string, matchId: string): Promis
       .limit(1);
     if (!m || m.status !== "open" || m.player2Id) return false;
     if (m.player1Id === me) return false; // can't join your own match
+    // Blocked either way: the game is invisible to me, so it behaves as gone.
+    if ([m.player1Id, m.createdBy, ...(m.participants ?? [])].some((id) => !!id && blocked.has(id))) {
+      return false;
+    }
     await tx
       .update(matches)
       .set({
@@ -638,7 +761,10 @@ export async function listMatchRequests(db: Db, me: string) {
     .select()
     .from(matchRequests)
     .where(or(eq(matchRequests.fromUserId, me), eq(matchRequests.toUserId, me)));
-  return rows.map((r) => ({
+  const blocked = await blockedIdsFor(db, me);
+  return rows
+    .filter((r) => !blocked.has(r.fromUserId === me ? r.toUserId : r.fromUserId))
+    .map((r) => ({
     ...r,
     conversationId: r.conversationId ?? undefined,
     createdAt: r.createdAt.toISOString(),
@@ -647,6 +773,7 @@ export async function listMatchRequests(db: Db, me: string) {
 
 export async function createMatchRequest(db: Db, me: string, toUserId: string, score: number) {
   if (toUserId === me) throw new AuthzError("cannot match with yourself");
+  await assertNotBlocked(db, me, toUserId);
   const [row] = await db
     .insert(matchRequests)
     .values({ fromUserId: me, toUserId, score, status: "pending" })
@@ -676,6 +803,7 @@ export async function updateMatchRequest(
   if (data.status && ["accepted", "declined"].includes(data.status) && !isRecipient) {
     throw new AuthzError("only the recipient can accept or decline");
   }
+  if (data.status === "accepted") await assertNotBlocked(db, me, r.fromUserId);
   const [row] = await db
     .update(matchRequests)
     .set({
@@ -710,6 +838,7 @@ export async function listConversations(db: Db, me: string) {
     .where(eq(conversationParticipants.userId, me));
   if (mine.length === 0) return [];
   const ids = mine.map((p) => p.conversationId);
+  const blocked = await blockedIdsFor(db, me);
   const convs = await db
     .select()
     .from(conversations)
@@ -719,15 +848,31 @@ export async function listConversations(db: Db, me: string) {
     .select()
     .from(conversationParticipants)
     .where(inArray(conversationParticipants.conversationId, ids));
-  return convs.map((c) => {
-    const parts = allParts.filter((p) => p.conversationId === c.id);
-    const meRow = parts.find((p) => p.userId === me);
-    return toConversation(c, { [me]: meRow?.unreadCount ?? 0 }, parts.map((p) => p.userId));
-  });
+  return convs
+    .map((c) => ({ c, parts: allParts.filter((p) => p.conversationId === c.id) }))
+    .filter(({ parts }) => !hiddenByBlock(parts.map((p) => p.userId), me, blocked))
+    .map(({ c, parts }) => {
+      const meRow = parts.find((p) => p.userId === me);
+      return toConversation(c, { [me]: meRow?.unreadCount ?? 0 }, parts.map((p) => p.userId));
+    });
+}
+
+/**
+ * Participant check that also applies blocks: a 1:1 thread with a blocked
+ * counterpart 404s (hidden, not forbidden), so stale links, the messages
+ * endpoint and the SSE stream's onOpen all fail closed.
+ */
+async function assertVisibleParticipant(db: Db, me: string, conversationId: string) {
+  const parts = await assertParticipant(db, me, conversationId);
+  const blocked = await blockedIdsFor(db, me);
+  if (hiddenByBlock(parts.map((p) => p.userId), me, blocked)) {
+    throw new NotFoundError("conversation");
+  }
+  return { parts, blocked };
 }
 
 export async function getConversation(db: Db, me: string, conversationId: string) {
-  const parts = await assertParticipant(db, me, conversationId);
+  const { parts } = await assertVisibleParticipant(db, me, conversationId);
   const [c] = await db.select().from(conversations).where(eq(conversations.id, conversationId)).limit(1);
   if (!c) throw new NotFoundError("conversation");
   const meRow = parts.find((p) => p.userId === me);
@@ -740,6 +885,7 @@ export function directConversationId(a: string, b: string): string {
 
 export async function createDirectConversation(db: Db, me: string, otherUserId: string) {
   if (otherUserId === me) throw new AuthzError("cannot chat with yourself");
+  await assertNotBlocked(db, me, otherUserId);
   const id = directConversationId(me, otherUserId);
   const [existing] = await db.select().from(conversations).where(eq(conversations.id, id)).limit(1);
   if (existing) return getConversation(db, me, id);
@@ -765,6 +911,8 @@ export async function createGroupConversation(
 ) {
   if (!participantIds.includes(me)) throw new AuthzError("creator must be a participant");
   const humanIds = [...new Set(participantIds.filter((p) => p !== RALLY_ID))];
+  const blocked = await blockedIdsFor(db, me);
+  if (humanIds.some((u) => blocked.has(u))) throw new AuthzError("this player is unavailable");
 
   const convId = await db.transaction(async (tx) => {
     const [c] = await tx
@@ -799,7 +947,7 @@ export async function createGroupConversation(
 }
 
 export async function deleteConversation(db: Db, me: string, conversationId: string) {
-  const parts = await assertParticipant(db, me, conversationId);
+  const { parts } = await assertVisibleParticipant(db, me, conversationId);
   // messages + participants cascade via FK
   await db.delete(conversations).where(eq(conversations.id, conversationId));
   await notifyChange(db, { conversationId, participants: parts.map((p) => p.userId) });
@@ -822,17 +970,22 @@ export async function markConversationRead(db: Db, me: string, conversationId: s
 // ---------- messages ----------
 
 export async function listMessages(db: Db, me: string, conversationId: string) {
-  await assertParticipant(db, me, conversationId);
+  const { blocked } = await assertVisibleParticipant(db, me, conversationId);
   const rows = await db
     .select()
     .from(messages)
     .where(eq(messages.conversationId, conversationId))
     .orderBy(asc(messages.createdAt));
-  return rows.map(toMessage);
+  // In a shared group, a blocked member's messages are hidden (both ways).
+  return rows.filter((m) => !blocked.has(m.senderId)).map(toMessage);
 }
 
 export async function sendMessage(db: Db, me: string, conversationId: string, text: string) {
-  const parts = await assertParticipant(db, me, conversationId);
+  const { parts, blocked } = await assertVisibleParticipant(db, me, conversationId);
+  // Neither side of a block may post into a conversation they still share.
+  if (parts.some((p) => blocked.has(p.userId))) {
+    throw new AuthzError("you can't message this conversation");
+  }
   const [sender] = await db.select().from(users).where(eq(users.id, me)).limit(1);
   const senderName = sender?.firstName || sender?.name || "Player";
 
@@ -934,7 +1087,8 @@ export async function conversationContext(db: Db, conversationId: string) {
 
 export async function listContacts(db: Db, me: string) {
   const rows = await db.select().from(contacts).where(eq(contacts.userId, me));
-  return rows.map((c) => ({
+  const blocked = await blockedIdsFor(db, me);
+  return rows.filter((c) => !blocked.has(c.contactId)).map((c) => ({
     id: c.contactId,
     name: c.name,
     email: c.email ?? undefined,
@@ -949,6 +1103,7 @@ export async function addContact(
   contact: { id: string; name?: string; email?: string; avatar?: string }
 ) {
   if (contact.id === me) throw new AuthzError("cannot add yourself");
+  await assertNotBlocked(db, me, contact.id);
   await db
     .insert(contacts)
     .values({
@@ -1041,4 +1196,190 @@ export async function otherHumanParticipants(
   return parts
     .map((p) => p.userId)
     .filter((u) => u !== RALLY_ID && u !== exceptUserId);
+}
+
+// ---------- reports & moderation ----------
+
+export const REPORT_REASONS = [
+  "spam",
+  "harassment",
+  "hate",
+  "sexual",
+  "violence",
+  "impersonation",
+  "inappropriate_ai",
+  "other",
+] as const;
+export type ReportReason = (typeof REPORT_REASONS)[number];
+export const REPORT_STATUSES = ["open", "reviewed", "actioned"] as const;
+export const REPORT_DETAILS_MAX = 1000;
+
+/** Admin allow-list from the ADMIN_EMAILS env var (comma-separated, case-insensitive). */
+export function adminEmails(): string[] {
+  return (process.env.ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+export async function isAdmin(db: Db, me: string): Promise<boolean> {
+  const list = adminEmails();
+  if (list.length === 0) return false;
+  const [row] = await db.select({ email: users.email }).from(users).where(eq(users.id, me)).limit(1);
+  return !!row?.email && list.includes(row.email.toLowerCase());
+}
+
+async function assertAdmin(db: Db, me: string) {
+  if (!(await isAdmin(db, me))) throw new AuthzError("admins only");
+}
+
+/** User ids of the admin accounts (those that have signed in at least once). */
+export async function adminUserIds(db: Db): Promise<string[]> {
+  const list = adminEmails();
+  if (list.length === 0) return [];
+  const rows = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(inArray(sql`lower(${users.email})`, list));
+  return rows.map((r) => r.id);
+}
+
+export interface ReportInput {
+  reportedUserId?: string;
+  messageId?: string;
+  context?: string;
+  reason: string;
+  details?: string;
+}
+
+/**
+ * File a moderation report against a player, one of their messages, or a
+ * Rally (AI) reply. For message reports the reported user, context, and a text
+ * snapshot are derived server-side from the message — the client can't
+ * misattribute — and the reporter must be a participant of that conversation.
+ * Reporting is allowed after blocking. Notifies admins in-app; returns their
+ * ids so the route can also push.
+ */
+export async function createReport(db: Db, me: string, input: ReportInput) {
+  if (!(REPORT_REASONS as readonly string[]).includes(input.reason)) {
+    throw new BadRequestError("invalid reason");
+  }
+  const details = (input.details ?? "").trim().slice(0, REPORT_DETAILS_MAX);
+
+  let reportedUserId = input.reportedUserId ?? "";
+  let context: "profile" | "message" | "rally" | "conversation" =
+    input.context === "conversation" ? "conversation" : "profile";
+  let messageId: string | null = null;
+  let messageText: string | null = null;
+  let conversationId: string | null = null;
+
+  if (input.messageId) {
+    const [m] = await db.select().from(messages).where(eq(messages.id, input.messageId)).limit(1);
+    if (!m) throw new NotFoundError("message");
+    await assertParticipant(db, me, m.conversationId);
+    reportedUserId = m.senderId;
+    context = m.isAi || m.senderId === RALLY_ID ? "rally" : "message";
+    messageId = m.id;
+    messageText = m.text;
+    conversationId = m.conversationId;
+  } else if (reportedUserId === RALLY_ID) {
+    throw new BadRequestError("report a specific Rally message");
+  }
+
+  if (!reportedUserId) throw new BadRequestError("reportedUserId or messageId required");
+  if (reportedUserId === me) throw new AuthzError("cannot report yourself");
+  const [target] = await db.select().from(users).where(eq(users.id, reportedUserId)).limit(1);
+  if (!target) throw new NotFoundError("player");
+
+  const [row] = await db
+    .insert(userReports)
+    .values({
+      reporterId: me,
+      reportedUserId,
+      messageId,
+      messageText,
+      conversationId,
+      context,
+      reason: input.reason,
+      details,
+    })
+    .returning();
+
+  const adminIds = (await adminUserIds(db)).filter((id) => id !== me);
+  if (adminIds.length) {
+    const who = context === "rally" ? "Rally (AI)" : displayName(target.firstName, target.lastName);
+    await db.insert(notifications).values(
+      adminIds.map((userId) => ({
+        userId,
+        type: "report",
+        title: "New report 🚩",
+        body: `${input.reason} · ${context} · ${who}`,
+        link: "/dashboard/admin/reports",
+      }))
+    );
+  }
+  return {
+    report: { id: row.id, status: row.status, createdAt: row.createdAt.toISOString() },
+    adminIds,
+  };
+}
+
+/** Admin-only: reports, newest first (open only by default). */
+export async function listReports(db: Db, me: string, status: string = "open") {
+  await assertAdmin(db, me);
+  const where =
+    status === "all" ? undefined : eq(userReports.status, status as "open" | "reviewed" | "actioned");
+  const rows = await db
+    .select()
+    .from(userReports)
+    .where(where)
+    .orderBy(desc(userReports.createdAt));
+  const ids = [
+    ...new Set(rows.flatMap((r) => [r.reporterId, r.reportedUserId]).filter((x): x is string => !!x)),
+  ];
+  const people = ids.length ? await db.select().from(users).where(inArray(users.id, ids)) : [];
+  const byId = new Map(people.map((u) => [u.id, u]));
+  const label = (id: string | null) => {
+    if (!id) return { id: null, name: "(deleted account)", email: null };
+    const u = byId.get(id);
+    return {
+      id,
+      name: u ? (id === RALLY_ID ? "Rally (AI)" : displayName(u.firstName, u.lastName)) : "(unknown)",
+      // Admin-only view: the email is what lets a moderator act on the account.
+      email: u?.email ?? null,
+    };
+  };
+  return rows.map((r) => ({
+    id: r.id,
+    reporter: label(r.reporterId),
+    reported: label(r.reportedUserId),
+    context: r.context,
+    reason: r.reason,
+    details: r.details,
+    messageId: r.messageId ?? undefined,
+    messageText: r.messageText ?? undefined,
+    conversationId: r.conversationId ?? undefined,
+    status: r.status,
+    reviewedAt: r.reviewedAt?.toISOString(),
+    createdAt: r.createdAt.toISOString(),
+  }));
+}
+
+/** Admin-only: move a report to reviewed / actioned (or back to open). */
+export async function updateReportStatus(db: Db, me: string, reportId: string, status: string) {
+  await assertAdmin(db, me);
+  if (!(REPORT_STATUSES as readonly string[]).includes(status)) {
+    throw new BadRequestError("invalid status");
+  }
+  const [row] = await db
+    .update(userReports)
+    .set({
+      status: status as "open" | "reviewed" | "actioned",
+      reviewedBy: status === "open" ? null : me,
+      reviewedAt: status === "open" ? null : new Date(),
+    })
+    .where(eq(userReports.id, reportId))
+    .returning();
+  if (!row) throw new NotFoundError("report");
+  return { id: row.id, status: row.status };
 }

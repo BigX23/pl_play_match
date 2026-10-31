@@ -1,5 +1,6 @@
 import {
   boolean,
+  index,
   integer,
   jsonb,
   pgTable,
@@ -198,6 +199,58 @@ export const suggestionMutes = pgTable(
   (m) => [primaryKey({ columns: [m.userId, m.mutedUserId] })]
 );
 
+/**
+ * User-to-user blocks (App Store 1.2 / Play UGC). Symmetric in EFFECT — once
+ * either side blocks, neither sees or can contact the other (enforced in
+ * src/server/data.ts) — but stored one-directionally so only the blocker can
+ * lift it. Both FKs cascade: deleting either account drops the block.
+ */
+export const userBlocks = pgTable(
+  "user_blocks",
+  {
+    blockerId: text("blocker_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    blockedId: text("blocked_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (b) => [
+    primaryKey({ columns: [b.blockerId, b.blockedId] }),
+    index("user_blocks_blocked_id_idx").on(b.blockedId),
+  ]
+);
+
+export type ReportStatus = "open" | "reviewed" | "actioned";
+export type ReportContext = "profile" | "message" | "rally" | "conversation";
+
+/**
+ * Moderation reports. `reporter_id` is SET NULL on account deletion so the
+ * report (and the moderation audit trail) survives the reporter leaving.
+ * `reported_user_id` cascades — if the reported account is deleted, its
+ * content is gone and there is nothing left to moderate. `message_text` is a
+ * snapshot taken at report time, so deleting the message or conversation
+ * (which any participant can do) can't destroy the evidence.
+ */
+export const userReports = pgTable(
+  "user_reports",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    reporterId: text("reporter_id").references(() => users.id, { onDelete: "set null" }),
+    reportedUserId: text("reported_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    messageId: text("message_id").references(() => messages.id, { onDelete: "set null" }),
+    messageText: text("message_text"),
+    conversationId: text("conversation_id"),
+    context: text("context").$type<ReportContext>().notNull().default("profile"),
+    reason: text("reason").notNull(),
+    details: text("details").notNull().default(""),
+    status: text("status").$type<ReportStatus>().notNull().default("open"),
+    reviewedBy: text("reviewed_by"),
+    reviewedAt: timestamp("reviewed_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (r) => [index("user_reports_status_idx").on(r.status, r.createdAt)]
+);
+
 export const notifications = pgTable("notifications", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
@@ -223,3 +276,4 @@ export type DbUser = typeof users.$inferSelect;
 export type DbMatch = typeof matches.$inferSelect;
 export type DbConversation = typeof conversations.$inferSelect;
 export type DbMessage = typeof messages.$inferSelect;
+export type DbUserReport = typeof userReports.$inferSelect;

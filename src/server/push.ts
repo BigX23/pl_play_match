@@ -2,7 +2,7 @@ import webpush from "web-push";
 import { eq } from "drizzle-orm";
 import type { getDb } from "@/db";
 import { pushSubscriptions } from "@/db/schema";
-import { otherHumanParticipants } from "./data";
+import { blockedIdsFor, otherHumanParticipants } from "./data";
 
 type Db = ReturnType<typeof getDb>;
 
@@ -63,7 +63,12 @@ export async function pushNewMessage(
   senderName: string,
   text: string
 ): Promise<void> {
-  const recipients = await otherHumanParticipants(db, conversationId, senderId);
+  // Defense in depth: sendMessage already refuses posts across a block, but
+  // never push a sender's message to anyone on the other side of one.
+  const blocked = await blockedIdsFor(db, senderId);
+  const recipients = (await otherHumanParticipants(db, conversationId, senderId)).filter(
+    (uid) => !blocked.has(uid)
+  );
   const body = text.length > 80 ? text.slice(0, 80) + "…" : text;
   await Promise.all(
     recipients.map((uid) =>

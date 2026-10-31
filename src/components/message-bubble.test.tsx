@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import MessageBubble from "./message-bubble";
 import type { Message } from "@/lib/mock-data";
 
@@ -57,5 +58,31 @@ describe("MessageBubble", () => {
       minute: "2-digit",
     });
     expect(screen.getByText(expected)).toBeInTheDocument();
+  });
+
+  it("offers 'Report message' on others' messages when onReport is given", async () => {
+    const onReport = vi.fn();
+    const user = userEvent.setup();
+    const msg = makeMessage();
+    render(<MessageBubble message={msg} isOwn={false} onReport={onReport} />);
+    await user.click(screen.getByRole("button", { name: "Message options" }));
+    await user.click(await screen.findByText("Report message"));
+    expect(onReport).toHaveBeenCalledWith(msg);
+  });
+
+  it("labels the action for Rally replies", async () => {
+    const user = userEvent.setup();
+    render(
+      <MessageBubble message={makeMessage({ senderId: "rally", senderName: "Rally", isAI: true })} isOwn={false} onReport={vi.fn()} />
+    );
+    await user.click(screen.getByRole("button", { name: "Message options" }));
+    expect(await screen.findByText("Report Rally reply")).toBeInTheDocument();
+  });
+
+  it("never offers reporting on my own messages or without a handler", () => {
+    const { rerender } = render(<MessageBubble message={makeMessage()} isOwn onReport={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: "Message options" })).not.toBeInTheDocument();
+    rerender(<MessageBubble message={makeMessage()} isOwn={false} />);
+    expect(screen.queryByRole("button", { name: "Message options" })).not.toBeInTheDocument();
   });
 });

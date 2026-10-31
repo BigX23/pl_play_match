@@ -92,6 +92,35 @@ sudo docker system prune -f            # reclaim dangling images/layers
 
 ---
 
+## Moderation (block & report)
+
+Users can block players and report players, messages, and Rally replies (App Store
+guideline 1.2 / Google Play UGC policy). **Commitment: respond to reports within 24 hours.**
+
+- **Who is an admin:** the `ADMIN_EMAILS` env var — a comma-separated, case-insensitive
+  list of Google sign-in emails (e.g. the account behind `feedback@aiplaymatch.com`).
+  Set it in `~/app/deploy/.env` on the box (passed through by `deploy/docker-compose.yml`),
+  then `docker compose up -d app`. Unset/empty ⇒ nobody is an admin and the queue is
+  inaccessible. The admin must have signed in to PlayMatch at least once to get a user row.
+- **Notification:** each new report creates an in-app notification (type `report`) for
+  every admin user, plus a Web Push if they enabled push. There is no outbound email in
+  this stack, so turn on push for the admin account.
+- **Queue:** `https://aiplaymatch.com/dashboard/admin/reports` — filter open / reviewed /
+  actioned / all; mark reviewed or actioned. Non-admins get "Admins only" (the API 403s).
+  Message reports carry a text snapshot, so evidence survives message/thread deletion.
+- **Acting on an account** (no in-app suspend yet — follow-up): reach the user by email,
+  or remove the account from a Postgres shell. Accounts that have sent messages can't be
+  deleted until their messages are (the `messages.sender_id` FK has no cascade):
+  ```sql
+  -- inspect
+  SELECT id, email, first_name FROM users WHERE id = '<reported id>';
+  -- remove (sessions/accounts/blocks cascade)
+  DELETE FROM messages WHERE sender_id = '<reported id>';
+  DELETE FROM users WHERE id = '<reported id>';
+  ```
+
+---
+
 ## Incident runbook
 
 ### Rally slow / app container pegging CPU — SSE zombie-stream leak
@@ -138,6 +167,8 @@ All live in `~/app/deploy/.env`; edit then `docker compose up -d app` (or `resta
 - `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` — `npx web-push generate-vapid-keys`
   (rotating invalidates existing push subscriptions; users re-enable in Settings).
 - `POSTGRES_PASSWORD` / `DATABASE_URL` — keep in sync if changed.
+- `ADMIN_EMAILS` — not a secret, but box-only config: comma-separated moderator emails
+  (see Moderation above).
 
 ---
 

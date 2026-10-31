@@ -8,6 +8,44 @@
 
 ---
 
+## Current Postgres additions (not part of the historical Firestore model)
+
+These live in `src/db/schema.ts`; migration `drizzle/0004_block-and-report.sql`.
+
+### `user_blocks`
+
+| Column | Type | Notes |
+|---|---|---|
+| `blocker_id` | text, FK → `users.id` ON DELETE CASCADE | Who placed the block (only they can lift it) |
+| `blocked_id` | text, FK → `users.id` ON DELETE CASCADE | Indexed (`user_blocks_blocked_id_idx`) for reverse lookups |
+| `created_at` | timestamp | |
+
+PK `(blocker_id, blocked_id)` — blocking is idempotent. Enforced **symmetrically**: if
+either row direction exists, neither user sees or can contact the other (see
+`ARCHITECTURE.md` §7 "Blocking"). Distinct from `suggestion_mutes`, which only hides a
+player from one user's suggestions.
+
+### `user_reports`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | text PK | uuid |
+| `reporter_id` | text, FK → `users.id` **ON DELETE SET NULL** | Report and audit trail survive the reporter deleting their account |
+| `reported_user_id` | text NOT NULL, FK → `users.id` ON DELETE CASCADE | Derived server-side for message reports; `rally` for AI replies. If the account is deleted its content is gone, so the report goes too |
+| `message_id` | text, FK → `messages.id` ON DELETE SET NULL | Optional |
+| `message_text` | text | Snapshot at report time — deleting the message/thread can't destroy evidence |
+| `conversation_id` | text | Plain id (no FK) for context |
+| `context` | text | `profile` · `message` · `rally` · `conversation` |
+| `reason` | text | `spam` · `harassment` · `hate` · `sexual` · `violence` · `impersonation` · `inappropriate_ai` · `other` |
+| `details` | text | Optional free text, ≤ 1000 chars |
+| `status` | text | `open` (default) · `reviewed` · `actioned` |
+| `reviewed_by` / `reviewed_at` | text / timestamp | Set by the admin who changed the status |
+| `created_at` | timestamp | Index `(status, created_at)` for the queue |
+
+Admins are identified by the `ADMIN_EMAILS` env allow-list (see `OPERATIONS.md` → Moderation).
+
+---
+
 ## Table of Contents
 
 - [Overview](#overview)
