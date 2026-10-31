@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Trophy } from "lucide-react";
+import { LegalLinks } from "@/components/legal/legal-links";
 
 function GoogleMark() {
   return (
@@ -55,10 +56,16 @@ export default function LoginPage() {
             {busy ? "Redirecting…" : "Continue with Google"}
           </Button>
         </CardContent>
-        <CardFooter>
+        <CardFooter className="flex-col gap-3">
           <p className="text-xs text-muted-foreground text-center w-full">
             We only use your Google account to sign you in — no passwords to remember.
           </p>
+          <p className="text-xs text-muted-foreground text-center w-full">
+            By continuing, you agree to our{" "}
+            <Link href="/terms" className="text-primary hover:underline">Terms of Use</Link> and{" "}
+            <Link href="/privacy" className="text-primary hover:underline">Privacy Policy</Link>.
+          </p>
+          <LegalLinks className="text-xs text-muted-foreground" />
         </CardFooter>
       </Card>
     </div>

@@ -41,6 +41,12 @@ describe("SettingsPage", () => {
     expect(screen.getByText("Account")).toBeInTheDocument();
   });
 
+  it("links to the privacy, terms, and support pages", () => {
+    render(<SettingsPage />);
+    const hrefs = screen.getAllByRole("link").map((a) => a.getAttribute("href"));
+    expect(hrefs).toEqual(expect.arrayContaining(["/privacy", "/terms", "/support"]));
+  });
+
   it("shows iOS install instructions in Safari when not installed (#47)", async () => {
     // Simulate iPhone Safari: iOS user agent, and no Notification API (iOS
     // only exposes it inside an installed Home Screen app).

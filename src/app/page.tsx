@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { LegalLinks } from "@/components/legal/legal-links";
 import { Trophy, Target, Send, MapPin, CalendarClock } from "lucide-react";
 
 const mockMatches = [
@@ -132,8 +133,9 @@ export default function LandingPage() {
       </main>
 
       {/* Footer */}
-      <footer className="py-6 text-center text-sm text-muted-foreground border-t">
-        © 2026 Pleasanton PlayMatch
+      <footer className="py-6 px-4 text-center text-sm text-muted-foreground border-t space-y-2">
+        <LegalLinks />
+        <p>© 2026 Pleasanton PlayMatch</p>
       </footer>
     </div>
   );

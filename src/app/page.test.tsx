@@ -34,4 +34,10 @@ describe("LandingPage", () => {
     render(<LandingPage />);
     expect(screen.getByText(/Pleasanton PlayMatch/i)).toBeInTheDocument();
   });
+
+  it("links to the privacy, terms, and support pages", () => {
+    render(<LandingPage />);
+    const hrefs = screen.getAllByRole("link").map((a) => a.getAttribute("href"));
+    expect(hrefs).toEqual(expect.arrayContaining(["/privacy", "/terms", "/support"]));
+  });
 });

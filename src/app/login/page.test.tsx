@@ -56,4 +56,10 @@ describe("LoginPage (Google-only)", () => {
     await act(async () => { resolveSignIn(); await pending; });
   });
 
+  it("links to the terms, privacy policy, and support pages", () => {
+    render(<LoginPage />);
+    const hrefs = screen.getAllByRole("link").map((a) => a.getAttribute("href"));
+    expect(hrefs).toEqual(expect.arrayContaining(["/privacy", "/terms", "/support"]));
+    expect(screen.getByText(/By continuing, you agree to our/i)).toBeInTheDocument();
+  });
 });
