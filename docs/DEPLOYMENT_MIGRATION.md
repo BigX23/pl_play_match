@@ -303,6 +303,9 @@ overhead, and native push (APNs/FCM) — i.e. it *increases* management surface.
 **React Native is explicitly rejected** (second codebase). Capacitor bolts on
 after this migration without changing anything below.
 
+> **Update 2026-10-31:** store launch is now planned in detail in
+> [MOBILE_APP_PLAN.md](./MOBILE_APP_PLAN.md) (scaffold on `feature/capacitor-wrapper`).
+
 ---
 
 ## Target topology (single VPS, docker-compose)
