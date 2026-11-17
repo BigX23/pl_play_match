@@ -7,7 +7,7 @@ import { loadMessaging, registerNativePushIfGranted, safeNotificationPath, sendT
  * route a notification tap to its `data.url` (same-origin paths only).
  */
 export const setupNativePush: NativeSetup = async () => {
-  const fcm = await loadMessaging();
+  const fcm = (await loadMessaging())?.fcm;
   if (!fcm) return;
 
   const handles = await Promise.all([

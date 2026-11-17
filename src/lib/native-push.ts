@@ -13,14 +13,22 @@ type Messaging = typeof import("@capacitor-firebase/messaging").FirebaseMessagin
 
 export type NativePushPermission = "granted" | "denied" | "prompt" | "unsupported";
 
-/** Load the plugin (null on the web or if it fails to load). */
-export function loadMessaging(): Promise<Messaging | null> {
-  return loadNative(() => import("@capacitor-firebase/messaging").then((m) => m.FirebaseMessaging));
+/**
+ * Load the plugin (null on the web or if it fails to load).
+ *
+ * Returns it wrapped, never as a promise's value: a Capacitor plugin is a Proxy
+ * that forwards every property, `then` included, to native. Resolving a promise
+ * with it makes the runtime call `plugin.then(...)`, which on Android rejects
+ * with "FirebaseMessaging.then() is not implemented" and never settles.
+ */
+export async function loadMessaging(): Promise<{ fcm: Messaging } | null> {
+  const mod = await loadNative(() => import("@capacitor-firebase/messaging"));
+  return mod ? { fcm: mod.FirebaseMessaging } : null;
 }
 
 /** Current OS notification permission inside the app; "unsupported" on the web. */
 export async function getNativePushPermission(): Promise<NativePushPermission> {
-  const fcm = await loadMessaging();
+  const fcm = (await loadMessaging())?.fcm;
   if (!fcm) return "unsupported";
   try {
     const { receive } = await fcm.checkPermissions();
@@ -60,7 +68,7 @@ export type EnableNativePushResult = "enabled" | "denied" | "unavailable";
 
 /** Settings → "Enable Push Notifications" inside the app. */
 export async function enableNativePush(): Promise<EnableNativePushResult> {
-  const fcm = await loadMessaging();
+  const fcm = (await loadMessaging())?.fcm;
   if (!fcm) return "unavailable";
   try {
     const { receive } = await fcm.requestPermissions();
@@ -74,7 +82,7 @@ export async function enableNativePush(): Promise<EnableNativePushResult> {
 
 /** At launch: refresh the server's copy of the token if permission was already granted. */
 export async function registerNativePushIfGranted(): Promise<void> {
-  const fcm = await loadMessaging();
+  const fcm = (await loadMessaging())?.fcm;
   if (!fcm) return;
   try {
     const { receive } = await fcm.checkPermissions();
@@ -87,7 +95,7 @@ export async function registerNativePushIfGranted(): Promise<void> {
 
 /** Before sign-out: stop pushes to this phone for the account that's leaving (best-effort). */
 export async function unregisterNativePush(): Promise<void> {
-  const fcm = await loadMessaging();
+  const fcm = (await loadMessaging())?.fcm;
   if (!fcm) return;
   try {
     const { receive } = await fcm.checkPermissions();

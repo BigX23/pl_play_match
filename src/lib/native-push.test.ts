@@ -1,12 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// The real plugin talks to the native bridge; mock its surface.
+// The real plugin talks to the native bridge; mock its surface. Like a real
+// Capacitor plugin Proxy it answers `then` too (with a call that never settles),
+// so code that resolves a promise with the plugin itself hangs here as on Android.
 const fcm = {
   checkPermissions: vi.fn(),
   requestPermissions: vi.fn(),
   getToken: vi.fn(),
   addListener: vi.fn(),
 };
+Object.defineProperty(fcm, "then", { value: () => new Promise(() => {}), enumerable: false });
 vi.mock("@capacitor-firebase/messaging", () => ({ FirebaseMessaging: fcm }));
 
 import {
