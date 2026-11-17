@@ -219,6 +219,20 @@ export const pushSubscriptions = pgTable("push_subscriptions", {
   createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
 });
 
+/**
+ * FCM registration tokens from the iOS/Android apps (Web Push doesn't exist in
+ * WKWebView / Android WebView). A token identifies one app install, so it is
+ * unique and moves to whoever registers it last.
+ */
+export const nativePushTokens = pgTable("native_push_tokens", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  token: text("token").notNull().unique(),
+  platform: text("platform").$type<"ios" | "android">().notNull(),
+  createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  lastSeenAt: timestamp("last_seen_at", { mode: "date" }).notNull().defaultNow(),
+});
+
 export type DbUser = typeof users.$inferSelect;
 export type DbMatch = typeof matches.$inferSelect;
 export type DbConversation = typeof conversations.$inferSelect;

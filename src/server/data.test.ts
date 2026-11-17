@@ -32,6 +32,7 @@ async function applyMigrations() {
     "0001_domain-tables.sql",
     "0002_score-confirmation.sql",
     "0003_suggestion-mutes.sql",
+    "0004_native-push-tokens.sql",
   ]) {
     const sqlText = readFileSync(path.join(dir, file), "utf8");
     for (const stmt of sqlText.split("--> statement-breakpoint")) {
@@ -87,7 +88,7 @@ beforeEach(async () => {
   await client.exec(`
     TRUNCATE TABLE
       contacts, notifications, messages, conversation_participants,
-      conversations, match_requests, matches, suggestion_mutes, users
+      conversations, match_requests, matches, suggestion_mutes, native_push_tokens, users
     CASCADE;
   `);
   await seedUsers();
@@ -1125,6 +1126,77 @@ describe("notifications", () => {
     expect(await data.listNotifications(db, ALICE)).toHaveLength(0);
     expect(await data.listNotifications(db, BOB)).toHaveLength(1);
     expect(await data.clearNotifications(db, ALICE)).toBe(0); // idempotent
+  });
+});
+
+// ---------- native push tokens ----------
+
+describe("native push tokens", () => {
+  const tokensOf = async (uid: string) =>
+    (await rawDb.select().from(schema.nativePushTokens).where(eq(schema.nativePushTokens.userId, uid))).map((t) => t.token);
+
+  it("registers a token, and re-registering is idempotent and refreshes last_seen_at", async () => {
+    await data.registerNativePushToken(db, ALICE, "tok-1", "ios");
+    const [first] = await rawDb.select().from(schema.nativePushTokens);
+    await new Promise((r) => setTimeout(r, 5));
+    await data.registerNativePushToken(db, ALICE, "tok-1", "ios");
+    const rows = await rawDb.select().from(schema.nativePushTokens);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ userId: ALICE, token: "tok-1", platform: "ios" });
+    expect(rows[0].lastSeenAt.getTime()).toBeGreaterThan(first.lastSeenAt.getTime());
+    expect(rows[0].createdAt.getTime()).toBe(first.createdAt.getTime());
+  });
+
+  it("moves a token to whoever registers it last (account switch on one phone)", async () => {
+    await data.registerNativePushToken(db, ALICE, "shared", "android");
+    await data.registerNativePushToken(db, BOB, "shared", "android");
+    expect(await tokensOf(ALICE)).toEqual([]);
+    expect(await tokensOf(BOB)).toEqual(["shared"]);
+  });
+
+  it("unregister removes only the caller's own token", async () => {
+    await data.registerNativePushToken(db, ALICE, "a-tok", "ios");
+    await data.registerNativePushToken(db, BOB, "b-tok", "android");
+    await data.unregisterNativePushToken(db, ALICE, "b-tok"); // not Alice's: no-op
+    expect(await tokensOf(BOB)).toEqual(["b-tok"]);
+    await data.unregisterNativePushToken(db, ALICE, "a-tok");
+    expect(await tokensOf(ALICE)).toEqual([]);
+  });
+
+  it("tokens go with the account on deleteAccount (FK cascade)", async () => {
+    await data.registerNativePushToken(db, ALICE, "a-tok", "ios");
+    await data.deleteAccount(db, ALICE);
+    expect(await rawDb.select().from(schema.nativePushTokens)).toHaveLength(0);
+  });
+
+  it("parseNativePushToken validates token and platform", () => {
+    expect(data.parseNativePushToken({ token: " t1 ", platform: "ios" }, { requirePlatform: true })).toEqual({
+      token: "t1",
+      platform: "ios",
+    });
+    expect(() => data.parseNativePushToken({ token: "t", platform: "web" }, { requirePlatform: true })).toThrow(AuthzError);
+    expect(() => data.parseNativePushToken({ token: "t" }, { requirePlatform: true })).toThrow(AuthzError);
+    expect(() => data.parseNativePushToken({ token: "", platform: "ios" }, { requirePlatform: true })).toThrow(AuthzError);
+    expect(() => data.parseNativePushToken({ token: 42, platform: "ios" }, { requirePlatform: true })).toThrow(AuthzError);
+    expect(() => data.parseNativePushToken({ token: "a b", platform: "ios" }, { requirePlatform: true })).toThrow(AuthzError);
+    expect(() => data.parseNativePushToken({ token: "x".repeat(5000), platform: "ios" }, { requirePlatform: true })).toThrow(
+      AuthzError
+    );
+    expect(data.parseNativePushToken({ token: "t" }, { requirePlatform: false }).token).toBe("t");
+  });
+
+  it("unreadBadgeCount sums unread messages and unread notifications", async () => {
+    expect(await data.unreadBadgeCount(db, BOB)).toBe(0);
+    const conv = await data.createDirectConversation(db, ALICE, BOB);
+    await data.sendMessage(db, ALICE, conv.id, "one");
+    await data.sendMessage(db, ALICE, conv.id, "two");
+    const before = await data.unreadBadgeCount(db, BOB);
+    await rawDb.insert(schema.notifications).values([
+      { userId: BOB, type: "test", title: "unread" },
+      { userId: BOB, type: "test", title: "read", read: true },
+    ]);
+    expect(await data.unreadBadgeCount(db, BOB)).toBe(before + 1);
+    expect(before).toBeGreaterThanOrEqual(2);
   });
 });
 

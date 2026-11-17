@@ -7,6 +7,7 @@ import {
   matchRequests,
   matches,
   messages,
+  nativePushTokens,
   notifications,
   pushSubscriptions,
   suggestionMutes,
@@ -1034,6 +1035,67 @@ export async function removePushSubscription(db: Db, me: string, endpoint: strin
     .where(and(eq(pushSubscriptions.endpoint, endpoint), eq(pushSubscriptions.userId, me)));
 }
 
+// ---------- native (FCM) push tokens ----------
+
+export type NativePushPlatform = "ios" | "android";
+const NATIVE_PLATFORMS: readonly string[] = ["ios", "android"];
+// FCM tokens are ~150-250 chars; the cap just bounds garbage input.
+const MAX_TOKEN_LENGTH = 4096;
+
+/** Validate a register/unregister request body. Throws AuthzError (→ 403) like addPushSubscription's route. */
+export function parseNativePushToken(body: Record<string, unknown>, opts: { requirePlatform: boolean }) {
+  const token = typeof body.token === "string" ? body.token.trim() : "";
+  if (!token || token.length > MAX_TOKEN_LENGTH || /\s/.test(token)) {
+    throw new AuthzError("invalid token");
+  }
+  const platform = body.platform;
+  if (opts.requirePlatform && (typeof platform !== "string" || !NATIVE_PLATFORMS.includes(platform))) {
+    throw new AuthzError("invalid platform");
+  }
+  return { token, platform: platform as NativePushPlatform };
+}
+
+/**
+ * Store an app install's FCM token for `me`. A token identifies one install, so
+ * if it was registered by someone else (shared phone, account switch) it moves
+ * to `me`.
+ */
+export async function registerNativePushToken(
+  db: Db,
+  me: string,
+  token: string,
+  platform: NativePushPlatform
+) {
+  const now = new Date();
+  await db
+    .insert(nativePushTokens)
+    .values({ userId: me, token, platform, createdAt: now, lastSeenAt: now })
+    .onConflictDoUpdate({
+      target: nativePushTokens.token,
+      set: { userId: me, platform, lastSeenAt: now },
+    });
+}
+
+/** Remove one of `me`'s tokens (sign-out / disable). Another user's token is left alone. */
+export async function unregisterNativePushToken(db: Db, me: string, token: string) {
+  await db
+    .delete(nativePushTokens)
+    .where(and(eq(nativePushTokens.token, token), eq(nativePushTokens.userId, me)));
+}
+
+/** App-icon badge: unread messages across conversations plus unread notifications. */
+export async function unreadBadgeCount(db: Db, userId: string): Promise<number> {
+  const [msgs] = await db
+    .select({ n: sql<number>`coalesce(sum(${conversationParticipants.unreadCount}), 0)::int` })
+    .from(conversationParticipants)
+    .where(eq(conversationParticipants.userId, userId));
+  const [notes] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(notifications)
+    .where(and(eq(notifications.userId, userId), eq(notifications.read, false)));
+  return Number(msgs?.n ?? 0) + Number(notes?.n ?? 0);
+}
+
 /** Human participants of a conversation other than `exceptUserId`. */
 export async function otherHumanParticipants(
   db: Db,
@@ -1054,7 +1116,7 @@ export async function otherHumanParticipants(
  * (messages.sender_id / matches.player1_id have no ON DELETE action, so a bare
  * delete would fail), unfinished games are cancelled, and everything else
  * (sessions, accounts, requests, contacts, notifications, push subscriptions,
- * conversation memberships) goes with the users row via FK cascades.
+ * native push tokens, conversation memberships) goes with the users row via FK cascades.
  */
 export async function deleteAccount(db: Db, me: string): Promise<void> {
   if (me === RALLY_ID || me === DELETED_USER_ID) throw new AuthzError("system account");
