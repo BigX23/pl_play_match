@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getDb } from "@/db";
-import { AuthzError, NotFoundError } from "./data";
+import { AuthzError, BadRequestError, NotFoundError } from "./data";
 
 type Db = ReturnType<typeof getDb>;
 
@@ -22,6 +22,9 @@ export function withUser(
       const result = await handler(getDb(), session.user.id, req, params);
       return NextResponse.json(result ?? { ok: true });
     } catch (err) {
+      if (err instanceof BadRequestError) {
+        return NextResponse.json({ error: err.message }, { status: 400 });
+      }
       if (err instanceof AuthzError) {
         return NextResponse.json({ error: err.message }, { status: 403 });
       }

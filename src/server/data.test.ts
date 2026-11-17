@@ -32,7 +32,8 @@ async function applyMigrations() {
     "0001_domain-tables.sql",
     "0002_score-confirmation.sql",
     "0003_suggestion-mutes.sql",
-    "0004_native-push-tokens.sql",
+    "0004_block-and-report.sql",
+    "0005_native-push-tokens.sql",
   ]) {
     const sqlText = readFileSync(path.join(dir, file), "utf8");
     for (const stmt of sqlText.split("--> statement-breakpoint")) {

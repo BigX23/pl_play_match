@@ -16,6 +16,7 @@ import { loadPreferences, savePreferences, type NotificationPreferences, enableP
 import { useToast } from "@/hooks/use-toast";
 import { isNative } from "@/lib/native";
 import { enableNativePush, getNativePushPermission, registerNativePushIfGranted } from "@/lib/native-push";
+import BlockedUsersCard from "@/components/blocked-users-card";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -256,6 +257,9 @@ export default function SettingsPage() {
           </p>
         </CardContent>
       </Card>
+
+      {/* Safety: players I've blocked (U1 — App Store 1.2 / Play UGC) */}
+      <BlockedUsersCard />
 
       <Card>
         <CardHeader>

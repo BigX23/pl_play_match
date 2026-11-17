@@ -6,7 +6,7 @@ vi.mock("@/auth", () => ({ auth: () => authMock() }));
 vi.mock("@/db", () => ({ getDb: () => ({ tag: "db" }) }));
 
 import { withUser, jsonBody } from "./route-helpers";
-import { AuthzError, NotFoundError } from "./data";
+import { AuthzError, BadRequestError, NotFoundError } from "./data";
 
 function ctx(params: Record<string, string> = {}) {
   return { params: Promise.resolve(params) };
@@ -40,6 +40,13 @@ describe("withUser", () => {
     const res = await withUser(async () => { throw new AuthzError("nope"); })(new Request("http://x"), ctx());
     expect(res.status).toBe(403);
     expect(await res.json()).toEqual({ error: "nope" });
+  });
+
+  it("maps BadRequestError → 400", async () => {
+    authMock.mockResolvedValue({ user: { id: "u1" } });
+    const res = await withUser(async () => { throw new BadRequestError("bad"); })(new Request("http://x"), ctx());
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "bad" });
   });
 
   it("maps NotFoundError → 404", async () => {

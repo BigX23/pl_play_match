@@ -28,6 +28,13 @@ vi.mock("@/lib/data", () => ({
   markConversationRead: vi.fn(),
 }));
 
+vi.mock("@/lib/safety", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/safety")>();
+  return { ...actual, blockUser: vi.fn(), reportContent: vi.fn() };
+});
+vi.mock("@/hooks/use-toast", () => ({ useToast: () => ({ toast: vi.fn() }) }));
+import { blockUser, reportContent } from "@/lib/safety";
+
 import {
   subscribeMessages,
   sendMessage,
@@ -275,5 +282,72 @@ describe("ChatPage", () => {
         expect.objectContaining({ id: "a", name: "Alice Doe", email: "a@example.com" })
       );
     });
+  });
+
+  it("blocks the other player from the header and leaves the hidden thread", async () => {
+    vi.mocked(blockUser).mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    render(<ChatPage />);
+    await screen.findByText("Direct Message");
+    const buttons = screen.getAllByRole("button");
+    const trigger = buttons.find((b) => b.querySelector("svg.lucide-ellipsis-vertical"));
+    await user.click(trigger!);
+    await user.click(await screen.findByText("Block Alice Doe"));
+    expect(await screen.findByText("Block Alice Doe?")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Block" }));
+    await waitFor(() => expect(blockUser).toHaveBeenCalledWith("a"));
+    await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/dashboard/messages"));
+  });
+
+  it("reports the other player from the header", async () => {
+    vi.mocked(reportContent).mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    render(<ChatPage />);
+    await screen.findByText("Direct Message");
+    const buttons = screen.getAllByRole("button");
+    const trigger = buttons.find((b) => b.querySelector("svg.lucide-ellipsis-vertical"));
+    await user.click(trigger!);
+    await user.click(await screen.findByText("Report Alice Doe"));
+    await user.click(await screen.findByLabelText("Spam or scam"));
+    await user.click(screen.getByRole("button", { name: "Send report" }));
+    await waitFor(() =>
+      expect(reportContent).toHaveBeenCalledWith(
+        expect.objectContaining({ reportedUserId: "a", context: "conversation", reason: "spam" })
+      )
+    );
+    expect(pushMock).not.toHaveBeenCalled();
+  });
+
+  it("reports an individual message (and a Rally reply) from its menu", async () => {
+    vi.mocked(reportContent).mockResolvedValue(undefined);
+    messagesData = [
+      makeMessage({ id: "m_alice", senderId: "a", senderName: "Alice", text: "rude thing" }),
+      makeMessage({ id: "m_rally", senderId: "rally", senderName: "Rally", text: "ai reply", isAI: true }),
+    ];
+    const user = userEvent.setup();
+    render(<ChatPage />);
+    await screen.findByText("rude thing");
+    const menus = screen.getAllByRole("button", { name: "Message options" });
+    expect(menus).toHaveLength(2);
+
+    await user.click(menus[0]);
+    await user.click(await screen.findByText("Report message"));
+    expect(await screen.findByText("Report this message from Alice")).toBeInTheDocument();
+    await user.click(screen.getByLabelText("Harassment or bullying"));
+    await user.click(screen.getByRole("button", { name: "Send report" }));
+    await waitFor(() =>
+      expect(reportContent).toHaveBeenCalledWith(
+        expect.objectContaining({ messageId: "m_alice", context: "message", reason: "harassment" })
+      )
+    );
+
+    await user.click(screen.getAllByRole("button", { name: "Message options" })[1]);
+    await user.click(await screen.findByText("Report Rally reply"));
+    await user.click(await screen.findByRole("button", { name: "Send report" }));
+    await waitFor(() =>
+      expect(reportContent).toHaveBeenLastCalledWith(
+        expect.objectContaining({ messageId: "m_rally", context: "rally", reason: "inappropriate_ai" })
+      )
+    );
   });
 });

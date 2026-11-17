@@ -13,9 +13,11 @@ vi.mock("web-push", () => ({
 
 const otherHumanParticipants = vi.fn();
 const unreadBadgeCount = vi.fn();
+const blockedIdsFor = vi.fn(async (..._a: unknown[]) => new Set<string>());
 vi.mock("./data", () => ({
   otherHumanParticipants: (...a: unknown[]) => otherHumanParticipants(...a),
   unreadBadgeCount: (...a: unknown[]) => unreadBadgeCount(...a),
+  blockedIdsFor: (...a: unknown[]) => blockedIdsFor(...a),
 }));
 
 // firebase-admin is mocked: no network, no real credentials.
@@ -261,6 +263,28 @@ describe("pushNewMessage", () => {
     expect(parsed.title).toContain("Alice");
     expect(parsed.body.endsWith("…")).toBe(true);
     expect(parsed.url).toBe("/dashboard/messages/c1");
+  });
+  it("never pushes to a recipient on the other side of a block with the sender", async () => {
+    sendNotification.mockResolvedValue(undefined);
+    otherHumanParticipants.mockResolvedValue(["bob", "cara"]);
+    blockedIdsFor.mockResolvedValueOnce(new Set(["bob"]));
+    const sentTo: string[] = [];
+    const db = {
+      select: () => ({
+        from: () => ({
+          where: () => {
+            sentTo.push("lookup");
+            return Promise.resolve([{ endpoint: "e", p256dh: "p", auth: "a" }]);
+          },
+        }),
+      }),
+      delete: () => ({ where: () => Promise.resolve() }),
+    } as never;
+    await pushNewMessage(db, "c1", "alice", "Alice", "hi");
+    expect(blockedIdsFor).toHaveBeenCalledWith(db, "alice");
+    // Only cara's subscriptions were looked up / pushed.
+    expect(sentTo).toHaveLength(1);
+    expect(sendNotification).toHaveBeenCalledTimes(1);
   });
 });
 

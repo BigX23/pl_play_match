@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { ArrowLeft, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -36,11 +37,14 @@ export default function MatchComparison({
   onAccept,
   onDecline,
   busy = false,
+  headerActions,
 }: {
   data: Compatibility;
   onAccept: () => void;
   onDecline: () => void;
   busy?: boolean;
+  /** Rendered at the right of the header (e.g. the Block / Report menu). */
+  headerActions?: ReactNode;
 }) {
   const { player, factors, grid } = data;
   const score = Math.round(data.score);
@@ -67,7 +71,8 @@ export default function MatchComparison({
         <Link href="/dashboard" aria-label="Back to dashboard">
           <Button variant="ghost" size="icon"><ArrowLeft className="h-5 w-5" /></Button>
         </Link>
-        <p className="text-sm text-muted-foreground">Potential Match</p>
+        <p className="text-sm text-muted-foreground flex-1">Potential Match</p>
+        {headerActions}
       </div>
 
       <div className="px-4 space-y-6">

@@ -18,6 +18,12 @@ vi.mock("@/lib/data", () => ({
   getCompatibility: vi.fn(),
   createMatchRequest: vi.fn(),
 }));
+vi.mock("@/lib/safety", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/safety")>();
+  return { ...actual, blockUser: vi.fn(), reportContent: vi.fn() };
+});
+vi.mock("@/hooks/use-toast", () => ({ useToast: () => ({ toast: vi.fn() }) }));
+import { blockUser, reportContent } from "@/lib/safety";
 
 import { getCompatibility, createMatchRequest } from "@/lib/data";
 import MatchDetailPage from "./page";
@@ -88,5 +94,37 @@ describe("MatchDetailPage", () => {
     await user.click(screen.getByRole("button", { name: /Not Now/i }));
     expect(pushMock).toHaveBeenCalledWith("/dashboard");
     expect(createMatchRequest).not.toHaveBeenCalled();
+  });
+
+  it("blocks the player from the profile menu and returns to the dashboard", async () => {
+    vi.mocked(blockUser).mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    render(<MatchDetailPage />);
+    await screen.findByText("Jill W.");
+    await user.click(screen.getByRole("button", { name: "Player options" }));
+    await user.click(await screen.findByText("Block Jill W."));
+    await user.click(await screen.findByRole("button", { name: "Block" }));
+    await waitFor(() => expect(blockUser).toHaveBeenCalledWith("u_jill"));
+    await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/dashboard"));
+  });
+
+  it("reports the player from the profile menu (and can also block)", async () => {
+    vi.mocked(reportContent).mockResolvedValue(undefined);
+    vi.mocked(blockUser).mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    render(<MatchDetailPage />);
+    await screen.findByText("Jill W.");
+    await user.click(screen.getByRole("button", { name: "Player options" }));
+    await user.click(await screen.findByText("Report Jill W."));
+    await user.click(await screen.findByLabelText("Fake profile or impersonation"));
+    await user.click(screen.getByLabelText("Also block Jill W."));
+    await user.click(screen.getByRole("button", { name: "Send report" }));
+    await waitFor(() =>
+      expect(reportContent).toHaveBeenCalledWith(
+        expect.objectContaining({ reportedUserId: "u_jill", context: "profile", reason: "impersonation" })
+      )
+    );
+    expect(blockUser).toHaveBeenCalledWith("u_jill");
+    await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/dashboard"));
   });
 });
