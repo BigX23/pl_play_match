@@ -15,7 +15,8 @@
     "cap:ios": "cap run ios",
     "cap:android": "cap run android",
     "cap:dev": "CAP_SERVER_URL=http://localhost:9002 cap sync",
-    "cap:assets": "capacitor-assets generate --assetPath resources --iconBackgroundColor \"#12463A\" --iconBackgroundColorDark \"#12463A\" --splashBackgroundColor \"#12463A\" --splashBackgroundColorDark \"#12463A\" --ios --android"
+    "cap:assets": "capacitor-assets generate --assetPath resources --iconBackgroundColor \"#12463A\" --iconBackgroundColorDark \"#12463A\" --splashBackgroundColor \"#12463A\" --splashBackgroundColorDark \"#12463A\" --ios --android",
+    "capacitor:copy:after": "node scripts/write-shell-server-url.mjs"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.2",

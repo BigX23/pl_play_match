@@ -34,6 +34,10 @@ const config: CapacitorConfig = {
     // The native bridge is exposed to whatever the WebView loads, so keep it on
     // our own origin; off-domain links must open in the system browser (M5).
     allowNavigation: [new URL(serverUrl).hostname],
+    // Branded "You're offline / Retry" page (M6), shown when a main-frame load
+    // fails (iOS: any failed navigation; Android: network errors and HTTP error
+    // responses). Retry reloads server.url (see scripts/write-shell-server-url.mjs).
+    errorPath: "index.html",
   },
   ios: {
     // "never": the WebView runs under the status bar and home indicator, and the

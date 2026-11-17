@@ -4,18 +4,94 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Pleasanton PlayMatch</title>
+    <!--
+      Shown by the native app when aiplaymatch.com can't be loaded
+      (capacitor.config.ts server.errorPath, M6). Phase 2 replaces this
+      directory with the bundled UI.
+    -->
     <style>
-      body { margin: 0; background: #12463A; color: #FBFAF4;
-        font-family: system-ui, sans-serif; height: 100vh;
-        display: flex; align-items: center; justify-content: center; }
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; }
+      body {
+        background: #12463A; color: #FBFAF4;
+        font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+        display: flex; align-items: center; justify-content: center;
+        padding: calc(24px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom));
+        text-align: center; -webkit-user-select: none; user-select: none;
+      }
+      main { max-width: 320px; display: flex; flex-direction: column; align-items: center; }
+      svg { width: 64px; height: 64px; margin-bottom: 24px; opacity: 0.9; }
+      h1 { font-size: 24px; font-weight: 600; margin: 0 0 8px; letter-spacing: -0.01em; }
+      p { font-size: 16px; line-height: 1.45; margin: 0 0 32px; color: rgba(251, 250, 244, 0.78); }
+      button {
+        appearance: none; border: 0; border-radius: 12px; min-width: 180px; padding: 14px 28px;
+        background: #FBFAF4; color: #12463A; font: inherit; font-size: 17px; font-weight: 600;
+      }
+      button:active { opacity: 0.8; }
+      button:disabled { opacity: 0.6; }
     </style>
   </head>
   <body>
-    <!--
-      Placeholder shell. In Phase 1 the app loads server.url (aiplaymatch.com),
-      so this file is only shown if the network is unreachable. Phase 2 replaces
-      this directory with the bundled UI.
-    -->
-    <p>Loading PlayMatch…</p>
+    <main>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" /><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" /><path d="M4 22h16" />
+        <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
+        <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" /><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+      </svg>
+      <h1 id="title">You're offline</h1>
+      <p id="detail">Connect to the internet to find partners and see your messages.</p>
+      <button id="retry" type="button">Retry</button>
+    </main>
+    <script>
+      (function () {
+        // scripts/write-shell-server-url.mjs rewrites this in the platform copies
+        // on every `cap copy`/`cap sync` (CAP_SERVER_URL during development).
+        var serverUrl = /*SERVER_URL*/"https://aiplaymatch.com";
+        var cap = window.Capacitor;
+        var title = document.getElementById("title");
+        var detail = document.getElementById("detail");
+        var retry = document.getElementById("retry");
+
+        function render() {
+          if (navigator.onLine === false) {
+            title.textContent = "You're offline";
+            detail.textContent = "Connect to the internet to find partners and see your messages.";
+          } else {
+            title.textContent = "Can't reach PlayMatch";
+            detail.textContent = "Check your connection, or try again in a moment.";
+          }
+        }
+
+        function reload() {
+          retry.disabled = true;
+          retry.textContent = "Connecting…";
+          window.location.replace(serverUrl);
+        }
+
+        render();
+        retry.addEventListener("click", reload);
+        window.addEventListener("online", reload);
+        window.addEventListener("offline", render);
+
+        // Call a native plugin. iOS loads this page with the Capacitor bridge.
+        // Android serves it on its own origin without the bridge JS, but the raw
+        // message channel is there, so post the same call the bridge would.
+        function callNative(pluginId, methodName, options) {
+          if (cap && cap.Plugins && cap.Plugins[pluginId]) {
+            cap.Plugins[pluginId][methodName](options || {});
+          } else if (window.androidBridge) {
+            window.androidBridge.postMessage(JSON.stringify({
+              callbackId: "offline-" + pluginId, pluginId: pluginId, methodName: methodName, options: options || {}
+            }));
+          }
+        }
+
+        // Don't leave the launch splash up until its failsafe timeout.
+        callNative("SplashScreen", "hide");
+        // Light status bar icons: iOS draws this green page under the status bar.
+        if (cap && cap.getPlatform && cap.getPlatform() === "ios") callNative("StatusBar", "setStyle", { style: "DARK" });
+      })();
+    </script>
   </body>
 </html>
