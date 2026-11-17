@@ -1,9 +1,18 @@
 # Mobile App Plan — App Store & Play Store via Capacitor
 
-**Status (2026-10-31):** Phase 1 scaffold exists on `feature/capacitor-wrapper`
-(`capacitor.config.ts`, `capacitor-shell/`, Capacitor 8.5 packages). No `ios/` or
-`android/` projects yet; Xcode (full) and Android Studio are not installed on the
-dev Mac. Nothing below has been started.
+**Status (2026-11-16):** F1 done on `mobile/f1-native-projects`: `ios/` and
+`android/` are generated (Capacitor 8.6.2, iOS via Swift Package Manager), and both
+load the live site in the iOS Simulator (iPhone 18 Pro, iOS 27.2) and the Android
+emulator (Pixel 10, API 36). U1 and U2 are on their own branches, waiting for review
+and merge. Next: F2.
+
+**Dev machine setup (macOS):** Xcode in `/Applications` and selected with
+`xcode-select`; Android Studio with its SDK in `~/Library/Android/sdk`
+(`ANDROID_HOME`). **Gradle needs JDK 21.** Android Studio's bundled JBR is Java 25,
+which Gradle 8.14 can't run on ("Unsupported class file major version 69"). Install
+it with `brew install openjdk@21`, then build with
+`JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home` (or set
+Android Studio → Settings → Build Tools → Gradle → Gradle JDK to 21).
 
 **Goal:** a "Pleasanton PlayMatch" app that people can download from the Apple App
 Store and Google Play. It should pass review and reach feature parity with the PWA,
