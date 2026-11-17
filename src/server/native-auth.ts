@@ -3,6 +3,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { createRemoteJWKSet, errors as joseErrors, jwtVerify, type JWTPayload, type JWTVerifyGetKey } from "jose";
 import type { getDb } from "@/db";
 import { accounts, sessions, users } from "@/db/schema";
+import { appleKeyConfig, exchangeAppleCode } from "@/server/apple";
 
 /**
  * Native-app sign-in (POST /api/auth/native).
@@ -383,6 +384,8 @@ export interface NativeAuthDeps {
   appleJwks?: JWTVerifyGetKey;
   rateLimiter?: ReturnType<typeof createRateLimiter>;
   now?: Date;
+  /** For Apple's token endpoint (tests stub it). */
+  fetchImpl?: typeof fetch;
 }
 
 const defaultLimiter = createRateLimiter({ limit: 10, windowMs: 60_000 });
@@ -396,7 +399,47 @@ const json = (body: unknown, status = 200, headers: Record<string, string> = {})
 const MAX_TOKEN_LENGTH = 8192;
 
 /**
- * Body: `{ provider: "google" | "apple", idToken, nonce, givenName?, familyName? }`.
+ * Apple only: trade the one-time authorizationCode for a refresh token, so the
+ * account can be revoked on deletion (guideline 5.1.1(v)). Returns null (and
+ * logs) on failure: sign-in still succeeds, and the next sign-in — which always
+ * brings a fresh code — stores the token. Refusing the sign-in instead would
+ * lock users out whenever Apple's token endpoint hiccups.
+ */
+async function appleRefreshToken(
+  code: string | undefined,
+  sub: string,
+  env: Env,
+  fetchImpl?: typeof fetch
+): Promise<string | null> {
+  const cfg = appleKeyConfig(env);
+  if (!cfg || !code) return null;
+  try {
+    const tokens = await exchangeAppleCode(code, APPLE_BUNDLE_ID, cfg, fetchImpl);
+    // The code must belong to the same Apple user as the verified identity token.
+    // (The response comes straight from Apple over TLS, so decoding is enough.)
+    const codeSub = tokens.id_token ? decodeJwtSub(tokens.id_token) : null;
+    if (codeSub !== sub) {
+      console.warn("[auth/native] apple authorization code belongs to a different user; ignoring it");
+      return null;
+    }
+    return tokens.refresh_token ?? null;
+  } catch (err) {
+    console.error("[auth/native] apple code exchange failed:", (err as Error).message);
+    return null;
+  }
+}
+
+function decodeJwtSub(jwt: string): string | null {
+  try {
+    const payload = JSON.parse(Buffer.from(jwt.split(".")[1] ?? "", "base64url").toString("utf8"));
+    return typeof payload.sub === "string" ? payload.sub : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Body: `{ provider: "google" | "apple", idToken, nonce, givenName?, familyName?, authorizationCode? }`.
  * 200 → `{ ok, userId, profileComplete, created }` + the Auth.js session cookie.
  */
 export async function handleNativeSignIn(req: Request, deps: NativeAuthDeps): Promise<Response> {
@@ -446,6 +489,9 @@ export async function handleNativeSignIn(req: Request, deps: NativeAuthDeps): Pr
         now: deps.now,
       });
     } else {
+      // Without the Sign in with Apple key we couldn't revoke the account's
+      // tokens on deletion (5.1.1(v)), so Apple sign-in stays off until it's set.
+      if (!appleKeyConfig(env)) throw new NativeAuthError("apple_not_configured", 503);
       identity = await verifyAppleIdToken(idToken, {
         jwks: deps.appleJwks ?? (appleJwks ??= createRemoteJWKSet(new URL(APPLE_JWKS_URL))),
         audiences: appleAudiences(env),
@@ -458,7 +504,20 @@ export async function handleNativeSignIn(req: Request, deps: NativeAuthDeps): Pr
       givenName: typeof body.givenName === "string" ? body.givenName : null,
       familyName: typeof body.familyName === "string" ? body.familyName : null,
     };
-    const { userId, created } = await findOrCreateUser(deps.db, identity, { clientName });
+    const tokens =
+      provider === "apple"
+        ? {
+            // Kept so revocation knows which client (bundle ID vs Services ID) the token belongs to.
+            idToken,
+            refreshToken: await appleRefreshToken(
+              typeof body.authorizationCode === "string" ? body.authorizationCode : undefined,
+              identity.sub,
+              env,
+              deps.fetchImpl
+            ),
+          }
+        : undefined;
+    const { userId, created } = await findOrCreateUser(deps.db, identity, { clientName, tokens });
     const { sessionToken, expires } = await createSession(deps.db, userId, deps.now);
     const [u] = await deps.db
       .select({ profileComplete: users.profileComplete })
@@ -487,6 +546,11 @@ export function nativeAuthConfig(env: Env = process.env) {
       enabled: !!env.AUTH_GOOGLE_ID,
       webClientId: env.AUTH_GOOGLE_ID || null,
       iosClientId: env.AUTH_GOOGLE_IOS_CLIENT_ID || null,
+    },
+    apple: {
+      // Native Apple sign-in needs only the bundle ID, but we require the key so
+      // tokens can be revoked on account deletion.
+      enabled: appleKeyConfig(env) !== null,
     },
   };
 }

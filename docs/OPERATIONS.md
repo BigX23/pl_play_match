@@ -140,6 +140,11 @@ All live in `~/app/deploy/.env`; edit then `docker compose up -d app` (or `resta
   `POST /api/auth/native` accepts Google ID tokens whose `aud` is the web, iOS, or
   Android client ID. Unset → native Google sign-in answers 503 (`AUTH_GOOGLE_ID`
   must be set for the app's Google button to work at all). See "Native-app sign-in" below.
+- `AUTH_APPLE_TEAM_ID` / `AUTH_APPLE_KEY_ID` / `AUTH_APPLE_PRIVATE_KEY` — the Sign in with
+  Apple key from Apple Developer → Keys (download the `.p8` once; paste its contents, `\n`
+  escapes are fine). Rotating: create a new key, swap all three values, restart, then revoke
+  the old key. Existing refresh tokens keep working (they belong to the client, not the key).
+  `AUTH_APPLE_ID` — the web **Services ID**. Without these, Apple sign-in is off.
 - `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` — `npx web-push generate-vapid-keys`
   (rotating invalidates existing push subscriptions; users re-enable in Settings).
 - `POSTGRES_PASSWORD` / `DATABASE_URL` — keep in sync if changed.
@@ -167,6 +172,16 @@ JWKS, `iss`, `aud`, `exp`, nonce) and sets a normal Auth.js session cookie.
   needs the SHA-1 of every signing key that ships: the debug keystore for local builds
   and the Play App Signing key for store builds. A missing SHA-1 shows up on the device as
   `[28444] Developer console is not set up correctly`.
+- **Sign in with Apple:** App ID `com.aiplaymatch.app` needs the *Sign in with Apple*
+  capability (the project already has `App/App.entitlements`). The web Services ID's return
+  URL is `https://aiplaymatch.com/api/auth/callback/apple` (domain `aiplaymatch.com`;
+  Apple doesn't allow localhost/http, so web Apple sign-in can only be tested on the live
+  site). The client-secret JWT is minted at runtime and lives 24 h, so nothing expires
+  every 6 months.
+- **Account deletion revokes Apple tokens** first. A failed revoke is logged as
+  `[apple] revoke failed for user <id> (client <id>): …` or `cannot revoke tokens … env vars
+  are not set` and deletion continues. Follow up by hand if you see one (the user can also
+  remove the app under Settings → Apple ID → Sign in with Apple).
 
 ---
 

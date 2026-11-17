@@ -8,6 +8,7 @@ vi.mock("@capgo/capacitor-social-login", () => ({ SocialLogin: { initialize, log
 import {
   NativeSignInError,
   __resetNativeSignIn,
+  nativeAppleSignIn,
   nativeGoogleSignIn,
   randomNonce,
   sha256Hex,
@@ -16,7 +17,7 @@ import {
 type Win = Window & { Capacitor?: unknown };
 const fetchMock = vi.fn();
 
-const CONFIG = { google: { enabled: true, webClientId: "web.apps", iosClientId: "ios.apps" } };
+const CONFIG = { google: { enabled: true, webClientId: "web.apps", iosClientId: "ios.apps" }, apple: { enabled: true } };
 
 function respond(body: unknown, status = 200) {
   return Promise.resolve(new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } }));
@@ -115,5 +116,59 @@ describe("nativeGoogleSignIn", () => {
     delete (window as Win).Capacitor;
     fetchMock.mockImplementation(() => respond(CONFIG));
     await expect(nativeGoogleSignIn("ios")).rejects.toMatchObject({ code: "unavailable" });
+  });
+});
+
+describe("nativeAppleSignIn", () => {
+  const appleResult = {
+    provider: "apple",
+    result: {
+      idToken: "apple.id.token",
+      authorizationCode: "auth-code",
+      accessToken: null,
+      profile: { user: "sub", email: null, givenName: "Pat", familyName: "Player" },
+    },
+  };
+
+  it("uses the bundle ID, hashes the nonce, and forwards the code and first-sign-in name", async () => {
+    fetchMock.mockImplementation((_u: string, init?: RequestInit) =>
+      init?.method === "POST" ? respond({ ok: true, userId: "u1", created: true, profileComplete: false }) : respond(CONFIG)
+    );
+    login.mockResolvedValue(appleResult);
+    await expect(nativeAppleSignIn()).resolves.toMatchObject({ userId: "u1" });
+    expect(initialize).toHaveBeenCalledWith({
+      apple: { clientId: "com.aiplaymatch.app", redirectUrl: "", useProperTokenExchange: true },
+    });
+    const opts = login.mock.calls[0][0];
+    expect(opts.provider).toBe("apple");
+    expect(opts.options.scopes).toEqual(["email", "name"]);
+    const body = JSON.parse(fetchMock.mock.calls.find(([, i]) => i?.method === "POST")![1].body);
+    expect(body).toEqual({
+      provider: "apple",
+      idToken: "apple.id.token",
+      nonce: expect.any(String),
+      authorizationCode: "auth-code",
+      givenName: "Pat",
+      familyName: "Player",
+    });
+    expect(opts.options.nonce).toBe(await sha256Hex(body.nonce));
+  });
+
+  it("fails closed when Apple isn't configured on the server", async () => {
+    fetchMock.mockImplementation(() => respond({ ...CONFIG, apple: { enabled: false } }));
+    await expect(nativeAppleSignIn()).rejects.toMatchObject({ code: "not_configured" });
+    expect(login).not.toHaveBeenCalled();
+  });
+
+  it("maps cancel and provider errors, and a missing identity token", async () => {
+    fetchMock.mockImplementation(() => respond(CONFIG));
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    login.mockRejectedValueOnce(Object.assign(new Error("The operation couldn't be completed. (1001)"), { code: "USER_CANCELLED" }));
+    await expect(nativeAppleSignIn()).rejects.toMatchObject({ code: "cancelled" });
+    login.mockRejectedValueOnce(new Error("The operation couldn't be completed. (1000)"));
+    await expect(nativeAppleSignIn()).rejects.toMatchObject({ code: "provider" });
+    login.mockResolvedValueOnce({ provider: "apple", result: { ...appleResult.result, idToken: null } });
+    await expect(nativeAppleSignIn()).rejects.toMatchObject({ code: "provider" });
+    expect(initialize).toHaveBeenCalledOnce();
   });
 });

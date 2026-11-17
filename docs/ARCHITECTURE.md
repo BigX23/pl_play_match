@@ -36,7 +36,7 @@ used only as an OAuth identity provider (a free credential, not a running depend
 | Framework | **Next.js 15** (App Router, `output: 'standalone'`, Node runtime) |
 | Language | TypeScript 5 (strict) |
 | UI | React 18, **shadcn/ui** + Radix primitives, **Tailwind CSS**, `next-themes` (dark/light), Lucide icons |
-| Auth | **Auth.js (NextAuth v5)** — Google provider only, database sessions |
+| Auth | **Auth.js (NextAuth v5)** — Google (+ Sign in with Apple when configured), database sessions; native app via `/api/auth/native` |
 | Database | **PostgreSQL 16** via **Drizzle ORM** (`postgres.js` driver) |
 | Realtime | **Server-Sent Events** backed by **Postgres `LISTEN`/`NOTIFY`** |
 | AI (Rally) | **Ollama** running **`gemma3:4b`** (local, CPU inference) |
@@ -189,7 +189,10 @@ commit the new `drizzle/*.sql`. It applies on the next deploy's boot.
 
 ## 6. Auth & sessions
 
-- **Provider:** Google only (`src/auth.ts`). No passwords, no email infrastructure.
+- **Providers:** Google (`src/auth.ts`), plus Sign in with Apple once its env vars are set
+  (`src/server/auth-providers.ts`: Services ID + a client-secret JWT minted at runtime from the
+  .p8 key, since Apple caps it at 6 months; Apple's `state`/`nonce` cookies are SameSite=None
+  because Apple returns with a cross-site form POST). No passwords, no email infrastructure.
   "Register" and "Login" are the same `signIn("google")` flow; new users get a `users` row
   automatically via the Drizzle adapter.
 - **Sessions** are database-backed (rows in `sessions`), delivered as an httpOnly cookie.
@@ -217,6 +220,20 @@ commit the new `drizzle/*.sql`. It applies on the next deploy's boot.
   profiles to `/onboarding`). On the web the button keeps the Auth.js redirect flow.
   Native config: `plugins.SocialLogin` in `capacitor.config.ts` (Facebook/Twitter compiled
   out), the reversed iOS client ID as a URL scheme in `ios/App/App/Info.plist`.
+- **Sign in with Apple** (App Store 4.8): an Apple button above Google on `/login` — native
+  (AuthenticationServices) in the iOS app, the Auth.js flow on the web when configured, not
+  shown in the Android app. The app sends the identity token, the raw nonce, the one-time
+  `authorizationCode`, and the name (Apple only reveals it on the first sign-in; we keep it if
+  the user row has none). The server exchanges the code at `appleid.apple.com/auth/token`
+  (client = bundle ID) and stores the `refresh_token` and identity token on the `accounts`
+  row. A failed exchange doesn't block sign-in; the next sign-in brings a fresh code.
+  Without the key env vars native Apple sign-in answers 503, because we couldn't revoke.
+  Relay (`@privaterelay.appleid.com`) emails are stored but never used to link accounts.
+- **Account deletion** (App Store 5.1.1(v)): `DELETE /api/me` first revokes every stored
+  Apple token at `appleid.apple.com/auth/revoke` (client = the `aud` of the stored identity
+  token, so app and web tokens each use their own client), then deletes. Revocation is
+  best-effort and logged (`[apple] revoke failed for user …`): a down Apple API must not make
+  an account undeletable, and the user can still remove the app in iOS Settings.
 - **Client side:** `src/lib/auth-context.tsx` provides `useAuth()`. It is a thin shim: on
   mount it GETs `/api/me` for the full profile; `updateUserProfile()` optimistically updates
   local state and PATCHes `/api/me` (re-syncing on failure). The exported interface
@@ -259,9 +276,9 @@ code is backend-agnostic. `subscribe*` use SSE (§8) with a polling fallback.
 
 | Method(s) | Path | Purpose |
 |---|---|---|
-| GET/POST | `/api/auth/[...nextauth]` | Auth.js (Google sign-in, callback, session, signout) |
+| GET/POST | `/api/auth/[...nextauth]` | Auth.js (Google + optional Apple sign-in, callback, session, signout) |
 | GET/POST | `/api/auth/native` | Native app: POST a Google/Apple ID token → Auth.js session cookie; GET → public client IDs for the native SDKs |
-| GET/PATCH/DELETE | `/api/me` | Signed-in user's profile: read / update / delete account |
+| GET/PATCH/DELETE | `/api/me` | Signed-in user's profile: read / update / delete account (revokes Apple tokens first) |
 | POST | `/api/me/photo` | Upload profile photo (multipart) → VPS volume |
 | GET | `/api/photos/[file]` | Serve a profile photo (session-gated, filename allow-list) |
 | GET | `/api/players` | Public player list — privacy-minimized (first name + last initial, 5-yr age bracket, no emails) |
@@ -386,6 +403,8 @@ container runtime (`env_file`) and `${VAR}` interpolation.
 | `AUTH_SECRET` | Auth.js session/JWT signing (`openssl rand -base64 32`) |
 | `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | Google OAuth client credentials |
 | `AUTH_GOOGLE_IOS_CLIENT_ID` / `AUTH_GOOGLE_ANDROID_CLIENT_ID` | Native-app Google client IDs (accepted `aud` for `/api/auth/native`; not secret) |
+| `AUTH_APPLE_TEAM_ID` / `AUTH_APPLE_KEY_ID` / `AUTH_APPLE_PRIVATE_KEY` | Sign in with Apple key (.p8 contents; `\n` escapes OK). Mints the client-secret JWT at runtime; needed for the code exchange and revocation. Unset → Apple sign-in off (503 in the app) |
+| `AUTH_APPLE_ID` | Apple **Services ID** for web Sign in with Apple. Unset → no Apple button on the web |
 | `AUTH_URL` / `AUTH_TRUST_HOST` | `https://aiplaymatch.com` / `true` (behind Caddy) |
 | `OLLAMA_URL` / `OLLAMA_MODEL` | `http://ollama:11434` / `gemma3:4b` |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | Web Push keys + `mailto:` contact |

@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
+import { generateKeyPairSync } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -33,7 +34,15 @@ const client = new PGlite();
 const rawDb = drizzle(client, { schema });
 const db = rawDb as never as NativeAuthDeps["db"];
 
+// Sign in with Apple key (EC P-256), generated per run.
+const APPLE_P8 = generateKeyPairSync("ec", { namedCurve: "P-256" })
+  .privateKey.export({ type: "pkcs8", format: "pem" })
+  .toString();
+
 const ENV = {
+  AUTH_APPLE_TEAM_ID: "TEAM123456",
+  AUTH_APPLE_KEY_ID: "KEY1234567",
+  AUTH_APPLE_PRIVATE_KEY: APPLE_P8,
   AUTH_GOOGLE_ID: "web-client.apps.googleusercontent.com",
   AUTH_GOOGLE_IOS_CLIENT_ID: "ios-client.apps.googleusercontent.com",
   AUTH_GOOGLE_ANDROID_CLIENT_ID: "android-client.apps.googleusercontent.com",
@@ -445,9 +454,79 @@ describe("helpers", () => {
   });
 
   it("nativeAuthConfig exposes only public client IDs", () => {
-    expect(nativeAuthConfig({ ...ENV, AUTH_GOOGLE_SECRET: "s3cret" })).toEqual({
+    const cfg = nativeAuthConfig({ ...ENV, AUTH_GOOGLE_SECRET: "s3cret" });
+    expect(cfg).toEqual({
       google: { enabled: true, webClientId: ENV.AUTH_GOOGLE_ID, iosClientId: ENV.AUTH_GOOGLE_IOS_CLIENT_ID },
+      apple: { enabled: true },
     });
-    expect(nativeAuthConfig({}).google.enabled).toBe(false);
+    expect(JSON.stringify(cfg)).not.toMatch(/s3cret|PRIVATE KEY|TEAM123456|KEY1234567/);
+    expect(nativeAuthConfig({})).toEqual({
+      google: { enabled: false, webClientId: null, iosClientId: null },
+      apple: { enabled: false },
+    });
+  });
+});
+
+describe("POST /api/auth/native — Apple refresh token", () => {
+  function appleFetch(response: () => Response) {
+    return vi.fn(async (_url: string | URL | Request, _init?: RequestInit) => response());
+  }
+  const idTokenFor = (sub: string) =>
+    `e30.${Buffer.from(JSON.stringify({ sub, aud: APPLE_BUNDLE_ID })).toString("base64url")}.sig`;
+
+  it("fails closed with 503 when the Apple key isn't configured", async () => {
+    const env = { ...ENV, AUTH_APPLE_PRIVATE_KEY: "" };
+    const { res, json } = await signIn({ provider: "apple", idToken: await appleToken() }, {}, { env });
+    expect(res.status).toBe(503);
+    expect(json.error).toBe("apple_not_configured");
+    expect(await rawDb.select().from(schema.users)).toHaveLength(0);
+  });
+
+  it("exchanges the authorization code and stores the refresh token + identity token", async () => {
+    const fetchImpl = appleFetch(() => Response.json({ refresh_token: "apple-rt", access_token: "at", id_token: idTokenFor("apple-sub-1") }));
+    const idToken = await appleToken();
+    const { res } = await signIn({ provider: "apple", idToken, authorizationCode: "code-1" }, {}, { fetchImpl });
+    expect(res.status).toBe(200);
+    const [url, init] = fetchImpl.mock.calls[0];
+    expect(String(url)).toBe("https://appleid.apple.com/auth/token");
+    const form = new URLSearchParams(String(init?.body));
+    expect(form.get("client_id")).toBe(APPLE_BUNDLE_ID);
+    expect(form.get("code")).toBe("code-1");
+    expect(form.get("grant_type")).toBe("authorization_code");
+    const [acct] = await rawDb.select().from(schema.accounts);
+    expect(acct.refresh_token).toBe("apple-rt");
+    expect(acct.id_token).toBe(idToken);
+  });
+
+  it("updates the refresh token on a later sign-in, and keeps it when a sign-in has none", async () => {
+    let rt = "rt-1";
+    const fetchImpl = appleFetch(() => Response.json({ refresh_token: rt, id_token: idTokenFor("apple-sub-1") }));
+    await signIn({ provider: "apple", idToken: await appleToken(), authorizationCode: "c1" }, {}, { fetchImpl });
+    rt = "rt-2";
+    await signIn({ provider: "apple", idToken: await appleToken(), authorizationCode: "c2" }, {}, { fetchImpl });
+    expect((await rawDb.select().from(schema.accounts))[0].refresh_token).toBe("rt-2");
+    await signIn({ provider: "apple", idToken: await appleToken() }, {}, { fetchImpl });
+    expect((await rawDb.select().from(schema.accounts))[0].refresh_token).toBe("rt-2");
+  });
+
+  it("still signs in (without a refresh token) when Apple's token endpoint fails", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const fetchImpl = appleFetch(() => Response.json({ error: "invalid_grant" }, { status: 400 }));
+    const { res } = await signIn({ provider: "apple", idToken: await appleToken(), authorizationCode: "used" }, {}, { fetchImpl });
+    expect(res.status).toBe(200);
+    expect((await rawDb.select().from(schema.accounts))[0].refresh_token).toBeNull();
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining("code exchange failed"), expect.stringContaining("invalid_grant"));
+  });
+
+  it("ignores a code that belongs to a different Apple user", async () => {
+    const fetchImpl = appleFetch(() => Response.json({ refresh_token: "someone-elses", id_token: idTokenFor("other-sub") }));
+    await signIn({ provider: "apple", idToken: await appleToken(), authorizationCode: "c" }, {}, { fetchImpl });
+    expect((await rawDb.select().from(schema.accounts))[0].refresh_token).toBeNull();
+  });
+
+  it("never calls Apple for Google sign-ins", async () => {
+    const fetchImpl = appleFetch(() => Response.json({}));
+    await signIn({ provider: "google", idToken: await googleToken(), authorizationCode: "c" }, {}, { fetchImpl });
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 });

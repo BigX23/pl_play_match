@@ -8,6 +8,8 @@ import { getDb } from "@/db";
 import { users, type DbUser } from "@/db/schema";
 import { deleteAccount, notifyNewCompatiblePlayer } from "@/server/data";
 import { pushNewPlayer } from "@/server/push";
+import { revokeAppleTokensForUser } from "@/server/apple";
+import { APPLE_BUNDLE_ID } from "@/server/native-auth";
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR || "./uploads";
 
@@ -92,6 +94,9 @@ export async function DELETE() {
     return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   }
   const userId = session.user.id;
+  // App Store 5.1.1(v): revoke Sign in with Apple tokens first (the accounts rows
+  // holding them go with the user). Best-effort, never throws: see apple.ts.
+  await revokeAppleTokensForUser(getDb(), userId, { nativeClientId: APPLE_BUNDLE_ID });
   await deleteAccount(getDb(), userId);
   // Uploaded photos are stored as <userId>.<ext> (see ./photo/route.ts).
   const files = await readdir(UPLOAD_DIR).catch(() => [] as string[]);

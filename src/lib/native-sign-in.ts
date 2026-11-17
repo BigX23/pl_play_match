@@ -9,7 +9,10 @@
  */
 import { loadNative } from "@/lib/native";
 
-export type NativeSignInProvider = "google";
+export type NativeSignInProvider = "google" | "apple";
+
+/** iOS bundle ID: the audience of native Sign in with Apple tokens. */
+const APPLE_CLIENT_ID = "com.aiplaymatch.app";
 
 export class NativeSignInError extends Error {
   constructor(
@@ -24,6 +27,7 @@ export class NativeSignInError extends Error {
 
 interface NativeAuthConfig {
   google: { enabled: boolean; webClientId: string | null; iosClientId: string | null };
+  apple?: { enabled: boolean };
 }
 
 export interface NativeSignInResult {
@@ -52,7 +56,8 @@ const isCancel = (err: unknown) => {
   return msg.includes("cancel");
 };
 
-let initialized: string | null = null;
+/** Provider configs already passed to SocialLogin.initialize (per provider). */
+const initialized = new Map<NativeSignInProvider, string>();
 
 async function fetchConfig(): Promise<NativeAuthConfig> {
   const res = await fetch("/api/auth/native", { cache: "no-store" });
@@ -87,8 +92,8 @@ export async function nativeGoogleSignIn(platform: "ios" | "android"): Promise<N
     throw new NativeSignInError("not_configured");
   }
   const SocialLogin = await loadPlugin();
-  const key = `google:${webClientId}:${iosClientId}`;
-  if (initialized !== key) {
+  const key = `${webClientId}:${iosClientId}`;
+  if (initialized.get("google") !== key) {
     await SocialLogin.initialize({
       google: {
         webClientId,
@@ -99,7 +104,7 @@ export async function nativeGoogleSignIn(platform: "ios" | "android"): Promise<N
         skipAuthOnlyAuthorizationAfterSignIn: true,
       },
     });
-    initialized = key;
+    initialized.set("google", key);
   }
 
   const rawNonce = randomNonce();
@@ -119,7 +124,46 @@ export async function nativeGoogleSignIn(platform: "ios" | "android"): Promise<N
   return postToken({ provider: "google", idToken, nonce: rawNonce });
 }
 
+/**
+ * Sign in with Apple through AuthenticationServices (iOS only) → Auth.js session.
+ * Sends the one-time authorizationCode so the server can store a refresh token
+ * (needed to revoke it on account deletion), and the name, which Apple only
+ * reveals on the first sign-in (the plugin also caches it on the device).
+ */
+export async function nativeAppleSignIn(): Promise<NativeSignInResult> {
+  const config = await fetchConfig();
+  if (!config.apple?.enabled) throw new NativeSignInError("not_configured");
+  const SocialLogin = await loadPlugin();
+  if (!initialized.has("apple")) {
+    // redirectUrl "" = no web redirect on iOS; useProperTokenExchange returns the raw authorizationCode.
+    await SocialLogin.initialize({ apple: { clientId: APPLE_CLIENT_ID, redirectUrl: "", useProperTokenExchange: true } });
+    initialized.set("apple", APPLE_CLIENT_ID);
+  }
+
+  const rawNonce = randomNonce();
+  let result;
+  try {
+    ({ result } = await SocialLogin.login({
+      provider: "apple",
+      options: { scopes: ["email", "name"], nonce: await sha256Hex(rawNonce) },
+    }));
+  } catch (err) {
+    if (isCancel(err)) throw new NativeSignInError("cancelled");
+    console.warn("[native] Apple sign-in failed", err);
+    throw new NativeSignInError("provider", String((err as Error)?.message ?? err));
+  }
+  if (!result.idToken) throw new NativeSignInError("provider", "Apple returned no identity token");
+  return postToken({
+    provider: "apple",
+    idToken: result.idToken,
+    nonce: rawNonce,
+    authorizationCode: result.authorizationCode ?? null,
+    givenName: result.profile?.givenName ?? null,
+    familyName: result.profile?.familyName ?? null,
+  });
+}
+
 /** For tests. */
 export function __resetNativeSignIn() {
-  initialized = null;
+  initialized.clear();
 }
