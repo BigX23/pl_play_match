@@ -3,6 +3,8 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 import { signIn, signOut } from "next-auth/react";
 import { type Player } from "./mock-data";
+import { isNative } from "./native";
+import { unregisterNativePush } from "./native-push";
 
 /**
  * Auth context — thin client shim over Auth.js (Google-only).
@@ -87,6 +89,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     setUser(null);
+    if (isNative()) {
+      // Unregister this phone's push token while the session still exists.
+      unregisterNativePush().finally(() => signOut({ callbackUrl: "/" }));
+      return;
+    }
     signOut({ callbackUrl: "/" });
   }, []);
 

@@ -41,12 +41,21 @@ const nextConfig: NextConfig = {
     ];
   },
 
+  // `@capacitor-firebase/messaging`'s unused web implementation imports the
+  // Firebase JS SDK, which we don't install; point it at a stub (see the file).
+  turbopack: {
+    resolveAlias: {
+      'firebase/messaging': './src/lib/firebase-messaging-stub.ts',
+    },
+  },
+
   // ─── Alias "@/…" → "<projectRoot>/src" ──────────────────────────────────────
   webpack: (config) => {
     // Ensure an alias object exists
     config.resolve.alias = {
       ...(config.resolve.alias || {}),
       '@': path.resolve(__dirname, 'src'),
+      'firebase/messaging': path.resolve(__dirname, 'src/lib/firebase-messaging-stub.ts'),
     };
 
     return config;

@@ -14,6 +14,8 @@ import { useRouter } from "next/navigation";
 import { Sun, Bell, Shield, LogOut, Bot, Smartphone, Check, AlertTriangle, MessageSquareHeart } from "lucide-react";
 import { loadPreferences, savePreferences, type NotificationPreferences, enablePushNotifications, getPushPermission, isIos, isStandalone } from "@/lib/notifications";
 import { useToast } from "@/hooks/use-toast";
+import { isNative } from "@/lib/native";
+import { enableNativePush, getNativePushPermission, registerNativePushIfGranted } from "@/lib/native-push";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,6 +35,8 @@ export default function SettingsPage() {
   const router = useRouter();
   const [prefs, setPrefs] = useState<NotificationPreferences>(loadPreferences());
   const [pushStatus, setPushStatus] = useState<"idle" | "loading" | "enabled" | "denied" | "unsupported" | "ios-install">("idle");
+  // Inside the iOS/Android app push goes through FCM, not Web Push (see src/lib/native-push.ts).
+  const [native, setNative] = useState(false);
 
   const handleDeleteAccount = async () => {
     try {
@@ -45,6 +49,22 @@ export default function SettingsPage() {
 
   useEffect(() => {
     setPrefs(loadPreferences());
+    if (isNative()) {
+      setNative(true);
+      let cancelled = false;
+      getNativePushPermission().then((perm) => {
+        if (cancelled) return;
+        if (perm === "granted") {
+          setPushStatus("enabled");
+          // Covers signing in without a page reload since launch.
+          registerNativePushIfGranted().catch(() => {});
+        } else if (perm === "denied") setPushStatus("denied");
+        else if (perm === "unsupported") setPushStatus("unsupported");
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
     // Check current push permission status
     const perm = getPushPermission();
     // iOS only exposes the Notification API inside an installed (Home Screen)
@@ -64,6 +84,16 @@ export default function SettingsPage() {
   const handleEnablePush = async () => {
     if (!user) return;
     setPushStatus("loading");
+    if (native) {
+      const result = await enableNativePush();
+      if (result === "unavailable") {
+        toast({ title: "Couldn't enable notifications", description: "Please try again later.", variant: "destructive" });
+        setPushStatus("idle");
+      } else {
+        setPushStatus(result);
+      }
+      return;
+    }
     const token = await enablePushNotifications(user.id);
     if (token) {
       setPushStatus("enabled");
@@ -125,7 +155,11 @@ export default function SettingsPage() {
               <AlertTriangle className="h-5 w-5 text-orange-500 flex-shrink-0" />
               <div>
                 <p className="text-sm font-medium">Not Supported</p>
-                <p className="text-xs text-muted-foreground">Push notifications aren&apos;t supported in this browser. Try using Chrome or Safari on your phone.</p>
+                <p className="text-xs text-muted-foreground">
+                  {native
+                    ? "Push notifications aren't available in this version of the app. Try updating PlayMatch."
+                    : <>Push notifications aren&apos;t supported in this browser. Try using Chrome or Safari on your phone.</>}
+                </p>
               </div>
             </div>
           ) : pushStatus === "enabled" ? (
@@ -141,7 +175,11 @@ export default function SettingsPage() {
               <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0" />
               <div>
                 <p className="text-sm font-medium text-red-600 dark:text-red-400">Notifications Blocked</p>
-                <p className="text-xs text-muted-foreground">You previously blocked notifications. To enable them, update your browser settings for this site and try again.</p>
+                <p className="text-xs text-muted-foreground">
+                  {native
+                    ? "You previously blocked notifications. To enable them, allow notifications for PlayMatch in your phone's Settings app."
+                    : "You previously blocked notifications. To enable them, update your browser settings for this site and try again."}
+                </p>
               </div>
             </div>
           ) : (

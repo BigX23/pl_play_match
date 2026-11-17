@@ -9,6 +9,9 @@ vi.mock("next-auth/react", () => ({
   signOut: (...args: unknown[]) => signOut(...args),
 }));
 
+const unregisterNativePush = vi.fn();
+vi.mock("./native-push", () => ({ unregisterNativePush: () => unregisterNativePush() }));
+
 import { AuthProvider, useAuth } from "./auth-context";
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -89,6 +92,25 @@ describe("auth-context (Auth.js shim)", () => {
     act(() => result.current.logout());
     expect(result.current.user).toBeNull();
     expect(signOut).toHaveBeenCalledWith({ callbackUrl: "/" });
+    expect(unregisterNativePush).not.toHaveBeenCalled();
+  });
+
+  it("logout in the native app unregisters the push token before signing out", async () => {
+    mockFetch(() => ok(me));
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.user).not.toBeNull());
+    (window as Window & { Capacitor?: unknown }).Capacitor = { isNativePlatform: () => true, getPlatform: () => "ios" };
+    let release!: () => void;
+    unregisterNativePush.mockReturnValue(new Promise<void>((r) => (release = r)));
+    try {
+      act(() => result.current.logout());
+      expect(unregisterNativePush).toHaveBeenCalled();
+      expect(signOut).not.toHaveBeenCalled();
+      release();
+      await waitFor(() => expect(signOut).toHaveBeenCalledWith({ callbackUrl: "/" }));
+    } finally {
+      delete (window as Window & { Capacitor?: unknown }).Capacitor;
+    }
   });
 
   it("updateUserProfile optimistically updates and PATCHes /api/me", async () => {

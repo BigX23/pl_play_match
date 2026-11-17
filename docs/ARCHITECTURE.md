@@ -359,6 +359,19 @@ to iOS through the APNs key uploaded to the Firebase project.
 - **Payload:** `notification: { title, body }`, `data: { url }` (the app navigates there on
   tap; same-origin paths only), Android high priority, and an iOS badge = unread messages
   + unread notifications (computed only when the user has an iOS token).
+- **Client:** `src/lib/native-push.ts` over `@capacitor-firebase/messaging` (FCM tokens on
+  both platforms; loaded with `loadNative()`, so the web never loads it). Settings →
+  "Enable Push Notifications" requests OS permission and registers the token; the web flow
+  (and the iOS "install first" guidance from #47) is unchanged. `src/lib/native-setup/push.ts`
+  runs at launch: re-registers when permission is already granted, re-sends rotated tokens,
+  and routes a tap to `data.url`. Sign-out unregisters the token first. The plugin's web
+  implementation imports the Firebase JS SDK, which we don't install; `next.config.ts`
+  aliases `firebase/messaging` to `src/lib/firebase-messaging-stub.ts`.
+- **Native config:** `GoogleService-Info.plist` (iOS, `ios/App/App/`) and
+  `google-services.json` (Android, `android/app/`) are gitignored. Without them both apps
+  still build and run, with native push off: iOS copies the plist in a build phase only if
+  present (else a build warning), Android applies the google-services plugin only if the
+  file exists, and `getToken()` rejects, which Settings shows as a toast.
 - **Pruning:** tokens FCM answers with `messaging/registration-token-not-registered` or
   `messaging/invalid-registration-token` are deleted. Other errors are logged only.
 ---

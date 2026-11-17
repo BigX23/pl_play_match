@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { isNative, platform, type NativePlatform } from "@/lib/native";
+import { setupNativePush } from "@/lib/native-setup/push";
 
 /**
  * One-time setup that runs at launch inside the native app only (status bar,
@@ -10,7 +11,7 @@ import { isNative, platform, type NativePlatform } from "@/lib/native";
 export type NativeSetup = (platform: Exclude<NativePlatform, "web">) => void | (() => void) | Promise<void | (() => void)>;
 
 // Mobile tasks register their launch setup here (see docs/MOBILE_APP_PLAN.md: M2, M3, M4).
-export const NATIVE_SETUP: NativeSetup[] = [];
+export const NATIVE_SETUP: NativeSetup[] = [setupNativePush];
 
 interface NativeState {
   isNative: boolean;
