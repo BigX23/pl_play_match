@@ -7,6 +7,7 @@ import { getProviders, signIn } from "next-auth/react";
 import { useAuth } from "@/lib/auth-context";
 import { useNative } from "@/components/native-provider";
 import { NativeSignInError, nativeAppleSignIn, nativeGoogleSignIn } from "@/lib/native-sign-in";
+import { registerNativePushIfGranted } from "@/lib/native-push";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Trophy } from "lucide-react";
@@ -63,6 +64,9 @@ export default function LoginPage() {
     try {
       await run();
       await refreshProfile();
+      // Launch setup ran while signed out; link this device's push token now
+      // (no prompt; only if notifications were already allowed).
+      registerNativePushIfGranted().catch(() => {});
       // /dashboard sends incomplete profiles on to /onboarding, like the web flow.
       router.replace("/dashboard");
     } catch (err) {

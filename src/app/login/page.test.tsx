@@ -15,6 +15,7 @@ const nativeGoogleSignIn = vi.fn();
 const nativeAppleSignIn = vi.fn();
 const getProviders = vi.fn(async (): Promise<Record<string, unknown> | null> => ({ google: {} }));
 const nextAuthSignIn = vi.fn();
+const registerNativePushIfGranted = vi.fn(async () => {});
 
 vi.mock("next-auth/react", () => ({
   getProviders: () => getProviders(),
@@ -34,6 +35,10 @@ vi.mock("@/lib/native-sign-in", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/native-sign-in")>()),
   nativeGoogleSignIn: (...args: unknown[]) => nativeGoogleSignIn(...args),
   nativeAppleSignIn: (...args: unknown[]) => nativeAppleSignIn(...args),
+}));
+
+vi.mock("@/lib/native-push", () => ({
+  registerNativePushIfGranted: () => registerNativePushIfGranted(),
 }));
 
 vi.mock("@/lib/auth-context", () => ({
@@ -111,6 +116,7 @@ describe("LoginPage inside the native app", () => {
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/dashboard"));
     expect(nativeGoogleSignIn).toHaveBeenCalledWith("ios");
     expect(refreshProfile).toHaveBeenCalled();
+    expect(registerNativePushIfGranted).toHaveBeenCalled();
     expect(loginWithGoogle).not.toHaveBeenCalled();
   });
 
