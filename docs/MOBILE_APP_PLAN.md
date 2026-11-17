@@ -3,8 +3,9 @@
 **Status (2026-11-16):** F1 done on `mobile/f1-native-projects`: `ios/` and
 `android/` are generated (Capacitor 8.6.2, iOS via Swift Package Manager), and both
 load the live site in the iOS Simulator (iPhone 18 Pro, iOS 27.2) and the Android
-emulator (Pixel 10, API 36). U1 and U2 are on their own branches, waiting for review
-and merge. Next: F2.
+emulator (Pixel 10, API 36). F2 done on `mobile/f2-native-bridge`: `src/lib/native.ts`
+and `NativeProvider`, with the bridge confirmed on both platforms. U1 and U2 are on
+their own branches, waiting for review and merge. Next: the Wave 1 lanes.
 
 **Dev machine setup (macOS):** Xcode in `/Applications` and selected with
 `xcode-select`; Android Studio with its SDK in `~/Library/Android/sdk`
@@ -13,6 +14,24 @@ which Gradle 8.14 can't run on ("Unsupported class file major version 69"). Inst
 it with `brew install openjdk@21`, then build with
 `JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home` (or set
 Android Studio → Settings → Build Tools → Gradle → Gradle JDK to 21).
+
+**Testing web changes in the apps (before deploy):** the apps load production by
+default. To load local code instead:
+1. Run `npm run dev` (port 9002).
+2. Run `npm run cap:dev`, which syncs both apps to `http://localhost:9002`.
+3. Android only: run `adb reverse tcp:9002 tcp:9002`.
+4. Rebuild and launch: `npm run cap:ios` / `npm run cap:android`, or build from Xcode /
+   Android Studio.
+5. Read the app's JS console. iOS: `xcrun simctl launch --console-pty <device>
+   com.aiplaymatch.app` (Capacitor writes to stdout, not the system log). Android:
+   `adb logcat | grep Capacitor/Console`.
+6. **Run `npm run cap:sync` afterwards**, otherwise a later build ships pointing at
+   localhost.
+
+Known for M2: on Android, Capacitor 8 logs `Error injecting safe area CSS:
+TypeError: Cannot read properties of null (reading 'style')` three times while the
+page loads. It looks like the injection runs before `<body>` exists. Handle it when
+doing safe areas (M2), and check the `SystemBars` plugin's inset handling.
 
 **Goal:** a "Pleasanton PlayMatch" app that people can download from the Apple App
 Store and Google Play. It should pass review and reach feature parity with the PWA,

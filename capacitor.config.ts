@@ -13,22 +13,34 @@ import type { CapacitorConfig } from "@capacitor/cli";
  * PHASE 2 (store-quality): bundle the UI locally (webDir) and talk to the
  * existing API on the VPS via client fetch, for offline + a cleaner review.
  */
+const PRODUCTION_URL = "https://aiplaymatch.com";
+
+/**
+ * Local development only: `CAP_SERVER_URL=http://localhost:9002 npm run cap:sync`
+ * points the simulators at `npm run dev`. The value is baked into the native
+ * projects at sync time, so run `npm run cap:sync` again without it before any
+ * release build. Android reaches the Mac's localhost via `adb reverse tcp:9002 tcp:9002`.
+ */
+const devUrl = process.env.CAP_SERVER_URL;
+const serverUrl = devUrl || PRODUCTION_URL;
+
 const config: CapacitorConfig = {
   appId: "com.aiplaymatch.app",
   appName: "Pleasanton PlayMatch",
   webDir: "capacitor-shell",
   server: {
-    url: "https://aiplaymatch.com",
-    cleartext: false,
+    url: serverUrl,
+    cleartext: serverUrl.startsWith("http:"),
     // The native bridge is exposed to whatever the WebView loads, so keep it on
     // our own origin; off-domain links must open in the system browser (M5).
-    allowNavigation: ["aiplaymatch.com"],
+    allowNavigation: [new URL(serverUrl).hostname],
   },
   ios: {
     contentInset: "always",
     // Pairs with WKAppBoundDomains in ios/App/App/Info.plist. Also what enables
     // service workers in WKWebView.
-    limitsNavigationsToAppBoundDomains: true,
+    // localhost isn't an app-bound domain, so the dev override switches this off.
+    limitsNavigationsToAppBoundDomains: !devUrl,
   },
   android: {
     allowMixedContent: false,
