@@ -98,6 +98,13 @@ describe("LoginPage (Google-only)", () => {
     expect(loginWithGoogle).toHaveBeenCalledOnce();
     expect(nativeGoogleSignIn).not.toHaveBeenCalled();
   });
+
+  it("links to the terms, privacy policy, and support pages", () => {
+    render(<LoginPage />);
+    const hrefs = screen.getAllByRole("link").map((a) => a.getAttribute("href"));
+    expect(hrefs).toEqual(expect.arrayContaining(["/privacy", "/terms", "/support"]));
+    expect(screen.getByText(/By continuing, you agree to our/i)).toBeInTheDocument();
+  });
 });
 
 describe("LoginPage inside the native app", () => {

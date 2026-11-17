@@ -28,6 +28,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { LegalLinks } from "@/components/legal/legal-links";
 
 export default function SettingsPage() {
   const { setTheme, theme } = useTheme();
@@ -255,6 +256,7 @@ export default function SettingsPage() {
           <p className="text-xs text-muted-foreground text-center">
             or email <a href="mailto:feedback@aiplaymatch.com" className="text-primary hover:underline">feedback@aiplaymatch.com</a>
           </p>
+          <LegalLinks className="text-sm text-muted-foreground pt-1" />
         </CardContent>
       </Card>
 
