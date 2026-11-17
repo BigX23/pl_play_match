@@ -49,6 +49,8 @@ import {
 import { type Match, type MatchStatus, type Player, type Contact, getPlayerById } from "@/lib/mock-data";
 import { buildMatchIntro } from "@/lib/ai-assistant";
 import { useToast } from "@/hooks/use-toast";
+import { ShareGameButton } from "@/components/share-game-button";
+import { tapHaptic } from "@/lib/haptics";
 
 /* ──────────────────── status helpers ──────────────────── */
 const STATUS_CONFIG: Record<
@@ -251,6 +253,7 @@ export default function OpenMatchesPage() {
         status: "confirmed" as MatchStatus,
         conversationId: convId,
       });
+      void tapHaptic();
     });
 
   const handleDeclinePartner = (match: Match) =>
@@ -538,6 +541,7 @@ export default function OpenMatchesPage() {
             </div>
           )}
           <MatchActions match={match} iAmCreator={cr} iAmPartner={pt} busy={busy} />
+          {match.status === "open" && <ShareGameButton match={match} />}
         </CardContent>
       </Card>
     );

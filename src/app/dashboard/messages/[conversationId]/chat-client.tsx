@@ -14,6 +14,7 @@ import {
 } from "@/lib/data";
 import { type Message, type Conversation, getPlayerById, RALLY_USER } from "@/lib/mock-data";
 import { shouldRallyRespond } from "@/lib/ai-assistant";
+import { tapHaptic } from "@/lib/haptics";
 import MessageBubble from "@/components/message-bubble";
 import RallyTyping from "@/components/rally-typing";
 import ChatInput from "@/components/chat-input";
@@ -150,6 +151,7 @@ export default function ChatPage() {
       typingTimeout.current = setTimeout(() => setRallyTyping(false), 90_000);
     }
     const sent = await sendMessage(conversationId, text);
+    void tapHaptic();
     // Show immediately; the poll/stream refresh keeps it consistent.
     setMsgs((prev) => (prev.some((m) => m.id === sent.id) ? prev : [...prev, sent]));
   };
