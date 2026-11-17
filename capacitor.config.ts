@@ -83,6 +83,21 @@ const config: CapacitorConfig = {
       providers: { google: true, apple: true, facebook: false, twitter: false },
       logLevel: 1,
     },
+    // Native push (P2). Foreground pushes on iOS still show a banner.
+    FirebaseMessaging: {
+      presentationOptions: ["badge", "sound", "alert"],
+    },
+  },
+  experimental: {
+    ios: {
+      spm: {
+        // Avoids a SwiftPM package-identity collision with firebase-ios-sdk
+        // (capawesome-team/capacitor-firebase#959). Needs Capacitor CLI 8.4+.
+        packageOptions: {
+          "@capacitor-firebase/messaging": { symlink: true },
+        },
+      },
+    },
   },
 };
 

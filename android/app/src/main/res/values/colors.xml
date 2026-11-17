@@ -2,4 +2,6 @@
 <resources>
     <!-- Behind the status/navigation bars (M2). Matches the web theme background (light). -->
     <color name="window_background">#FCFDFC</color>
+    <!-- PlayMatch brand green; tints the notification small icon. -->
+    <color name="playmatch_accent">#309957</color>
 </resources>

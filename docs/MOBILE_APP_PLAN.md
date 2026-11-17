@@ -251,6 +251,29 @@ time. Inside a workstream, run tasks in order.
 - **Done when:** notifications look correct on Android 14 and on iOS, with
   screenshots.
 
+
+**Push lane status (branch `mobile/w1-push`):** P1–P3 are built and unit-tested; both
+apps build and launch without Firebase files (push off). Real delivery is unverified
+until Matt does the following (no secrets go in the repo):
+1. **H5 / APNs:** in Apple Developer, enable Push Notifications on App ID
+   `com.aiplaymatch.app` and create an APNs auth key (.p8). Upload it in Firebase console →
+   Project settings → Cloud Messaging → Apple app configuration (Key ID + Team ID).
+2. **H6 / Firebase apps** (project `pl-play-match`): add an iOS app (bundle
+   `com.aiplaymatch.app`) and an Android app (package `com.aiplaymatch.app`). Put
+   `GoogleService-Info.plist` at `ios/App/App/GoogleService-Info.plist` and
+   `google-services.json` at `android/app/google-services.json` (both gitignored; CI must
+   inject them for release builds).
+3. **Server key:** Firebase → Project settings → Service accounts → Generate new private
+   key. Put it in `deploy/.env` as `FCM_SERVICE_ACCOUNT_JSON='<output of jq -c . key.json>'`,
+   then `docker compose up -d app`. Delete the downloaded file afterwards.
+4. **Signing:** the app now has the `aps-environment` entitlement, so device builds need a
+   provisioning profile with Push Notifications (a paid team, H3). Simulator builds are
+   unaffected.
+5. **Verify on a physical iPhone and an Android device:** Settings → Enable Push, then a
+   new message and a match request from a second account; tap opens the conversation;
+   Android shows the green trophy icon in the "PlayMatch" channel; the iOS badge clears
+   when the app opens.
+
 #### Store-policy compliance (fixes B4, B5). Web-only code, can start right away
 
 **U1 — Block and report users** · deps: none (web feature, benefits the PWA too)

@@ -8,6 +8,7 @@ import { setupExternalLinks } from "@/lib/native-setup/links";
 import { setupSafeArea } from "@/lib/native-setup/safe-area";
 import { setupSplashScreen } from "@/lib/native-setup/splash-screen";
 import { setupStatusBar } from "@/lib/native-setup/status-bar";
+import { setupNativePush } from "@/lib/native-setup/push";
 
 /**
  * One-time setup that runs at launch inside the native app only (status bar,
@@ -23,6 +24,7 @@ export const NATIVE_SETUP: NativeSetup[] = [
   setupAppLifecycle,
   setupExternalLinks,
   setupDeepLinks,
+  setupNativePush,
 ];
 
 interface NativeState {

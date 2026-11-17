@@ -18,7 +18,21 @@ vi.mock("@/lib/auth-context", () => ({ useAuth: () => authValue }));
 const toast = vi.fn();
 vi.mock("@/hooks/use-toast", () => ({ useToast: () => ({ toast }) }));
 
+const enableNativePush = vi.fn();
+const getNativePushPermission = vi.fn();
+const registerNativePushIfGranted = vi.fn();
+vi.mock("@/lib/native-push", () => ({
+  enableNativePush: () => enableNativePush(),
+  getNativePushPermission: () => getNativePushPermission(),
+  registerNativePushIfGranted: () => registerNativePushIfGranted(),
+}));
+
 import SettingsPage from "./page";
+
+type Win = Window & { Capacitor?: unknown };
+const asNativeApp = () => {
+  (window as Win).Capacitor = { isNativePlatform: () => true, getPlatform: () => "ios" };
+};
 
 const self = makePlayer({ id: "u_self", email: "self@example.com" });
 
@@ -30,6 +44,10 @@ beforeEach(() => {
   deleteAccount.mockReset().mockResolvedValue(undefined);
   toast.mockReset();
   authValue = makeAuth(self, { logout, resetPassword, deleteAccount });
+  enableNativePush.mockReset();
+  getNativePushPermission.mockReset().mockResolvedValue("prompt");
+  registerNativePushIfGranted.mockReset().mockResolvedValue(undefined);
+  delete (window as Win).Capacitor;
 });
 
 describe("SettingsPage", () => {
@@ -118,5 +136,57 @@ describe("SettingsPage", () => {
     const dialogButtons = screen.getAllByRole("button", { name: "Delete Account" });
     await user.click(dialogButtons[dialogButtons.length - 1]);
     await waitFor(() => expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Couldn't delete account" })));
+  });
+});
+
+describe("SettingsPage — inside the native app", () => {
+  it("skips the iOS install guidance and enables native push", async () => {
+    asNativeApp();
+    // WKWebView: iOS user agent and no Notification API, which on the web would show #47's guidance.
+    Object.defineProperty(navigator, "userAgent", {
+      value: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15",
+      configurable: true,
+    });
+    const savedNotification = (window as unknown as Record<string, unknown>).Notification;
+    delete (window as unknown as Record<string, unknown>).Notification;
+    enableNativePush.mockResolvedValue("enabled");
+    try {
+      render(<SettingsPage />);
+      const user = userEvent.setup();
+      const button = await screen.findByRole("button", { name: /Enable Push Notifications/i });
+      expect(screen.queryByText(/Install PlayMatch first/i)).not.toBeInTheDocument();
+      await user.click(button);
+      expect(enableNativePush).toHaveBeenCalled();
+      expect(await screen.findByText(/Push Notifications Enabled!/i)).toBeInTheDocument();
+    } finally {
+      if (savedNotification !== undefined) (window as unknown as Record<string, unknown>).Notification = savedNotification;
+      // @ts-expect-error restore jsdom's prototype getter
+      delete navigator.userAgent;
+    }
+  });
+
+  it("shows enabled and refreshes the token when permission was already granted", async () => {
+    asNativeApp();
+    getNativePushPermission.mockResolvedValue("granted");
+    render(<SettingsPage />);
+    expect(await screen.findByText(/Push Notifications Enabled!/i)).toBeInTheDocument();
+    expect(registerNativePushIfGranted).toHaveBeenCalled();
+  });
+
+  it("points to the phone's Settings app when blocked", async () => {
+    asNativeApp();
+    getNativePushPermission.mockResolvedValue("denied");
+    render(<SettingsPage />);
+    expect(await screen.findByText(/in your phone's Settings app/i)).toBeInTheDocument();
+  });
+
+  it("toasts and stays enable-able when native push is unavailable", async () => {
+    asNativeApp();
+    enableNativePush.mockResolvedValue("unavailable");
+    render(<SettingsPage />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: /Enable Push Notifications/i }));
+    await waitFor(() => expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Couldn't enable notifications" })));
+    expect(screen.getByRole("button", { name: /Enable Push Notifications/i })).toBeEnabled();
   });
 });

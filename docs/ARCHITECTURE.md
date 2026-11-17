@@ -40,7 +40,7 @@ used only as an OAuth identity provider (a free credential, not a running depend
 | Database | **PostgreSQL 16** via **Drizzle ORM** (`postgres.js` driver) |
 | Realtime | **Server-Sent Events** backed by **Postgres `LISTEN`/`NOTIFY`** |
 | AI (Rally) | **Ollama** running **`gemma3:4b`** (local, CPU inference) |
-| Push | **Web Push (VAPID)** via the `web-push` library + a service worker |
+| Push | **Web Push (VAPID)** via the `web-push` library + a service worker; **FCM HTTP v1** via `firebase-admin` for the iOS/Android apps |
 | Proxy / TLS | **Caddy** (automatic Let's Encrypt) |
 | Packaging | **docker-compose** (Caddy · app · Postgres · Ollama) |
 | Host | **OVH VPS** (Debian 13, 4 vCore, 8 GB) |
@@ -175,6 +175,7 @@ boot by `src/instrumentation.ts`. Tables:
 - `contacts` — (userId, contactId) PK, denormalized name/email/avatar.
 - `notifications` — userId, type, title, body, read, link.
 - `push_subscriptions` — userId, endpoint (unique), p256dh, auth (Web Push keys).
+- `native_push_tokens` — userId, token (unique FCM registration token), platform (`ios`|`android`), created_at, last_seen_at.
 
 `rally` is a reserved system user id (seeded at boot) that owns all AI messages.
 `deleted-user` ("Deleted player") is a second reserved id, created on first use by
@@ -301,6 +302,7 @@ code is backend-agnostic. `subscribe*` use SSE (§8) with a polling fallback.
 | GET/POST | `/api/contacts` · DELETE `/api/contacts/[id]` | List / add / remove |
 | POST | `/api/push/subscribe` · `/api/push/unsubscribe` | Register / drop a Web Push subscription |
 | GET | `/api/push/vapid` | Public VAPID key (for PushManager.subscribe) |
+| POST | `/api/push/native/register` · `/api/push/native/unregister` | Store / drop the app's FCM token (`{ token, platform }`; a token moves to the caller) |
 
 ---
 
@@ -359,7 +361,7 @@ Files: `src/server/rally.ts`, pure helpers in `src/lib/ai-assistant.ts`, model i
 
 ---
 
-## 10. Web Push (VAPID)
+## 10. Push (Web Push + native FCM)
 
 Files: `src/server/push.ts`, client `src/lib/notifications.ts`, `public/sw.js`.
 
@@ -370,14 +372,48 @@ Files: `src/server/push.ts`, client `src/lib/notifications.ts`, `public/sw.js`.
   `enablePushNotifications()`, which requests permission, registers the SW, subscribes via
   `PushManager` with the fetched key, and POSTs the subscription to `/api/push/subscribe`
   (stored in `push_subscriptions`).
-- **Send:** `sendPushToUser(db, userId, payload)` sends to all of a user's subscriptions and
-  prunes ones the browser dropped (404/410). Higher-level triggers — `pushNewMessage`,
+- **Send:** `sendPushToUser(db, userId, payload)` sends to all of a user's Web Push
+  subscriptions and prunes ones the browser dropped (404/410), and in parallel to the
+  user's native FCM tokens (below). Higher-level triggers — `pushNewMessage`,
   `pushMatchRequest`, `pushMatchAccepted` — mirror the old FCM functions and fire via
   `after()` from the message and match-request routes.
 - **Receive:** `public/sw.js` has `push` (show notification) and `notificationclick` (focus
   an open tab or open the linked page) handlers. Granting OS permission is inherently a user
   action; browsers forbid programmatic grants.
 
+
+### Native apps (FCM)
+
+WKWebView and Android WebView have no Web Push, so the iOS/Android apps register an FCM
+token instead and the server sends through **FCM HTTP v1** (`firebase-admin`). FCM delivers
+to iOS through the APNs key uploaded to the Firebase project.
+
+- **Credentials:** `FCM_SERVICE_ACCOUNT_JSON` = the Firebase service-account key, either the
+  JSON itself on one line (production, in `deploy/.env`) or a path to the `.json` file
+  (local dev). Unset → native push is off: logged once, no DB query, `firebase-admin` is
+  never imported. An unparsable key is logged without its contents and also disables it.
+- **Tokens:** `native_push_tokens`, one row per app install. `POST /api/push/native/register`
+  upserts on the token, so re-registering refreshes `last_seen_at` and moves the token to
+  the signed-in user (account switch on one phone); `/unregister` only deletes the caller's
+  own token. Rows go with the user on account deletion (FK cascade).
+- **Payload:** `notification: { title, body }`, `data: { url }` (the app navigates there on
+  tap; same-origin paths only), Android high priority, and an iOS badge = unread messages
+  + unread notifications (computed only when the user has an iOS token).
+- **Client:** `src/lib/native-push.ts` over `@capacitor-firebase/messaging` (FCM tokens on
+  both platforms; loaded with `loadNative()`, so the web never loads it). Settings →
+  "Enable Push Notifications" requests OS permission and registers the token; the web flow
+  (and the iOS "install first" guidance from #47) is unchanged. `src/lib/native-setup/push.ts`
+  runs at launch: re-registers when permission is already granted, re-sends rotated tokens,
+  and routes a tap to `data.url`. Sign-out unregisters the token first. The plugin's web
+  implementation imports the Firebase JS SDK, which we don't install; `next.config.ts`
+  aliases `firebase/messaging` to `src/lib/firebase-messaging-stub.ts`.
+- **Native config:** `GoogleService-Info.plist` (iOS, `ios/App/App/`) and
+  `google-services.json` (Android, `android/app/`) are gitignored. Without them both apps
+  still build and run, with native push off: iOS copies the plist in a build phase only if
+  present (else a build warning), Android applies the google-services plugin only if the
+  file exists, and `getToken()` rejects, which Settings shows as a toast.
+- **Pruning:** tokens FCM answers with `messaging/registration-token-not-registered` or
+  `messaging/invalid-registration-token` are deleted. Other errors are logged only.
 ---
 
 ## 11. Matching engine
@@ -408,6 +444,7 @@ container runtime (`env_file`) and `${VAR}` interpolation.
 | `AUTH_URL` / `AUTH_TRUST_HOST` | `https://aiplaymatch.com` / `true` (behind Caddy) |
 | `OLLAMA_URL` / `OLLAMA_MODEL` | `http://ollama:11434` / `gemma3:4b` |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | Web Push keys + `mailto:` contact |
+| `FCM_SERVICE_ACCOUNT_JSON` | Optional. Firebase service-account key for native push: one-line JSON (or a file path). Unset = native push off |
 | `UPLOAD_DIR` | Profile-photo dir (`/app/uploads`, a mounted volume) |
 | `NEXT_PUBLIC_MOCK_AUTH` | Dev only: `true` for the localStorage fake user |
 

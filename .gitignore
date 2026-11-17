@@ -67,3 +67,10 @@ ios/App/build/
 android/.gradle/
 android/app/build/
 android/build/
+# Created by `npx cap sync` (absolute symlinks into node_modules for SPM).
+ios/App/CapApp-SPM/symlinks/
+
+# Firebase app config for native push (per-project; download from the Firebase
+# console, see docs/MOBILE_APP_PLAN.md P2). Never commit.
+GoogleService-Info.plist
+google-services.json

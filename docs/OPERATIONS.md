@@ -147,6 +147,13 @@ All live in `~/app/deploy/.env`; edit then `docker compose up -d app` (or `resta
   `AUTH_APPLE_ID` — the web **Services ID**. Without these, Apple sign-in is off.
 - `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` — `npx web-push generate-vapid-keys`
   (rotating invalidates existing push subscriptions; users re-enable in Settings).
+- `FCM_SERVICE_ACCOUNT_JSON` — native (iOS/Android app) push. Firebase console →
+  Project settings → Service accounts → Generate new private key, then put it on one
+  line: `jq -c . key.json`, and paste the output as the value (single-quote it in
+  `.env`). A file path also works, but the file must then be mounted into the container.
+  Rotate by generating a new key, swapping the value, restarting `app`, then deleting the
+  old key in the console. Unset = native push off (web push unaffected); the app logs
+  `[push] FCM_SERVICE_ACCOUNT_JSON not set` once at the first send.
 - `POSTGRES_PASSWORD` / `DATABASE_URL` — keep in sync if changed.
 
 ---
