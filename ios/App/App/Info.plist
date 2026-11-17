@@ -66,6 +66,10 @@
 	<array>
 		<string>aiplaymatch.com</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>PlayMatch uses your camera to set your profile photo.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>PlayMatch uses your photos to set your profile photo.</string>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
 </dict>
