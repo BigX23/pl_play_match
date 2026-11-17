@@ -28,6 +28,9 @@ services:
       context: ..
       dockerfile: Dockerfile
     restart: unless-stopped
+    # Every app secret/config var comes from .env (see docs/OPERATIONS.md), incl.
+    # the native-auth ones: AUTH_GOOGLE_IOS_CLIENT_ID, AUTH_GOOGLE_ANDROID_CLIENT_ID,
+    # AUTH_APPLE_ID, AUTH_APPLE_TEAM_ID, AUTH_APPLE_KEY_ID, AUTH_APPLE_PRIVATE_KEY.
     env_file:
       - .env
     environment:

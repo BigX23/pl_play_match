@@ -1,8 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { getProviders, signIn } from "next-auth/react";
 import { useAuth } from "@/lib/auth-context";
+import { useNative } from "@/components/native-provider";
+import { NativeSignInError, nativeAppleSignIn, nativeGoogleSignIn } from "@/lib/native-sign-in";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Trophy } from "lucide-react";
@@ -18,14 +22,73 @@ function GoogleMark() {
   );
 }
 
+/** Apple logo for the Sign in with Apple button (Apple HIG: logo + title, black or white). */
+function AppleMark() {
+  return (
+    <svg className="h-5 w-5 mr-2" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M16.37 12.6c-.02-2.2 1.8-3.26 1.88-3.31-1.02-1.5-2.62-1.7-3.19-1.72-1.36-.14-2.65.8-3.34.8-.69 0-1.75-.78-2.88-.76-1.48.02-2.85.86-3.61 2.19-1.54 2.67-.39 6.63 1.11 8.8.73 1.06 1.6 2.25 2.74 2.21 1.1-.04 1.52-.71 2.85-.71 1.33 0 1.7.71 2.87.69 1.18-.02 1.93-1.08 2.66-2.14.84-1.23 1.18-2.42 1.2-2.48-.03-.01-2.3-.88-2.32-3.5zM14.18 6.13c.6-.73 1.01-1.75.9-2.76-.87.04-1.92.58-2.54 1.31-.56.65-1.05 1.68-.92 2.67.97.08 1.96-.49 2.56-1.22z" />
+    </svg>
+  );
+}
+
+function nativeErrorMessage(code: string, provider: "Google" | "Apple") {
+  return code === "not_configured" || code.endsWith("_not_configured")
+    ? `${provider} sign-in isn't set up for the app yet.`
+    : "Sign-in failed. Please try again.";
+}
+
 export default function LoginPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const { loginWithGoogle } = useAuth();
+  const { loginWithGoogle, refreshProfile } = useAuth();
+  const native = useNative();
+  const router = useRouter();
+  const [webApple, setWebApple] = useState(false);
+
+  // Web: offer Apple only once the server has it configured (see src/server/auth-providers.ts).
+  useEffect(() => {
+    let alive = true;
+    getProviders()
+      .then((p) => alive && setWebApple(!!p?.apple))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+  // Sign in with Apple: native on iOS (App Store 4.8), web flow when configured, not in the Android app.
+  const showApple = native.isNative ? native.platform === "ios" : webApple;
+
+  // Inside the iOS/Android app: native SDK → /api/auth/native → session cookie.
+  const runNative = async (provider: "Google" | "Apple", run: () => Promise<unknown>) => {
+    try {
+      await run();
+      await refreshProfile();
+      // /dashboard sends incomplete profiles on to /onboarding, like the web flow.
+      router.replace("/dashboard");
+    } catch (err) {
+      const code = err instanceof NativeSignInError ? err.code : "unknown";
+      if (code !== "cancelled") setError(nativeErrorMessage(code, provider));
+      setBusy(false);
+    }
+  };
+
+  const handleApple = async () => {
+    setError("");
+    setBusy(true);
+    if (native.isNative) return runNative("Apple", nativeAppleSignIn);
+    try {
+      await signIn("apple", { callbackUrl: "/dashboard" });
+    } catch {
+      setError("Sign-in failed. Please try again.");
+      setBusy(false);
+    }
+  };
 
   const handleGoogle = async () => {
     setError("");
     setBusy(true);
+    const p = native.platform;
+    if (native.isNative && p !== "web") return runNative("Google", () => nativeGoogleSignIn(p));
     try {
       await loginWithGoogle();
       // Full-page redirect to Google follows; nothing else to do here.
@@ -45,14 +108,24 @@ export default function LoginPage() {
           </Link>
           <CardTitle className="text-2xl">Welcome</CardTitle>
           <CardDescription>
-            Sign in with Google — new players get set up automatically.
+            Sign in with {showApple ? "Apple or Google" : "Google"} — new players get set up automatically.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {error && <p className="text-sm text-destructive text-center">{error}</p>}
+          {showApple && (
+            <Button
+              className="w-full bg-black text-white hover:bg-black/85 dark:bg-white dark:text-black dark:hover:bg-white/85"
+              onClick={handleApple}
+              disabled={busy}
+            >
+              <AppleMark />
+              Continue with Apple
+            </Button>
+          )}
           <Button variant="outline" className="w-full" onClick={handleGoogle} disabled={busy}>
             <GoogleMark />
-            {busy ? "Redirecting…" : "Continue with Google"}
+            {busy ? (native.isNative ? "Signing in…" : "Redirecting…") : "Continue with Google"}
           </Button>
         </CardContent>
         <CardFooter>

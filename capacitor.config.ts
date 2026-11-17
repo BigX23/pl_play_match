@@ -76,6 +76,13 @@ const config: CapacitorConfig = {
       showSpinner: false,
       androidScaleType: "CENTER_CROP",
     },
+    // Native Google / Apple sign-in (src/lib/native-sign-in.ts). Unused providers
+    // are compiled out: the Facebook SDK would add the AD_ID permission and
+    // ad-tracking privacy-manifest entries we'd have to declare in the stores.
+    SocialLogin: {
+      providers: { google: true, apple: true, facebook: false, twitter: false },
+      logLevel: 1,
+    },
   },
 };
 
