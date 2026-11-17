@@ -24,6 +24,7 @@ import {
   getTotalUnread,
   getMessages,
   subscribeMessages,
+  reconnectRealtime,
   sendMessage,
   getContacts,
   addContact,
@@ -441,6 +442,67 @@ describe("SSE subscriptions (EventSource available)", () => {
 
     await vi.advanceTimersByTimeAsync(5000);
     expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(2);
+    unsub();
+    vi.useRealTimers();
+  });
+});
+
+describe("reconnectRealtime (native app resume)", () => {
+  class FakeEventSource {
+    static instances: FakeEventSource[] = [];
+    static readonly CLOSED = 2;
+    url: string;
+    readyState = 1;
+    closed = false;
+    onerror: (() => void) | null = null;
+    constructor(url: string) {
+      this.url = url;
+      FakeEventSource.instances.push(this);
+    }
+    addEventListener() {}
+    close() { this.closed = true; }
+  }
+
+  beforeEach(() => {
+    FakeEventSource.instances = [];
+    vi.stubGlobal("EventSource", FakeEventSource as unknown as typeof EventSource);
+  });
+
+  it("reopens each live stream and refetches", async () => {
+    const cb = vi.fn();
+    fetchMock.mockResolvedValue(okResponse([{ id: "m2" }]));
+    const unsub = subscribeMessages("c1", cb);
+    const first = FakeEventSource.instances[0];
+
+    // Other suites' subscriptions may still be open, so look only at this stream.
+    const mine = () => FakeEventSource.instances.filter((e) => e.url === "/api/conversations/c1/messages/stream");
+    reconnectRealtime();
+    expect(first.closed).toBe(true);
+    expect(mine()).toHaveLength(2);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(fetchMock).toHaveBeenCalledWith("/api/conversations/c1/messages", { cache: "no-store" });
+    expect(cb).toHaveBeenCalledWith([{ id: "m2" }]);
+
+    unsub();
+    expect(mine()[1].closed).toBe(true);
+    reconnectRealtime(); // unsubscribed streams are not reopened
+    expect(mine()).toHaveLength(2);
+  });
+
+  it("stops the polling fallback when it reconnects", async () => {
+    vi.useFakeTimers();
+    fetchMock.mockResolvedValue(okResponse([]));
+    const unsub = subscribeConversations("me", vi.fn());
+    const es = FakeEventSource.instances[0];
+    es.readyState = FakeEventSource.CLOSED;
+    es.onerror?.();
+    await vi.advanceTimersByTimeAsync(0);
+
+    reconnectRealtime();
+    await vi.advanceTimersByTimeAsync(0);
+    fetchMock.mockClear();
+    await vi.advanceTimersByTimeAsync(15000);
+    expect(fetchMock).not.toHaveBeenCalled(); // no poll interval left running
     unsub();
     vi.useRealTimers();
   });

@@ -41,6 +41,23 @@ const nextConfig: NextConfig = {
     ];
   },
 
+  // ─── App link association files (M4) ────────────────────────────────────────
+  // Apple fetches apple-app-site-association (no extension) and requires
+  // application/json; static files without an extension are served as
+  // application/octet-stream otherwise. Caddy proxies these through unchanged.
+  async headers() {
+    return [
+      {
+        source: "/.well-known/apple-app-site-association",
+        headers: [{ key: "Content-Type", value: "application/json" }],
+      },
+      {
+        source: "/.well-known/assetlinks.json",
+        headers: [{ key: "Content-Type", value: "application/json" }],
+      },
+    ];
+  },
+
   // ─── Alias "@/…" → "<projectRoot>/src" ──────────────────────────────────────
   webpack: (config) => {
     // Ensure an alias object exists

@@ -100,3 +100,23 @@ body {
 }
 
 
+
+/*
+ * Native iOS app only (M2). The WebView runs under the status bar and home
+ * indicator (capacitor.config.ts `ios.contentInset: "never"`; viewport-fit=cover
+ * is added at runtime by src/lib/native-setup/safe-area.ts). The page background
+ * fills the strip behind the status bar, so it matches the header in light and
+ * dark themes. --safe-top / --safe-bottom are unset on the web and on Android
+ * (which pads the WebView natively), so every `var(--safe-*, 0px)` use is 0 there.
+ */
+html.native-ios {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+html.native-ios body {
+  padding-top: var(--safe-top);
+  padding-bottom: var(--safe-bottom);
+}
+html.native-ios .min-h-screen {
+  min-height: calc(100vh - var(--safe-top) - var(--safe-bottom));
+}

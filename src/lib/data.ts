@@ -46,6 +46,18 @@ function poll<T>(fetcher: () => Promise<T>, cb: (data: T) => void): () => void {
   return () => { stopped = true; clearInterval(interval); };
 }
 
+/** Reconnect callbacks for the open SSE subscriptions (see reconnectRealtime). */
+const liveStreams = new Set<() => void>();
+
+/**
+ * Re-open every live SSE stream and refetch its data. The native app calls this
+ * when it returns to the foreground (M3): a WebView suspended in the background
+ * can keep an EventSource that still looks open but no longer gets events.
+ */
+export function reconnectRealtime(): void {
+  liveStreams.forEach((reconnect) => reconnect());
+}
+
 /**
  * Live subscription via Server-Sent Events: the server pushes a "change" event
  * (and an initial "ping"), and we re-fetch through the normal authorized API.
@@ -65,18 +77,35 @@ function subscribeSSE<T>(
     fetcher().then((d) => { if (!stopped) cb(d); }).catch(() => {});
   };
 
-  const es = new EventSource(streamUrl);
-  es.addEventListener("ping", refresh);   // initial connect + auto-reconnect
-  es.addEventListener("change", refresh); // a relevant write happened
-  es.onerror = () => {
-    // EventSource retries network blips itself; only fall back once it gives up.
-    if (es.readyState === EventSource.CLOSED && !pollStop && !stopped) {
-      pollStop = poll(fetcher, cb);
-    }
+  const open = () => {
+    const source = new EventSource(streamUrl);
+    source.addEventListener("ping", refresh);   // initial connect + auto-reconnect
+    source.addEventListener("change", refresh); // a relevant write happened
+    source.onerror = () => {
+      // EventSource retries network blips itself; only fall back once it gives up.
+      if (source.readyState === EventSource.CLOSED && !pollStop && !stopped) {
+        pollStop = poll(fetcher, cb);
+      }
+    };
+    return source;
   };
+  let es = open();
+
+  const reconnect = () => {
+    if (stopped) return;
+    es.close();
+    if (pollStop) {
+      pollStop();
+      pollStop = null;
+    }
+    es = open();
+    refresh();
+  };
+  liveStreams.add(reconnect);
 
   return () => {
     stopped = true;
+    liveStreams.delete(reconnect);
     es.close();
     if (pollStop) pollStop();
   };

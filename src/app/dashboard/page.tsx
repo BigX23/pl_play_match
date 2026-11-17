@@ -14,6 +14,7 @@ import { useAuth } from "@/lib/auth-context";
 import { getMatches, getPlayers, getMatchSuggestions, getMatchRequests, createMatchRequest, updateMatchRequest, createGroupConversation, addContact, createMatch, getMutedSuggestions, muteSuggestion, unmuteSuggestion } from "@/lib/data";
 import { type Match, type Player, type MatchRequest, getPlayerById } from "@/lib/mock-data";
 import { buildMatchIntro } from "@/lib/ai-assistant";
+import { tapHaptic } from "@/lib/haptics";
 import Link from "next/link";
 
 function scoreColor(score: number) {
@@ -127,6 +128,7 @@ export default function DashboardPage() {
         await addContact(req.fromUserId, { id: req.toUserId, name: toName, email: toPlayer.email, avatar: toPlayer.avatar, addedAt: new Date().toISOString() }).catch(() => {});
       }
       await updateMatchRequest(req.id, { status: "accepted", conversationId: convId });
+      void tapHaptic();
       await loadData();
     } finally {
       setActingOn(null);

@@ -1,0 +1,13 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["TEAMID_PLACEHOLDER.com.aiplaymatch.app"],
+        "components": [
+          { "/": "/api/*", "exclude": true, "comment": "API and OAuth callbacks stay in the browser" },
+          { "/": "/*", "comment": "Every page opens in the app" }
+        ]
+      }
+    ]
+  }
+}
