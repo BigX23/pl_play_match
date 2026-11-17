@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- PlayMatch brand green; tints the notification small icon. -->
+    <color name="playmatch_accent">#309957</color>
+</resources>

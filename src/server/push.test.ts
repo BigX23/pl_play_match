@@ -140,6 +140,7 @@ describe("sendPushToUser — native (FCM)", () => {
     expect(msg.notification).toEqual({ title: "Hi", body: "there" });
     expect(msg.data).toEqual({ url: "/dashboard/messages/c1" });
     expect(msg.apns.payload.aps.badge).toBe(3);
+    expect(msg.android.notification).toMatchObject({ channelId: "default", icon: "ic_stat_playmatch", color: "#309957" });
     expect(deletedOf(db)).toEqual([]);
   });
 

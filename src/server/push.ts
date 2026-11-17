@@ -147,7 +147,12 @@ async function sendNativePush(db: Db, userId: string, payload: PushPayload): Pro
     notification: { title: payload.title, body: payload.body },
     // data values must be strings; the app routes a tap to data.url.
     data: payload.url ? { url: payload.url } : {},
-    android: { priority: "high" },
+    // Channel, icon and color match the app (android/app/src/main: MainActivity,
+    // ic_stat_playmatch, playmatch_accent); the manifest has the same defaults.
+    android: {
+      priority: "high",
+      notification: { channelId: "default", icon: "ic_stat_playmatch", color: "#309957", sound: "default" },
+    },
     apns: { payload: { aps: { sound: "default", ...(badge !== undefined ? { badge } : {}) } } },
   };
 

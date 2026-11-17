@@ -4,4 +4,9 @@
     <string name="title_activity_main">Pleasanton PlayMatch</string>
     <string name="package_name">com.aiplaymatch.app</string>
     <string name="custom_url_scheme">com.aiplaymatch.app</string>
+    <!-- Default notification channel (Android 8+). The id must match the server's
+         android.notification.channelId in src/server/push.ts. -->
+    <string name="default_notification_channel_id">default</string>
+    <string name="default_notification_channel_name">PlayMatch</string>
+    <string name="default_notification_channel_description">Messages, match requests and game updates</string>
 </resources>
