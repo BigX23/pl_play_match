@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { isNative, platform, type NativePlatform } from "@/lib/native";
+import { setupAppLifecycle } from "@/lib/native-setup/app-lifecycle";
 import { setupSafeArea } from "@/lib/native-setup/safe-area";
 import { setupSplashScreen } from "@/lib/native-setup/splash-screen";
 import { setupStatusBar } from "@/lib/native-setup/status-bar";
@@ -17,6 +18,7 @@ export const NATIVE_SETUP: NativeSetup[] = [
   setupSafeArea,
   setupStatusBar,
   setupSplashScreen,
+  setupAppLifecycle,
 ];
 
 interface NativeState {
