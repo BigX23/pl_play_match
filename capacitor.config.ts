@@ -20,9 +20,18 @@ const config: CapacitorConfig = {
   server: {
     url: "https://aiplaymatch.com",
     cleartext: false,
+    // The native bridge is exposed to whatever the WebView loads, so keep it on
+    // our own origin; off-domain links must open in the system browser (M5).
+    allowNavigation: ["aiplaymatch.com"],
   },
   ios: {
     contentInset: "always",
+    // Pairs with WKAppBoundDomains in ios/App/App/Info.plist. Also what enables
+    // service workers in WKWebView.
+    limitsNavigationsToAppBoundDomains: true,
+  },
+  android: {
+    allowMixedContent: false,
   },
 };
 

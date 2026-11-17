@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Pleasanton PlayMatch</string>
+    <string name="title_activity_main">Pleasanton PlayMatch</string>
+    <string name="package_name">com.aiplaymatch.app</string>
+    <string name="custom_url_scheme">com.aiplaymatch.app</string>
+</resources>

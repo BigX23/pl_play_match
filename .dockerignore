@@ -17,3 +17,8 @@ deploy
 .hallmark
 coverage
 tsconfig.tsbuildinfo
+
+# Capacitor native projects (not part of the web image)
+ios
+android
+capacitor-shell
