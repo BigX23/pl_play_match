@@ -209,6 +209,14 @@ commit the new `drizzle/*.sql`. It applies on the next deploy's boot.
   SameSite=Lax, Path=/). A test pins that to `@auth/core`'s `defaultCookies()`. After
   that the WebView has an ordinary Auth.js session. Guards: JSON content type + Origin
   check (login CSRF) and an in-memory per-IP rate limit (single instance).
+- **Native app client** (`src/lib/native-sign-in.ts`): inside the app (`useNative().isNative`)
+  the `/login` Google button calls `@capgo/capacitor-social-login` (loaded with
+  `loadNative()`, so the web bundle never runs it). It fetches the public client IDs from
+  `GET /api/auth/native`, passes `sha256(rawNonce)` to the native SDK, POSTs the ID token
+  and raw nonce, refreshes `useAuth()`, and goes to `/dashboard` (which forwards incomplete
+  profiles to `/onboarding`). On the web the button keeps the Auth.js redirect flow.
+  Native config: `plugins.SocialLogin` in `capacitor.config.ts` (Facebook/Twitter compiled
+  out), the reversed iOS client ID as a URL scheme in `ios/App/App/Info.plist`.
 - **Client side:** `src/lib/auth-context.tsx` provides `useAuth()`. It is a thin shim: on
   mount it GETs `/api/me` for the full profile; `updateUserProfile()` optimistically updates
   local state and PATCHes `/api/me` (re-syncing on failure). The exported interface

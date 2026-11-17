@@ -158,6 +158,15 @@ JWKS, `iss`, `aud`, `exp`, nonce) and sets a normal Auth.js session cookie.
   `invalid_aud` after a client-ID change, `token_expired` for a bad device clock).
 - New env vars arrive through `env_file: .env` in `deploy/docker-compose.yml`, like
   every other app secret.
+- **Google client IDs** live in GCP project `pl-play-match` → APIs & Services →
+  Credentials. The web client (`AUTH_GOOGLE_ID`) is also what Android's Credential Manager
+  puts in `aud`. The iOS client (bundle ID `com.aiplaymatch.app`) is
+  `AUTH_GOOGLE_IOS_CLIENT_ID`, and its *reversed* form must be the URL scheme in
+  `ios/App/App/Info.plist` (placeholder `com.googleusercontent.apps.REPLACE-WITH-IOS-CLIENT-ID`;
+  changing it needs a new app build). The Android client (package `com.aiplaymatch.app`)
+  needs the SHA-1 of every signing key that ships: the debug keystore for local builds
+  and the Play App Signing key for store builds. A missing SHA-1 shows up on the device as
+  `[28444] Developer console is not set up correctly`.
 
 ---
 

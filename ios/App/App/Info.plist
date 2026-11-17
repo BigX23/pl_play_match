@@ -68,5 +68,20 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<!-- Google Sign-In callback: the REVERSED iOS OAuth client ID. Replace the
+	     placeholder with com.googleusercontent.apps.<prefix of AUTH_GOOGLE_IOS_CLIENT_ID>
+	     (GCP pl-play-match, iOS client for com.aiplaymatch.app). GoogleSignIn throws
+	     if this doesn't match the client ID the server hands the app. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>google-sign-in</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.REPLACE-WITH-IOS-CLIENT-ID</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

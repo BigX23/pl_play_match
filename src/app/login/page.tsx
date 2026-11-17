@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
+import { useNative } from "@/components/native-provider";
+import { NativeSignInError, nativeGoogleSignIn } from "@/lib/native-sign-in";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Trophy } from "lucide-react";
@@ -21,11 +24,34 @@ function GoogleMark() {
 export default function LoginPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const { loginWithGoogle } = useAuth();
+  const { loginWithGoogle, refreshProfile } = useAuth();
+  const native = useNative();
+  const router = useRouter();
+
+  // Inside the iOS/Android app: native SDK → /api/auth/native → session cookie.
+  const handleNativeGoogle = async (platform: "ios" | "android") => {
+    try {
+      await nativeGoogleSignIn(platform);
+      await refreshProfile();
+      // /dashboard sends incomplete profiles on to /onboarding, like the web flow.
+      router.replace("/dashboard");
+    } catch (err) {
+      const code = err instanceof NativeSignInError ? err.code : "unknown";
+      if (code !== "cancelled") {
+        setError(
+          code === "not_configured" || code === "google_not_configured"
+            ? "Google sign-in isn't set up for the app yet."
+            : "Sign-in failed. Please try again."
+        );
+      }
+      setBusy(false);
+    }
+  };
 
   const handleGoogle = async () => {
     setError("");
     setBusy(true);
+    if (native.isNative && native.platform !== "web") return handleNativeGoogle(native.platform);
     try {
       await loginWithGoogle();
       // Full-page redirect to Google follows; nothing else to do here.
@@ -52,7 +78,7 @@ export default function LoginPage() {
           {error && <p className="text-sm text-destructive text-center">{error}</p>}
           <Button variant="outline" className="w-full" onClick={handleGoogle} disabled={busy}>
             <GoogleMark />
-            {busy ? "Redirecting…" : "Continue with Google"}
+            {busy ? (native.isNative ? "Signing in…" : "Redirecting…") : "Continue with Google"}
           </Button>
         </CardContent>
         <CardFooter>
