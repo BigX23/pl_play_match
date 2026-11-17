@@ -135,9 +135,29 @@ All live in `~/app/deploy/.env`; edit then `docker compose up -d app` (or `resta
 
 - `AUTH_SECRET` — `openssl rand -base64 32` (rotating logs everyone out).
 - `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` — from Google Cloud Console OAuth client.
+- `AUTH_GOOGLE_IOS_CLIENT_ID` / `AUTH_GOOGLE_ANDROID_CLIENT_ID` — the iOS and
+  Android OAuth client IDs (GCP project `pl-play-match` → Credentials). Not secret;
+  `POST /api/auth/native` accepts Google ID tokens whose `aud` is the web, iOS, or
+  Android client ID. Unset → native Google sign-in answers 503 (`AUTH_GOOGLE_ID`
+  must be set for the app's Google button to work at all). See "Native-app sign-in" below.
 - `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` — `npx web-push generate-vapid-keys`
   (rotating invalidates existing push subscriptions; users re-enable in Settings).
 - `POSTGRES_PASSWORD` / `DATABASE_URL` — keep in sync if changed.
+
+---
+
+## Native-app sign-in (`/api/auth/native`)
+
+The iOS/Android apps can't run Google OAuth in their WebView, so they sign in with the
+native SDK and POST the ID token to `/api/auth/native`, which verifies it (Google/Apple
+JWKS, `iss`, `aud`, `exp`, nonce) and sets a normal Auth.js session cookie.
+
+- **Rate limit:** 10 requests/minute per client IP, **in memory**. That's correct for
+  the single `app` container we run; with several replicas each keeps its own count.
+- Rejections are logged as `[auth/native] google sign-in rejected: <code>` (e.g.
+  `invalid_aud` after a client-ID change, `token_expired` for a bad device clock).
+- New env vars arrive through `env_file: .env` in `deploy/docker-compose.yml`, like
+  every other app secret.
 
 ---
 

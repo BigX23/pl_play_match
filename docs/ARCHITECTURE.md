@@ -195,6 +195,20 @@ commit the new `drizzle/*.sql`. It applies on the next deploy's boot.
 - **Sessions** are database-backed (rows in `sessions`), delivered as an httpOnly cookie.
   The session callback exposes `user.id` and `user.profileComplete` (see
   `src/types/next-auth.d.ts`).
+- **Native app sign-in** (`POST /api/auth/native`, `src/server/native-auth.ts`): Google
+  blocks OAuth in embedded WebViews, so the Capacitor app signs in with the OS-native
+  SDK and posts the ID token plus the raw nonce. The server verifies it with `jose`
+  against the provider JWKS (Google: `iss` `accounts.google.com`, `aud` ∈ web/iOS/Android
+  client IDs, `email_verified` required; Apple: `iss` `https://appleid.apple.com`, `aud`
+  `com.aiplaymatch.app` or the web Services ID), checks `nonce == sha256(rawNonce)`, then
+  finds or creates the user **in the adapter's own tables** (`accounts.provider` +
+  `providerAccountId = sub`). It links to an existing user by email only when the
+  provider verified it and it isn't an Apple private-relay address. Finally it inserts a
+  `sessions` row (30 days, Auth.js's default) and sets the same cookie Auth.js reads
+  (`__Secure-authjs.session-token` on https, `authjs.session-token` on http; httpOnly,
+  SameSite=Lax, Path=/). A test pins that to `@auth/core`'s `defaultCookies()`. After
+  that the WebView has an ordinary Auth.js session. Guards: JSON content type + Origin
+  check (login CSRF) and an in-memory per-IP rate limit (single instance).
 - **Client side:** `src/lib/auth-context.tsx` provides `useAuth()`. It is a thin shim: on
   mount it GETs `/api/me` for the full profile; `updateUserProfile()` optimistically updates
   local state and PATCHes `/api/me` (re-syncing on failure). The exported interface
@@ -238,6 +252,7 @@ code is backend-agnostic. `subscribe*` use SSE (§8) with a polling fallback.
 | Method(s) | Path | Purpose |
 |---|---|---|
 | GET/POST | `/api/auth/[...nextauth]` | Auth.js (Google sign-in, callback, session, signout) |
+| GET/POST | `/api/auth/native` | Native app: POST a Google/Apple ID token → Auth.js session cookie; GET → public client IDs for the native SDKs |
 | GET/PATCH/DELETE | `/api/me` | Signed-in user's profile: read / update / delete account |
 | POST | `/api/me/photo` | Upload profile photo (multipart) → VPS volume |
 | GET | `/api/photos/[file]` | Serve a profile photo (session-gated, filename allow-list) |
@@ -362,6 +377,7 @@ container runtime (`env_file`) and `${VAR}` interpolation.
 | `POSTGRES_PASSWORD` | Postgres superuser password (must match DATABASE_URL) |
 | `AUTH_SECRET` | Auth.js session/JWT signing (`openssl rand -base64 32`) |
 | `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | Google OAuth client credentials |
+| `AUTH_GOOGLE_IOS_CLIENT_ID` / `AUTH_GOOGLE_ANDROID_CLIENT_ID` | Native-app Google client IDs (accepted `aud` for `/api/auth/native`; not secret) |
 | `AUTH_URL` / `AUTH_TRUST_HOST` | `https://aiplaymatch.com` / `true` (behind Caddy) |
 | `OLLAMA_URL` / `OLLAMA_MODEL` | `http://ollama:11434` / `gemma3:4b` |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | Web Push keys + `mailto:` contact |
