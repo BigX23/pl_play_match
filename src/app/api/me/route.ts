@@ -1,16 +1,21 @@
+import { readdir, unlink } from "node:fs/promises";
+import path from "node:path";
 import { NextResponse } from "next/server";
 import { after } from "next/server";
 import { eq } from "drizzle-orm";
 import { auth } from "@/auth";
 import { getDb } from "@/db";
 import { users, type DbUser } from "@/db/schema";
-import { notifyNewCompatiblePlayer } from "@/server/data";
+import { deleteAccount, notifyNewCompatiblePlayer } from "@/server/data";
 import { pushNewPlayer } from "@/server/push";
+
+const UPLOAD_DIR = process.env.UPLOAD_DIR || "./uploads";
 
 /**
  * The signed-in user's profile.
  * GET  → full profile row (shaped like the app's Player type)
  * PATCH → update own profile fields (allow-listed)
+ * DELETE → delete the account (history is kept under "Deleted player")
  */
 
 function toPlayer(u: DbUser) {
@@ -86,9 +91,13 @@ export async function DELETE() {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   }
-  const db = getDb();
-  // Cascades to accounts + sessions via FK onDelete.
-  await db.delete(users).where(eq(users.id, session.user.id));
+  const userId = session.user.id;
+  await deleteAccount(getDb(), userId);
+  // Uploaded photos are stored as <userId>.<ext> (see ./photo/route.ts).
+  const files = await readdir(UPLOAD_DIR).catch(() => [] as string[]);
+  await Promise.all(
+    files.filter((f) => f.startsWith(`${userId}.`)).map((f) => unlink(path.join(UPLOAD_DIR, f)).catch(() => {}))
+  );
   return NextResponse.json({ ok: true });
 }
 

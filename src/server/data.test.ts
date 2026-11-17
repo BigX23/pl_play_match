@@ -1127,3 +1127,60 @@ describe("notifications", () => {
     expect(await data.clearNotifications(db, ALICE)).toBe(0); // idempotent
   });
 });
+
+// ---------- account deletion ----------
+
+describe("deleteAccount", () => {
+  it("deletes a user who has sent messages and played matches, anonymizing their history", async () => {
+    const conv = await data.createDirectConversation(db, ALICE, BOB);
+    await data.sendMessage(db, ALICE, conv.id, "see you at the courts");
+    await data.sendMessage(db, BOB, conv.id, "great");
+    const [done] = await rawDb
+      .insert(schema.matches)
+      .values({ player1Id: ALICE, player2Id: BOB, status: "completed", winnerId: ALICE, reportedBy: ALICE, participants: [ALICE, BOB] })
+      .returning();
+    const [upcoming] = await rawDb
+      .insert(schema.matches)
+      .values({ player1Id: BOB, player2Id: ALICE, status: "scheduled", createdBy: BOB, acceptedBy: ALICE, participants: [BOB, ALICE] })
+      .returning();
+    const [openGame] = await rawDb.insert(schema.matches).values({ player1Id: ALICE, status: "open", participants: [ALICE] }).returning();
+
+    await data.deleteAccount(db, ALICE);
+
+    expect(await rawDb.select().from(schema.users).where(eq(schema.users.id, ALICE))).toHaveLength(0);
+
+    const msgs = await rawDb.select().from(schema.messages).where(eq(schema.messages.conversationId, conv.id));
+    expect(msgs).toHaveLength(2);
+    const fromAlice = msgs.find((m) => m.text === "see you at the courts")!;
+    expect(fromAlice.senderId).toBe(data.DELETED_USER_ID);
+    expect(fromAlice.senderName).toBe(data.DELETED_USER_NAME);
+    expect(msgs.find((m) => m.text === "great")!.senderId).toBe(BOB);
+
+    const [d] = await rawDb.select().from(schema.matches).where(eq(schema.matches.id, done.id));
+    expect(d).toMatchObject({ status: "completed", player1Id: data.DELETED_USER_ID, player2Id: BOB, winnerId: data.DELETED_USER_ID, reportedBy: data.DELETED_USER_ID });
+    expect(d.participants).toEqual([data.DELETED_USER_ID, BOB]);
+
+    const [u] = await rawDb.select().from(schema.matches).where(eq(schema.matches.id, upcoming.id));
+    expect(u).toMatchObject({ status: "cancelled", player2Id: data.DELETED_USER_ID, acceptedBy: data.DELETED_USER_ID, cancelledBy: data.DELETED_USER_ID });
+    const [o] = await rawDb.select().from(schema.matches).where(eq(schema.matches.id, openGame.id));
+    expect(o.status).toBe("cancelled");
+
+    // Bob still sees the thread; Alice is no longer a participant.
+    const bobConvs = await data.listConversations(db, BOB);
+    expect(bobConvs.map((c: { id: string }) => c.id)).toContain(conv.id);
+  });
+
+  it("keeps the placeholder out of player lists and works for a second deletion", async () => {
+    await data.deleteAccount(db, ALICE);
+    await data.deleteAccount(db, BOB);
+    const ids = (await data.listPlayers(db)).map((p) => p.id);
+    expect(ids).not.toContain(data.DELETED_USER_ID);
+    expect(ids).not.toContain(BOB);
+    expect(await data.getMatchSuggestions(db, CARA)).toEqual([]);
+  });
+
+  it("refuses to delete system accounts", async () => {
+    await expect(data.deleteAccount(db, RALLY_ID)).rejects.toBeInstanceOf(AuthzError);
+    await expect(data.deleteAccount(db, data.DELETED_USER_ID)).rejects.toBeInstanceOf(AuthzError);
+  });
+});
