@@ -3,6 +3,7 @@
 import * as React from "react";
 import { isNative, platform, type NativePlatform } from "@/lib/native";
 import { setupAppLifecycle } from "@/lib/native-setup/app-lifecycle";
+import { setupDeepLinks } from "@/lib/native-setup/deep-links";
 import { setupExternalLinks } from "@/lib/native-setup/links";
 import { setupSafeArea } from "@/lib/native-setup/safe-area";
 import { setupSplashScreen } from "@/lib/native-setup/splash-screen";
@@ -21,6 +22,7 @@ export const NATIVE_SETUP: NativeSetup[] = [
   setupSplashScreen,
   setupAppLifecycle,
   setupExternalLinks,
+  setupDeepLinks,
 ];
 
 interface NativeState {

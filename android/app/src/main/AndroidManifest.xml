@@ -23,6 +23,16 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- App Links (M4): https://aiplaymatch.com/... opens the app once
+                 public/.well-known/assetlinks.json lists the release signing key. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="aiplaymatch.com" />
+            </intent-filter>
+
         </activity>
 
         <provider
