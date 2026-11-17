@@ -19,7 +19,7 @@ export default function BottomNav() {
   const badges = useNavBadges();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background md:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background pb-[var(--safe-bottom,0px)] md:hidden">
       <div className="flex items-center justify-around h-16">
         {items.map((item) => {
           const active = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));

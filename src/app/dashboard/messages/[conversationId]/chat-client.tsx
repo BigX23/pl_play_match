@@ -177,7 +177,7 @@ export default function ChatPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-col h-[calc(100vh-5rem)] md:h-screen max-w-2xl mx-auto items-center justify-center">
+      <div className="flex flex-col h-[calc(100vh-5rem-var(--safe-top,0px)-var(--safe-bottom,0px))] md:h-screen max-w-2xl mx-auto items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
         <p className="text-sm text-muted-foreground mt-2">Loading conversation…</p>
       </div>
@@ -186,7 +186,7 @@ export default function ChatPage() {
 
   if (!conversation) {
     return (
-      <div className="flex flex-col h-[calc(100vh-5rem)] md:h-screen max-w-2xl mx-auto items-center justify-center">
+      <div className="flex flex-col h-[calc(100vh-5rem-var(--safe-top,0px)-var(--safe-bottom,0px))] md:h-screen max-w-2xl mx-auto items-center justify-center">
         <p className="text-muted-foreground">Conversation not found</p>
         <Button variant="ghost" className="mt-2" onClick={() => router.push("/dashboard/messages")}>
           <ArrowLeft className="h-4 w-4 mr-1" /> Back to Messages
@@ -196,7 +196,7 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-5rem)] md:h-screen max-w-2xl mx-auto">
+    <div className="flex flex-col h-[calc(100vh-5rem-var(--safe-top,0px)-var(--safe-bottom,0px))] md:h-screen max-w-2xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-3 p-4 border-b bg-background">
         <Button variant="ghost" size="icon" onClick={() => router.push("/dashboard/messages")}>

@@ -36,7 +36,12 @@ const config: CapacitorConfig = {
     allowNavigation: [new URL(serverUrl).hostname],
   },
   ios: {
-    contentInset: "always",
+    // "never": the WebView runs under the status bar and home indicator, and the
+    // page pads itself with env(safe-area-inset-*) (src/lib/native-setup/safe-area.ts
+    // adds viewport-fit=cover at runtime, iOS app only). With "always", the inset
+    // strip above the header is the WebView's own white background, which can't
+    // follow the page's light/dark theme.
+    contentInset: "never",
     // Pairs with WKAppBoundDomains in ios/App/App/Info.plist. Also what enables
     // service workers in WKWebView.
     // localhost isn't an app-bound domain, so the dev override switches this off.
@@ -44,6 +49,29 @@ const config: CapacitorConfig = {
   },
   android: {
     allowMixedContent: false,
+  },
+  plugins: {
+    // Android keeps native inset handling (the WebView is padded clear of the
+    // system bars). "native" instead of the default "css" also stops the CSS-var
+    // injection, which throws "Error injecting safe area CSS" when it runs while
+    // the next page has no document yet. We don't use those vars.
+    SystemBars: {
+      insetsHandling: "native",
+    },
+    StatusBar: {
+      // Dark icons for the light default theme; status-bar.ts takes over after load.
+      style: "LIGHT",
+    },
+    SplashScreen: {
+      // src/lib/native-setup/splash-screen.ts hides it after the first paint.
+      // The long auto-hide is only a failsafe if the page never boots.
+      launchAutoHide: true,
+      launchShowDuration: 10000,
+      launchFadeOutDuration: 200,
+      backgroundColor: "#12463A",
+      showSpinner: false,
+      androidScaleType: "CENTER_CROP",
+    },
   },
 };
 
